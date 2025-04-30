@@ -12,8 +12,11 @@ website:
 
 format:
   html:
-    theme: minty
+    theme: cosmo
     toc: true
     toc-depth: 3
+    number-sections: true
     code-fold: true
-    self-contained: true
+    code-tools: true
+    smooth-scroll: true
+    link-external-newwindow: true
