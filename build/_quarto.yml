@@ -1,0 +1,19 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "Pristine Seas Database"
+  site-url: https://pristine-seas.github.io/legacy-db/
+  navbar:
+    left:
+      - text: "Overview"
+        file: index.qmd
+
+format:
+  html:
+    theme: minty
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    self-contained: true
