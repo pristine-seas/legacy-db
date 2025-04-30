@@ -1,13 +1,12 @@
 ---
 title: "Overview"
-date: today
 format: 
   html:
-    theme: minty
+    theme: lux
     self-contained: true
     code-fold: true
     toc: true 
-    toc-depth: 4
+    toc-depth: 3
     toc-location: right
 ---
 
@@ -129,14 +128,14 @@ The Pristine Seas Science Database follows a unified style and structure to ensu
 
 ::: {.callout-note title="Database Style Guide"}
 
-##### Naming Conventions
+**Naming Conventions**
 
 - Table and field names use **`snake_case`**
 - All names are **lowercase** unless scientific names require capitalization (e.g., *Genus species*)
 - **No spaces or special characters** in field or file names
 - Field names are **concise and descriptive**, with underscores separating words (e.g., `avg_biomass_gm2`, `pct_cover_coral`)
 
-##### Units and Standards
+**Units and Standards**
 
 - All measurements use the **metric system (SI units)**
   - e.g., `depth_m`, `biomass_gm2`, `area_m2`, `temperature_c`
@@ -145,7 +144,7 @@ The Pristine Seas Science Database follows a unified style and structure to ensu
   - Times: 24-hour format with seconds (e.g., `13:45:00`)
 - Depth bins and size classes are explicitly included in variable names
 
-##### Structural Conventions
+**Structural Conventions**
 
 - Tables follow a **long format** — one row per observation or measurement
 - `ps_site_id` and `ps_station_id` serve as universal spatial keys across all modules

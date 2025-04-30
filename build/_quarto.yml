@@ -3,16 +3,28 @@ project:
   output-dir: ../docs
 
 website:
-  title: "Pristine Seas Database"
+  title: "Pristine Seas Scientific Database"
   site-url: https://pristine-seas.github.io/legacy-db/
-  navbar:
-    left:
+  repo-url: https://github.com/pristine-seas/legacy-db
+  page-navigation: true
+
+  sidebar:
+    style: floating
+    search: true
+    collapse-level: 2
+    contents:
       - text: "Overview"
         file: index.qmd
 
+  page-footer:
+    center: "© 2024 National Geographic Society. All rights reserved."
+    right:
+      - text: "Source Code"
+        href: https://github.com/pristine-seas/legacy-db
+
 format:
   html:
-    theme: cosmo
+    theme: lux
     toc: true
     toc-depth: 3
     number-sections: true
@@ -20,3 +32,4 @@ format:
     code-tools: true
     smooth-scroll: true
     link-external-newwindow: true
+    self-contained: true
