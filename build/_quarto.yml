@@ -23,10 +23,10 @@ website:
         file: 03_taxonomy.qmd
       - text: "Lookup Tables"
         file: 04_lookup.qmd
-      - section: "Methods Datasets"
+      - text: "Methods Datasets"
         file: 05_methods.qmd
         contents:
-        - section: "Underwater Visual Surveys (UVS)"
+        - text: "Underwater Visual Surveys (UVS)"
           file: 06_uvs.qmd
           contents:
             - text: "Fish BLT"
