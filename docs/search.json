@@ -602,7 +602,7 @@
     "section": "",
     "text": "The uvs/ dataset contains all data collected using Pristine Seas’ SCUBA-based underwater visual survey (UVS) protocols. These methods assess reef fish, benthic cover, invertebrates, and coral recruits at spatially co-located reef sites, using a standardized and depth-stratified survey design.\nEach UVS site typically includes multiple stations across depth strata (e.g., shallow, deep), where several survey protocols may be conducted in parallel.\nThe dataset is structured to balance:\nThis architecture enables flexible, protocol-specific analysis and integrated reef assessments across taxa and trophic groups.",
     "crumbs": [
-      "Method Datasets",
+      "Methods Datasets",
       "Underwater Visual Surveys (UVS)"
     ]
   },
@@ -613,7 +613,7 @@
     "section": "1 Dataset Structure",
     "text": "1 Dataset Structure\nuvs/\n├── sites               # Deployment-level metadata for each UVS dive\n├── stations            # Depth-stratified units within each dive\n├── blt_stations        # Fish transects (BLT)\n├── blt_observations    # Raw fish counts\n├── blt_biomass_by_taxa # Station-level biomass summaries\n├── lpi_stations        # Benthic transects\n├── lpi_counts          # Raw point intercepts\n├── lpi_cover_by_taxa   # Cover summary by benthic taxon\n├── inverts_stations    # Invertebrate survey transects\n├── inverts_counts      # Raw invertebrate observations\n├── recruits_stations   # Coral recruit transects\n├── recruits_counts     # Raw coral recruit counts\nEach table is documented in its own section below.",
     "crumbs": [
-      "Method Datasets",
+      "Methods Datasets",
       "Underwater Visual Surveys (UVS)"
     ]
   },
@@ -624,7 +624,7 @@
     "section": "2 Tables",
     "text": "2 Tables\n\n2.1 uvs.sites\nThis table contains site-level metadata for all underwater visual surveys. Each row represents a discrete SCUBA dive at a location, typically involving multiple co-located survey protocols (e.g., fish BLT, LPI, inverts, recruits).\nIt follows the core site schema defined in expeditions.sites, with additional UVS-specific fields (Table 1)\n\n\n\n\nTable 1: Adiditonal fields in the uvs.sites table\n\n\n\n\n\n\n\n\n\nField\nType\nRequired\nDescription\n\n\n\n\nsite_name\nSTRING\nfalse\nLocal site name. Used in previous surveys or by local partners\n\n\nhabitat\nSTRING\ntrue\nDominant reef habitat type (e.g., fore reef, patch reef, fringing reef)\n\n\nexposure\nSTRING\ntrue\nWave and wind exposure (e.g., windward, leeward, lagoon)\n\n\nprotected\nBOOLEAN\nfalse\nWhether the site is inside a marine protected area (MPA)\n\n\nblt\nBOOLEAN\nfalse\nIndicates whether fish belt transects were conducted\n\n\nlpi\nBOOLEAN\nfalse\nIndicates whether benthic point intercept surveys were conducted\n\n\ninverts\nBOOLEAN\nfalse\nIndicates whether invertebrate surveys were conducted\n\n\nrecruits\nBOOLEAN\nfalse\nIndicates whether coral recruit transects were conducted\n\n\nysi\nBOOLEAN\nfalse\nIndicates whether YSI environmental profiles were collected\n\n\nphotomosaic\nBOOLEAN\nfalse\nIndicates whether a photomosaic survey was conducted\n\n\nedna\nBOOLEAN\nfalse\nIndicates whether eDNA samples were collected at the site\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nControlled vocabulary\n\n\n\nhabitat\n\nfore reef — Outer reef slope exposed to ocean swell.\nback reef — Sheltered zone behind the reef crest\n\nfringing reef — Reef growing directly from the shoreline\n\npatch reef — Isolated reef outcrop within a lagoon or sandy area\n\nreef flat — Shallow, flat reef section, often exposed at low tide\n\nchannel — Natural break or passage between reef structures\n\nseagrass — Vegetated, soft-bottom habitat dominated by seagrasses\n\nrocky reef — Reef formed by consolidated rock\n\nother — Habitat not captured by the above categories\n\nexposure\n\nwindward — Facing prevailing winds and swell\n\nleeward — Sheltered from prevailing winds\n\nlagoon — Within an enclosed or semi-enclosed reef lagoon\n\nother — Exposure type not described above",
     "crumbs": [
-      "Method Datasets",
+      "Methods Datasets",
       "Underwater Visual Surveys (UVS)"
     ]
   },
@@ -855,7 +855,7 @@
     "section": "",
     "text": "The edna.sites table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time and serves as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples (replicates) may be collected across different depth strata, recorded in the corresponding edna.stations table.\nIn addition to the core site fields, the edna.sites table includes method-specific metadata (Table 1), such as:\n\nexposure – Same controlled vocabulary as in uvs_sites\n\nhabitat – Same as uvs_sites, with the following additional categories:\n\nopen water – Offshore or pelagic environments\nbay – Semi-enclosed coastal embayments\nestuary – Transitional area between river and marine systems\nmangrove – Shallow, intertidal forested coastal habitat\n\n\n\n\n\n\nTable 1: Additional fields to the core site fields in the edna_sites table\n\n\n\n\n\n\n\n\n\nTable\nField\nType\nRequired\nDescription\n\n\n\n\nedna\nhabitat\nSTRING\nTRUE\nDominant habitat type. Allowed values: *fore reef*, *back reef*, *fringing reef*, *patch reef*, *reef flat*, *channel*, *seagrass*, *rocky reef*, *open water*, *bay*, *estuary*, *mangrove*, *other*.\n\n\nexposure\nSTRING\nTRUE\nWind and wave exposure at the site. Allowed values: *windward*, *leeward*, *lagoon*, *other*.\n\n\npaired_ps_site_id\nSTRING\nFALSE\n`ps_site_id` of a paired site (e.g., a `uvs` or `pbruvs` site), if applicable\n\n\nn_stations\nINTEGER\nTRUE\nNumber of unique stations (i.e., depth strata) sampled at the site\n\n\nn_samples\nINTEGER\nTRUE\nTotal number of water samples (replicates) collected at the site\n\n\nsite_photos\nSTRING\nFALSE\npath to associated site photos, if available (e.g., eDNA/site_photos/COL-2022-edna-001)",
     "crumbs": [
-      "Method Datasets",
+      "Methods Datasets",
       "eDNA"
     ]
   },
@@ -866,7 +866,7 @@
     "section": "",
     "text": "The edna.sites table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time and serves as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples (replicates) may be collected across different depth strata, recorded in the corresponding edna.stations table.\nIn addition to the core site fields, the edna.sites table includes method-specific metadata (Table 1), such as:\n\nexposure – Same controlled vocabulary as in uvs_sites\n\nhabitat – Same as uvs_sites, with the following additional categories:\n\nopen water – Offshore or pelagic environments\nbay – Semi-enclosed coastal embayments\nestuary – Transitional area between river and marine systems\nmangrove – Shallow, intertidal forested coastal habitat\n\n\n\n\n\n\nTable 1: Additional fields to the core site fields in the edna_sites table\n\n\n\n\n\n\n\n\n\nTable\nField\nType\nRequired\nDescription\n\n\n\n\nedna\nhabitat\nSTRING\nTRUE\nDominant habitat type. Allowed values: *fore reef*, *back reef*, *fringing reef*, *patch reef*, *reef flat*, *channel*, *seagrass*, *rocky reef*, *open water*, *bay*, *estuary*, *mangrove*, *other*.\n\n\nexposure\nSTRING\nTRUE\nWind and wave exposure at the site. Allowed values: *windward*, *leeward*, *lagoon*, *other*.\n\n\npaired_ps_site_id\nSTRING\nFALSE\n`ps_site_id` of a paired site (e.g., a `uvs` or `pbruvs` site), if applicable\n\n\nn_stations\nINTEGER\nTRUE\nNumber of unique stations (i.e., depth strata) sampled at the site\n\n\nn_samples\nINTEGER\nTRUE\nTotal number of water samples (replicates) collected at the site\n\n\nsite_photos\nSTRING\nFALSE\npath to associated site photos, if available (e.g., eDNA/site_photos/COL-2022-edna-001)",
     "crumbs": [
-      "Method Datasets",
+      "Methods Datasets",
       "eDNA"
     ]
   },

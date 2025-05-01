@@ -23,7 +23,7 @@ website:
         file: 03_taxonomy.qmd
       - text: "Lookup Tables"
         file: 04_lookup.qmd
-      - section: "Method Datasets"
+      - section: "Methods Datasets"
         file: 05_methods.qmd
         contents:
         - section: "Underwater Visual Surveys (UVS)"
@@ -37,19 +37,19 @@ website:
               file: 09_uvs_inverts.qmd
             - text: "Recruits"
               file: 10_uvs_recruits.qmd
-        - section: "eDNA"
+        - text: "eDNA"
           file: 11_edna.qmd
-        - section: "Seabed BRUVS"
+        - text: "Seabed BRUVS"
           file: 12_sbruv.qmd
-        - section: "Pelagic BRUVS"
+        - text: "Pelagic BRUVS"
           file: 13_pbruv.qmd
-        - section: "Seabird surveys"
+        - text: "Seabird surveys"
           file: 14_birds.qmd
-        - section: "Submersible"
+        - text: "Submersible"
           file: 15_sub.qmd
-        - section: "ROV"
+        - text: "ROV"
           file: 16_rov.qmd
-        - section: "Deep Sea Cameras"
+        - text: "Deep Sea Cameras"
           file: 17_dscm.qmd
           
   page-footer:
