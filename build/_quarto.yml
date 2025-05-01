@@ -19,7 +19,39 @@ website:
         file: architecture.qmd
       - text: "Expeditions Dataset"
         file: expeditions.qmd
-
+      - text: "Taxonomy Dataset"
+        file: taxonomy.qmd
+      - text: "Lookup Tables"
+        file: lookup.qmd
+      - section: "Method Datasets"
+        file: methods.qmd
+        contents:
+        - section: "Underwater Visual Surveys (UVS)"
+          file: uvs.qmd
+          contents:
+            - text: "Fish BLT"
+              file: uvs_blt.qmd
+            - text: "Benthos LPI"
+              file: uvs_lpi.qmd
+            - text: "Inverts"
+              file: uvs_inverts.qmd
+            - text: "Recruits"
+              file: uvs_recruits.qmd
+        - section: "eDNA"
+          file: edna.qmd
+        - section: "Seabed BRUVS"
+          file: sbruvs.qmd
+        - section: "Pelagic BRUVS"
+          file: pbruvs.qmd
+        - section: "Seabird surveys"
+          file: birds.qmd
+        - section: "Submersible"
+          file: sub.qmd
+        - section: "Deep Sea Cameras"
+          file: dscm.qmd
+        - section: "ROV"
+          file: rov.qmd
+          
   page-footer:
     center: "© 2024 National Geographic Society. All rights reserved."
     right:

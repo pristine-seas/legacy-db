@@ -260,6 +260,19 @@ exp.sites_fields |>
 ```
 
 
+```{r create-tbl, include = FALSE}
+# Define table schema
+exp.sites_schema <- exp.sites_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
 
-
+bq_table_create(bq_table(project_id, "expeditions", "sites"),
+                fields = exp.sites_schema)
+```
 
