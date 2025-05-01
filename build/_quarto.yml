@@ -15,6 +15,10 @@ website:
     contents:
       - text: "Overview"
         file: index.qmd
+      - text: "Database Architecture"
+        file: architecture.qmd
+      - text: "Expeditions Dataset"
+        file: expeditions.qmd
 
   page-footer:
     center: "© 2024 National Geographic Society. All rights reserved."

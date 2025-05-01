@@ -1,0 +1,184 @@
+---
+title: "Database Architecture"
+format: 
+  html:
+    theme: lux
+    self-contained: true
+    code-fold: true
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+    number-sections: true
+    number-depth: 3
+---
+
+
+The Pristine Seas Science Database is designed as a modular, analysis-ready system that organizes ecological data collected across global expeditions. The structure reflects the need for both flexibility across diverse survey methods and consistency in how data are referenced, accessed, and analyzed.
+
+
+At the highest level, the database consists of **method datasets**, each representing a distinct survey technique, and **shared reference datasets** that provide the taxonomic, spatial, and categorical backbone needed for integration.
+
+---
+
+## Core Structure
+
+The database is implemented in **Google BigQuery** under the project `pristine-seas`. It is organized into multiple top-level datasets, grouped by function:
+
+### Method Datasets
+
+Each method has its own dataset (e.g., `uvs`, `pbruv`, `sub`, `edna`) that stores raw and summarized outputs from a given type of field survey. These follow a  consistent pattern:
+
+- `sites` — Survey events or deployments
+- `stations` — Sampling units within a site
+- `observations` — Primary records (e.g., species counts, detections)
+- `summaries` *(optional)* — Station-level aggregates
+
+### Shared Reference Datasets
+
+These provide the common scaffolding that links all method datasets:
+
+- **`expeditions/`** — Canonical registry of expeditions, regions, sites, and stations
+- **`taxonomy/`** — Reference lists of species and traits
+- **`lookup/`** — Controlled vocabularies, and contributor metadata
+
+Together, these support spatial joins, taxonomic harmonization, and metadata consistency.
+
+### Layout
+
+```text
+pristine-seas/
+├── expeditions/
+│   ├── info
+│   ├── sites
+│   └── stations
+├── uvs/
+│   ├── sites
+│   ├── stations
+│   ├── lpi_stations
+│   ├── lpi_counts
+│   ├── lpi_cover_by_taxa
+│   ├── blt_stations
+│   ├── blt_observations
+│   ├── blt_biomass_by_taxa
+│   ├── inverts_stations
+│   ├── inverts_counts
+│   ├── recruits_stations
+│   ├── recruits_counts
+├── sbruv/
+│   └── sites
+│   └── stations
+│   └── MaxN
+├── pbruv/
+│   └── sites
+│   └── stations
+│   └── MaxN
+├── birds/
+│   └── sites
+│   └── stations
+│   └── counts
+├── edna/
+│   └── sites
+│   └── stations
+│   └── detections
+├── sub/
+│   └── sites
+│   └── stations
+│   └── observations
+├── dscm/
+│   └── sites
+│   └── stations
+│   └── observations
+├── taxonomy
+│   └── fish
+│   └── corals
+│   └── inverts
+├── lookup/
+│   ├── contributors
+│   └── vocabularies
+```
+---
+
+## Data Model
+
+All sampling data in the Pristine Seas Database are structured around a shared spatial hierarchy. This enables consistent grouping and comparison of observations across expeditions, methods, and regions.
+
+The hierarchy consists of six nested levels:
+
+- **Expedition**  
+  A discrete field campaign or cruise  
+  _e.g., `COL_2024`_
+
+  - **Region**  
+    Broad administrative, ecological, or biogeographic unit.   
+    _e.g., Murat, Chocó, Temotu_
+
+    - **Subregion**  
+      Mid-scale feature within the region such as a single island, atoll, gulf, or reef complex  
+      _e.g.,  Mussau, Golfo de Tribugá, Utupua_
+
+      - **Locality**
+        Local named feature such as a reef, bay, cove, or village  
+        _e.g., Navigator bank, Lolieng, Tasitel_
+
+        - **Site**  
+          A specific location within the subregion where a survey method (e.g., UVS, BRUVS, eDNA) was used.
+          _e.g., `COL_2024_uvs_001`_
+
+          - **Station**  
+            A discrete sampling unit within a site, corresponding to a specific depth, or replicate.
+            _e.g., `COL_2024_uvs_001_10m`_
+
+##### Naming Conventions
+
+::: {.callout-tip title="Naming Conventions"}
+
+To ensure consistency, traceability, and joinability across all datasets, Pristine Seas uses machine-readable, structured identifiers for sites and stations.
+
+- **`exp_id`**: `ISO3_YEAR`  
+  &nbsp;&nbsp;→ Example: `FJI_2025`
+
+- **`ps_site_id`**: `exp_id_method_###`  
+  &nbsp;&nbsp;→ Always use **3-digit padding** for site numbers (e.g., `001`, `045`, `112`)  
+  &nbsp;&nbsp;→ Examples:  
+  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_uvs_001`  
+  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_pbruv_003`  
+  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_sub_014`
+
+- **`ps_station_id`**: `ps_site_id_depth` or `ps_site_id_replicate`  
+  &nbsp;&nbsp;→ Depth and replicate suffixes use fixed formats (e.g., `10m`, `r101`)  
+  &nbsp;&nbsp;→ Examples:  
+  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_uvs_001_10m` – Underwater visual survey at 10m depth  
+  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_pbruv_003_r102` – rig 102 of pelagic BRUV deployment 3  
+  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_dscm_006_300m` – deep sea camera at 300m
+
+These identifiers are used throughout the database as primary keys in `spatial/`, and foreign keys in all method datasets.
+:::
+
+## Style & Conventions
+
+This style guide defines naming, formatting, and structural standards used throughout the database, ensuring clean workflows in R, SQL, and visualization tools.
+
+::: {.callout-note title="Database Style Guide"}
+
+**Field Naming**
+
+- Table and field names use **`snake_case`**
+- All names are **lowercase** unless scientific names require capitalization (e.g., *Genus species*)
+- **No spaces or special characters**
+- Names are concise, descriptive, and consistently formatted
+
+**Units and Standards**
+
+- All measurements use the **metric system (SI units)**  
+  _e.g., `depth_m`, `biomass_gm2`, `area_m2`, `temperature_c`_
+- Dates use **ISO 8601**: `YYYY-MM-DD`  
+- Times use **24-hour format**: `HH:MM:SS`
+
+**Structural Conventions**
+
+- Tables follow a **long format** — one row per observation or measurement
+- `ps_site_id` and `ps_station_id` serve as universal spatial keys across all modules
+- Controlled vocabularies (e.g., habitat, gear, exposure) are standardized in `lookup/`
+- Datasets are modular, documented, and reproducible
+
+:::

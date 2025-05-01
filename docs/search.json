@@ -2,9 +2,9 @@
   {
     "objectID": "index.html",
     "href": "index.html",
-    "title": "Overview",
+    "title": "",
     "section": "",
-    "text": "The Pristine Seas Science Database is a centralized, modular system hosted in Google BigQuery that stores ecological data collected over more than a decade of marine expeditions around the world. It is designed to support high-quality, reproducible research on marine biodiversity and inform decision-making for conservation.\nThe database is organized by survey method (e.g., UVS, BRUVS, eDNA), with all data linked to a shared spatial hierarchy and taxonomic reference to enable reproducible science, cross-method integration, and long-term scalability.\nThis documentation provides a structural overview of the database, including naming conventions, spatial design, method modules, and references for taxonomy and controlled vocabularies.",
+    "text": "Code\nThe Pristine Seas Science Database is a centralized, modular system that stores ecological data collected from more than a decade of scientific expeditions led by National Geographic Pristine Seas. It is designed to support high-integrity, reproducible research on marine biodiversity and inform conservation policy around the world.",
     "crumbs": [
       "Overview"
     ]
@@ -57,6 +57,222 @@
     "text": "5 Style Guide\nThe Pristine Seas Science Database follows a unified style and structure to ensure consistency, readability, and compatibility across tools and users.\n\n\n\n\n\n\nDatabase Style Guide\n\n\n\nNaming Conventions\n\nTable and field names use snake_case\nAll names are lowercase unless scientific names require capitalization (e.g., Genus species)\nNo spaces or special characters in field or file names\nField names are concise and descriptive, with underscores separating words (e.g., avg_biomass_gm2, pct_cover_coral)\n\nUnits and Standards\n\nAll measurements use the metric system (SI units)\n\ne.g., depth_m, biomass_gm2, area_m2, temperature_c\n\nAll dates and times follow ISO 8601 format:\n\nDates: YYYY-MM-DD (e.g., 2025-06-12)\nTimes: 24-hour format with seconds (e.g., 13:45:00)\n\nDepth bins and size classes are explicitly included in variable names\n\nStructural Conventions\n\nTables follow a long format — one row per observation or measurement\nps_site_id and ps_station_id serve as universal spatial keys across all modules\nControlled vocabularies (e.g., habitat, gear, exposure) are standardized in lookup/\nAll datasets are designed to be modular, analysis-ready, and reproducible",
     "crumbs": [
       "Overview"
+    ]
+  },
+  {
+    "objectID": "index.html#purpose",
+    "href": "index.html#purpose",
+    "title": "",
+    "section": "1 🌍 Purpose",
+    "text": "1 🌍 Purpose\nThis database enables:\n\nStandardized storage of biological, habitat, and oceanographic data\nIntegration across multiple survey methods and expedition years\nScalable, transparent workflows for ecological analysis and reporting\nOpen access to structured, analysis-ready data for researchers and partners",
+    "crumbs": [
+      "Overview"
+    ]
+  },
+  {
+    "objectID": "index.html#structure",
+    "href": "index.html#structure",
+    "title": "",
+    "section": "📐 Structure",
+    "text": "📐 Structure\nThe database is organized by survey method (e.g., UVS, BRUVS, eDNA), with a shared:\n\nSpatial hierarchy — linking all observations to sites, stations, and regions\nTaxonomic reference — harmonizing names, traits, and groupings\nControlled vocabularies — ensuring consistency in categorical fields\n\nFor details on architecture and usage, see:\n\nDatabase Architecture\nSpatial Hierarchy\nTaxonomy Reference\nStyle Guide",
+    "crumbs": [
+      "Overview"
+    ]
+  },
+  {
+    "objectID": "index.html#access",
+    "href": "index.html#access",
+    "title": "",
+    "section": "🔓 Access",
+    "text": "🔓 Access\nData are hosted in Google BigQuery under the project pristine-seas, and are accessible to collaborators via R, SQL, and pre-built reporting tools.\nFor setup instructions, visit Data Access.",
+    "crumbs": [
+      "Overview"
+    ]
+  },
+  {
+    "objectID": "more.html",
+    "href": "more.html",
+    "title": "Overview",
+    "section": "",
+    "text": "The Pristine Seas Science Database is a centralized, modular system hosted in Google BigQuery that stores ecological data collected over more than a decade of marine expeditions around the world. It is designed to support high-quality, reproducible research on marine biodiversity and inform decision-making for conservation.\nThe database is organized by survey method (e.g., UVS, BRUVS, eDNA), with all data linked to a shared spatial hierarchy and taxonomic reference to enable reproducible science, cross-method integration, and long-term scalability.\nThis documentation provides a structural overview of the database, including naming conventions, spatial design, method modules, and references for taxonomy and controlled vocabularies."
+  },
+  {
+    "objectID": "more.html#introduction",
+    "href": "more.html#introduction",
+    "title": "Overview",
+    "section": "",
+    "text": "The Pristine Seas Science Database is a centralized, modular system hosted in Google BigQuery that stores ecological data collected over more than a decade of marine expeditions around the world. It is designed to support high-quality, reproducible research on marine biodiversity and inform decision-making for conservation.\nThe database is organized by survey method (e.g., UVS, BRUVS, eDNA), with all data linked to a shared spatial hierarchy and taxonomic reference to enable reproducible science, cross-method integration, and long-term scalability.\nThis documentation provides a structural overview of the database, including naming conventions, spatial design, method modules, and references for taxonomy and controlled vocabularies."
+  },
+  {
+    "objectID": "more.html#spatial-hierarchy",
+    "href": "more.html#spatial-hierarchy",
+    "title": "Overview",
+    "section": "2 Spatial Hierarchy",
+    "text": "2 Spatial Hierarchy\nAll sampling data in the Pristine Seas Science Database are anchored to a shared spatial hierarchy. This structure enables consistent grouping, filtering, and comparison of observations across expeditions, regions, habitats, and depth strata.\nThe hierarchy has six nested levels:\n\nExpedition\nA defined research campaign or cruise\ne.g., COL_2024\n\nRegion\nBroad geographic or administrative areas\ne.g., Murat, Chocó, Tuamotu\n\nSubregion\nIntermediate units such as islands, atolls, gulfs, or reef complexes\ne.g., Mussau, Golfo de Tribugá\n\nLocality (optional)\nLocal named features such as towns, communities, bays, coves, reefs\ne.g., Lolieng, Ensenada Utría\n\nSite\nA single deployment of a given method at a location\ne.g., an underwater visual survey dive or BRUVS set\n\nStation\nThe specific sampling unit within a site\ne.g., a transect, rig, depth bin, or replicate\n\n\n\n\n\n\n\n\n\n\n\n\nNaming Conventions\n\n\n\nPristine Seas uses structured, machine-readable identifiers to ensure consistency, traceability, and correct sorting across all datasets.\n\nexp_id: ISO3_YEAR\n  → Example: FJI_2025\nps_site_id: exp_id_method_###\n  → Always use 3-digit padding for site numbers (e.g., 001, 045, 112)\n  → Examples:\n    FJI_2025_uvs_001\n    FJI_2025_pbruv_003\n    FJI_2025_sub_014\nps_station_id: ps_site_id_depth or ps_site_id_replicate\n  → Depth and replicate suffixes use fixed formats (e.g., 10m, r101)\n  → Examples:\n    FJI_2025_uvs_001_10m – Underwater visual survey at 10m depth\n    FJI_2025_pbruv_003_r102 – rig 102 of pelagic BRUV deployment 3\n    FJI_2025_dscm_006_300m – deep sea camera at 300m"
+  },
+  {
+    "objectID": "more.html#architecture",
+    "href": "more.html#architecture",
+    "title": "Overview",
+    "section": "3 Architecture",
+    "text": "3 Architecture\nThe Pristine Seas Science Database is organized into modular datasets, structured primarily by survey method. Each method has its own BigQuery dataset (e.g., uvs, pbruv, sub, edna), containing standardized tables for sites, stations, observations, and optional summaries.\nThree shared datasets provide integration across all methods:\n\nspatial/ — Canonical registry of expeditions, sites, and stations, including regional hierarchy\ntaxonomy/ — Unified reference list of taxa and trait metadata\nlookup/ — Controlled vocabularies, QA flags, and contributor information\n\nThis architecture supports method-specific pipelines while enabling consistent spatial joins, trait-based analysis, and cross-method integration.\n\n3.1 Dataset Layout\nAll method datasets follow a consistent internal structure to support tidy workflows and scalable processing:\n\nsites — One row per method-specific deployment (e.g., dive, BRUV drop, eDNA station)\nstations — Sampling units within each site (e.g., depth strata, rig, transect)\nobservations — Raw biological or environmental records (e.g., species counts, point hits, sequence detections)\nsummaries (optional) — Aggregated metrics at the station level (e.g., biomass, MaxN, % cover)\n\n\n\n3.2 Cross-Method Linkage\nAll datasets are designed to join cleanly via shared spatial and taxonomic identifiers:\n\nps_site_id and ps_station_id uniquely identify spatial sampling units across modules\ntaxon_id links observations to a centralized taxonomy and trait system\nControlled vocabularies in lookup/ ensure consistency in fields like habitat, exposure, and gear type\n\nThis shared structure enables integrated analyses across methods, regions, and taxa while preserving the distinct protocols and metadata of each method."
+  },
+  {
+    "objectID": "more.html#access-and-usage",
+    "href": "more.html#access-and-usage",
+    "title": "Overview",
+    "section": "4 Access and Usage",
+    "text": "4 Access and Usage\nThe Pristine Seas Science Database is designed to support a wide range of users and workflows, including:\n\nInternal team members working in R or SQL for analysis, reporting, and data curation\nCollaborating scientists conducting cross-site ecological analysis\nConservation partners and policymakers exploring summary metrics and trends\n\nAll data are stored in Google BigQuery under the project ID pristine-seas, and can be accessed via:\n\nSQL queries in the BigQuery console or through RStudio\nPre-built Quarto documents and interactive dashboards\nA companion R package (in development), which provides:\n\nFunctions to query and download BigQuery data\nQA/QC tools for validating raw data\nHelpers to join site, station, and observation tables\nTemplates for standard reports and summaries\n\n\nThe system is designed to be modular, well-documented, and analysis-ready — enabling reproducible science, scalable integration, and practical conservation insights."
+  },
+  {
+    "objectID": "more.html#style-guide",
+    "href": "more.html#style-guide",
+    "title": "Overview",
+    "section": "5 Style Guide",
+    "text": "5 Style Guide\nThe Pristine Seas Science Database follows a unified style and structure to ensure consistency, readability, and compatibility across tools and users.\n\n\n\n\n\n\nDatabase Style Guide\n\n\n\nNaming Conventions\n\nTable and field names use snake_case\nAll names are lowercase unless scientific names require capitalization (e.g., Genus species)\nNo spaces or special characters in field or file names\nField names are concise and descriptive, with underscores separating words (e.g., avg_biomass_gm2, pct_cover_coral)\n\nUnits and Standards\n\nAll measurements use the metric system (SI units)\n\ne.g., depth_m, biomass_gm2, area_m2, temperature_c\n\nAll dates and times follow ISO 8601 format:\n\nDates: YYYY-MM-DD (e.g., 2025-06-12)\nTimes: 24-hour format with seconds (e.g., 13:45:00)\n\nDepth bins and size classes are explicitly included in variable names\n\nStructural Conventions\n\nTables follow a long format — one row per observation or measurement\nps_site_id and ps_station_id serve as universal spatial keys across all modules\nControlled vocabularies (e.g., habitat, gear, exposure) are standardized in lookup/\nAll datasets are designed to be modular, analysis-ready, and reproducible"
+  },
+  {
+    "objectID": "index.html#why-this-matters",
+    "href": "index.html#why-this-matters",
+    "title": "",
+    "section": "Why This Matters",
+    "text": "Why This Matters\nConservation starts with knowledge. This database helps answer fundamental questions about ocean health, marine biodiversity, and ecosystem change by:\n\nUnifying biological, habitat, and environmental data from multiple methods\nAnchoring all records to a shared spatial and taxonomic backbone\nEnabling fast, reproducible analysis across sites, regions, and years\n\nWhether you’re a scientist or conservation partner, this documentation will guide you through the database’s architecture, conventions, and workflows.",
+    "crumbs": [
+      "Overview"
+    ]
+  },
+  {
+    "objectID": "index.html#key-features",
+    "href": "index.html#key-features",
+    "title": "",
+    "section": "Key Features",
+    "text": "Key Features\n\nModular by method: Supports fish surveys, benthic assessments, eDNA, BRUVs, submersible surveys, and more\nSpatially anchored: Built around a nested expedition → region → site → station structure\nTaxonomically standardized: Harmonized names, traits, and groupings across datasets\nAnalysis-ready: Long-format tables, clear join keys, and BigQuery-native organization\nCollaborator-friendly: Designed for transparency, reproducibility, and shared work",
+    "crumbs": [
+      "Overview"
+    ]
+  },
+  {
+    "objectID": "index.html#explore-the-documentation",
+    "href": "index.html#explore-the-documentation",
+    "title": "",
+    "section": "Explore the Documentation",
+    "text": "Explore the Documentation\nThis site provides a structured walkthrough of the database:\n\nArchitecture: How the system is organized and how sites and stations are defined\nExpeditions: How expeditions metadata and other spatial info is stored\nTaxonomy: How species and traits are organized\nLookup: Controlled vocabularies and contributor metadata\nData Access: How to work with the data in BigQuery or R",
+    "crumbs": [
+      "Overview"
+    ]
+  },
+  {
+    "objectID": "index.html#citation-credits",
+    "href": "index.html#citation-credits",
+    "title": "",
+    "section": "Citation & Credits",
+    "text": "Citation & Credits\nThis database was developed by the Pristine Seas science team. All content © 2024 National Geographic Society.",
+    "crumbs": [
+      "Overview"
+    ]
+  },
+  {
+    "objectID": "architecture.html",
+    "href": "architecture.html",
+    "title": "Database Architecture",
+    "section": "",
+    "text": "The Pristine Seas Science Database is designed as a modular, analysis-ready system that organizes ecological data collected across global expeditions. The structure reflects the need for both flexibility across diverse survey methods and consistency in how data are referenced, accessed, and analyzed.\nAt the highest level, the database consists of method datasets, each representing a distinct survey technique, and shared reference datasets that provide the taxonomic, spatial, and categorical backbone needed for integration.",
+    "crumbs": [
+      "Database Architecture"
+    ]
+  },
+  {
+    "objectID": "architecture.html#dataset-structure",
+    "href": "architecture.html#dataset-structure",
+    "title": "Architecture",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nAll data are grouped into modular datasets, organized as follows:\n\n1.1 Method Datasets\nEach survey method has its own dataset (e.g., uvs, pbruv, edna, sub), with the following standard tables:\n\nsites — One row per method-specific deployment (e.g., dive, BRUV set)\nstations — Sampling units within each site (e.g., depth strata, rig, transect)\nobservations — Raw biological or environmental data (e.g., fish counts, point intercepts, detections)\nsummaries (optional) — Aggregated station-level metrics (e.g., biomass, % coral cover)\n\nThese follow a tidy, long-format schema to support robust analysis.\n\n\n1.2 Shared Datasets\nThree shared datasets ensure interoperability across methods:\n\nspatial/ — Canonical registry of expeditions, sites, and stations, including regional hierarchy\ntaxonomy/ — Master reference for species names, groups, and traits\nlookup/ — Controlled vocabularies (e.g., habitat types, exposure categories), QA flags, and contributor metadata"
+  },
+  {
+    "objectID": "architecture.html#overview",
+    "href": "architecture.html#overview",
+    "title": "Database Architecture",
+    "section": "",
+    "text": "The Pristine Seas Science Database is designed as a modular, analysis-ready system that organizes ecological data collected across global expeditions. The structure reflects the need for both flexibility across diverse survey methods and consistency in how data are referenced, accessed, and analyzed.\nAt the highest level, the database consists of method datasets, each representing a distinct survey technique, and shared reference datasets that provide the taxonomic, spatial, and categorical backbone needed for integration.",
+    "crumbs": [
+      "Databse Architecture"
+    ]
+  },
+  {
+    "objectID": "architecture.html#core-structure",
+    "href": "architecture.html#core-structure",
+    "title": "Database Architecture",
+    "section": "1 Core Structure",
+    "text": "1 Core Structure\nThe database is implemented in Google BigQuery under the project pristine-seas. It is organized into multiple top-level datasets, grouped by function:\n\n1.1 Method Datasets\nEach method has its own dataset (e.g., uvs, pbruv, sub, edna) that stores raw and summarized outputs from a given type of field survey. These follow a consistent pattern:\n\nsites — Survey events or deployments\nstations — Sampling units within a site\nobservations — Primary records (e.g., species counts, detections)\nsummaries (optional) — Station-level aggregates\n\n\n\n1.2 Shared Reference Datasets\nThese provide the common scaffolding that links all method datasets:\n\nexpeditions/ — Canonical registry of expeditions, regions, sites, and stations\ntaxonomy/ — Reference lists of species and traits\nlookup/ — Controlled vocabularies, and contributor metadata\n\nTogether, these support spatial joins, taxonomic harmonization, and metadata consistency.\n\n\n1.3 Layout\npristine-seas/\n├── expeditions/\n│   ├── info\n│   ├── sites\n│   └── stations\n├── uvs/\n│   ├── sites\n│   ├── stations\n│   ├── lpi_stations\n│   ├── lpi_counts\n│   ├── lpi_cover_by_taxa\n│   ├── blt_stations\n│   ├── blt_observations\n│   ├── blt_biomass_by_taxa\n│   ├── inverts_stations\n│   ├── inverts_counts\n│   ├── recruits_stations\n│   ├── recruits_counts\n├── sbruv/\n│   └── sites\n│   └── stations\n│   └── MaxN\n├── pbruv/\n│   └── sites\n│   └── stations\n│   └── MaxN\n├── birds/\n│   └── sites\n│   └── stations\n│   └── counts\n├── edna/\n│   └── sites\n│   └── stations\n│   └── detections\n├── sub/\n│   └── sites\n│   └── stations\n│   └── observations\n├── dscm/\n│   └── sites\n│   └── stations\n│   └── observations\n├── taxonomy\n│   └── fish\n│   └── corals\n│   └── inverts\n├── lookup/\n│   ├── contributors\n│   └── vocabularies",
+    "crumbs": [
+      "Database Architecture"
+    ]
+  },
+  {
+    "objectID": "architecture.html#spatial-model",
+    "href": "architecture.html#spatial-model",
+    "title": "Database Architecture",
+    "section": "2 Spatial Model",
+    "text": "2 Spatial Model\nAll sampling data in the Pristine Seas Database are structured around a shared spatial hierarchy. This enables consistent grouping and comparison of observations across expeditions, methods, and regions.\nThe hierarchy consists of six nested levels:\n\nExpedition\nA discrete field campaign or cruise\ne.g., COL_2024\n\nRegion\nBroad geographic or administrative area\ne.g., Murat, Chocó, Temotu\n\nSubregion\nIntermediate unit such as an island, atoll, gulf, or reef complex\ne.g., Mussau, Golfo de Tribugá, Utupua\n\nLocality (optional)\nLocal named feature such as a reef, bay, cove, or village\ne.g., Navigator bank, Lolieng, Tasitel\n\nSite\nA specific location where a particular survey method (e.g., UVS, BRUVS, eDNA) was used. e.g., COL_2024_uvs_001\n\nStation\nA discrete sampling unit within a site, corresponding to a specific depth, or replicate. e.g., COL_2024_uvs_001_10m\n\n\n\n\n\n\n\nNaming Conventions\n\n\n\n\n\n\nNaming Conventions\n\n\n\nTo ensure consistency, traceability, and joinability across all datasets, Pristine Seas uses machine-readable, structured identifiers for sites and stations.\n\nexp_id: ISO3_YEAR\n  → Example: FJI_2025\nps_site_id: exp_id_method_###\n  → Always use 3-digit padding for site numbers (e.g., 001, 045, 112)\n  → Examples:\n    FJI_2025_uvs_001\n    FJI_2025_pbruv_003\n    FJI_2025_sub_014\nps_station_id: ps_site_id_depth or ps_site_id_replicate\n  → Depth and replicate suffixes use fixed formats (e.g., 10m, r101)\n  → Examples:\n    FJI_2025_uvs_001_10m – Underwater visual survey at 10m depth\n    FJI_2025_pbruv_003_r102 – rig 102 of pelagic BRUV deployment 3\n    FJI_2025_dscm_006_300m – deep sea camera at 300m\n\nThese identifiers are used throughout the database as primary keys in spatial/, and foreign keys in all method datasets.",
+    "crumbs": [
+      "Databse Architecture"
+    ]
+  },
+  {
+    "objectID": "architecture.html#style-guide",
+    "href": "architecture.html#style-guide",
+    "title": "Database Architecture",
+    "section": "4 Style Guide",
+    "text": "4 Style Guide\nThe Pristine Seas Science Database follows a unified style and structure to ensure consistency, readability, and compatibility across tools and users.\n\n\n\n\n\n\nDatabase Style Guide\n\n\n\nNaming Conventions\n\nTable and field names use snake_case\nAll names are lowercase unless scientific names require capitalization (e.g., Genus species)\nNo spaces or special characters in field or file names\nField names are concise and descriptive, with underscores separating words (e.g., avg_biomass_gm2, pct_cover_coral)\n\nUnits and Standards\n\nAll measurements use the metric system (SI units)\n\ne.g., depth_m, biomass_gm2, area_m2, temperature_c\n\nAll dates and times follow ISO 8601 format:\n\nDates: YYYY-MM-DD (e.g., 2025-06-12)\nTimes: 24-hour format with seconds (e.g., 13:45:00)\n\nDepth bins and size classes are explicitly included in variable names\n\nStructural Conventions\n\nTables follow a long format — one row per observation or measurement\nps_site_id and ps_station_id serve as universal spatial keys across all modules\nControlled vocabularies (e.g., habitat, gear, exposure) are standardized in lookup/\nAll datasets are designed to be modular, analysis-ready, and reproducible"
+  },
+  {
+    "objectID": "architecture.html#style-conventions",
+    "href": "architecture.html#style-conventions",
+    "title": "Database Architecture",
+    "section": "3 Style & Conventions",
+    "text": "3 Style & Conventions\nThis style guide defines naming, formatting, and structural standards used throughout the database, ensuring clean workflows in R, SQL, and visualization tools.\n\n\n\n\n\n\nDatabase Style Guide\n\n\n\nField Naming\n\nTable and field names use snake_case\nAll names are lowercase unless scientific names require capitalization (e.g., Genus species)\nNo spaces or special characters\nNames are concise, descriptive, and consistently formatted\n\nUnits and Standards\n\nAll measurements use the metric system (SI units)\ne.g., depth_m, biomass_gm2, area_m2, temperature_c\nDates use ISO 8601: YYYY-MM-DD\n\nTimes use 24-hour format: HH:MM:SS\n\nStructural Conventions\n\nTables follow a long format — one row per observation or measurement\nps_site_id and ps_station_id serve as universal spatial keys across all modules\nControlled vocabularies (e.g., habitat, gear, exposure) are standardized in lookup/\nDatasets are modular, documented, and reproducible",
+    "crumbs": [
+      "Database Architecture"
+    ]
+  },
+  {
+    "objectID": "index.html#fair-data-commitment",
+    "href": "index.html#fair-data-commitment",
+    "title": "",
+    "section": "FAIR Data Commitment",
+    "text": "FAIR Data Commitment\nThe Pristine Seas Science Database is designed to uphold the FAIR data principles — ensuring that all data are Findable, Accessible, Interoperable, and Reusable for the long term. This includes:\n\nFindable: Unique identifiers (ps_site_id, taxon_id) and rich metadata ensure all records can be discovered and indexed\nAccessible: Hosted in BigQuery with open protocols and companion tools for direct querying, downloading, and exploration\nInteroperable: Uses tidy formats, SI units, ISO 8601 dates, and controlled vocabularies across all tables\nReusable: Fully documented with versioning, contributor metadata, QA flags, and modular design to support transparent reuse and scientific replication\n\nTogether, these practices ensure the database serves as a durable, transparent, and reusable resource for science and conservation.",
+    "crumbs": [
+      "Overview"
+    ]
+  },
+  {
+    "objectID": "architecture.html#data-model",
+    "href": "architecture.html#data-model",
+    "title": "Database Architecture",
+    "section": "2 Data Model",
+    "text": "2 Data Model\nAll sampling data in the Pristine Seas Database are structured around a shared spatial hierarchy. This enables consistent grouping and comparison of observations across expeditions, methods, and regions.\nThe hierarchy consists of six nested levels:\n\nExpedition\nA discrete field campaign or cruise\ne.g., COL_2024\n\nRegion\nBroad administrative, ecological, or biogeographic unit.\ne.g., Murat, Chocó, Temotu\n\nSubregion\nMid-scale feature within the region such as a single island, atoll, gulf, or reef complex\ne.g., Mussau, Golfo de Tribugá, Utupua\n\nLocality Local named feature such as a reef, bay, cove, or village\ne.g., Navigator bank, Lolieng, Tasitel\n\nSite\nA specific location withint the subregion where a survey method (e.g., UVS, BRUVS, eDNA) was used. e.g., COL_2024_uvs_001\n\nStation\nA discrete sampling unit within a site, corresponding to a specific depth, or replicate. e.g., COL_2024_uvs_001_10m\n\n\n\n\n\n\n\nNaming Conventions\n\n\n\n\n\n\nNaming Conventions\n\n\n\nTo ensure consistency, traceability, and joinability across all datasets, Pristine Seas uses machine-readable, structured identifiers for sites and stations.\n\nexp_id: ISO3_YEAR\n  → Example: FJI_2025\nps_site_id: exp_id_method_###\n  → Always use 3-digit padding for site numbers (e.g., 001, 045, 112)\n  → Examples:\n    FJI_2025_uvs_001\n    FJI_2025_pbruv_003\n    FJI_2025_sub_014\nps_station_id: ps_site_id_depth or ps_site_id_replicate\n  → Depth and replicate suffixes use fixed formats (e.g., 10m, r101)\n  → Examples:\n    FJI_2025_uvs_001_10m – Underwater visual survey at 10m depth\n    FJI_2025_pbruv_003_r102 – rig 102 of pelagic BRUV deployment 3\n    FJI_2025_dscm_006_300m – deep sea camera at 300m\n\nThese identifiers are used throughout the database as primary keys in spatial/, and foreign keys in all method datasets.",
+    "crumbs": [
+      "Database Architecture"
+    ]
+  },
+  {
+    "objectID": "expeditions.html",
+    "href": "expeditions.html",
+    "title": "Expeditions Dataset",
+    "section": "",
+    "text": "The expeditions/ dataset anchors the entire spatial structure of the Pristine Seas Science Database. It provides a canonical registry of expeditions, spatial hierarchy, and field deployments across all survey methods. These tables enable consistent joins, filtering, and spatial aggregation across datasets.",
+    "crumbs": [
+      "Expeditions Dataset"
+    ]
+  },
+  {
+    "objectID": "expeditions.html#tables",
+    "href": "expeditions.html#tables",
+    "title": "Expeditions Dataset",
+    "section": "1 Tables",
+    "text": "1 Tables\n\n1.1 expeditions.info\nThis table stores metadata for each expedition conducted by the Pristine Seas team. Each row corresponds to a unique expedition and defines the top-level context for all associated sampling efforts.\n\n\n\n\nTable 1: expeditions.info Table Schema\n\n\n\n\n\n\n\n\n\nField\nType\nRequired\nDescription\n\n\n\n\nexp_id\nSTRING\ntrue\nUnique expedition identifier in the format ISO3_YEAR (e.g., FJI_2025)\n\n\nnumber\nINTEGER\ntrue\nSequential expedition number (e.g., 43)\n\n\nname\nSTRING\ntrue\nOfficial or working expedition name\n\n\ncountry\nSTRING\ntrue\nPrimary country or jurisdiction visited\n\n\nstart_date\nDATE\ntrue\nExpedition start date in ISO 8601 format (YYYY-MM-DD)\n\n\nend_date\nDATE\ntrue\nExpedition end date in ISO 8601 format (YYYY-MM-DD)\n\n\nlead\nSTRING\ntrue\nOverall expedition lead\n\n\nscience_lead\nSTRING\ntrue\nLead scientist for the research campaign\n\n\nvessel\nSTRING\nfalse\nName of the vessel or platform used\n\n\nship_track\nSTRING\nfalse\nWKT LINESTRING representing the ship’s route (optional)\n\n\npartners\nSTRING\nfalse\nInstitutional collaborators (optional)\n\n\ndescription\nSTRING\nfalse\nBrief description of expedition goals and scope\n\n\nnotes\nSTRING\nfalse\nOptional free-text notes or admin metadata\n\n\n\n\n\n\n\n\n\n\nTo date, our team has conducted 47 expeditions across 30 countries since our first one in 2007.\n\n\n\n\n\n\n\n\nFigure 1: Timeline of expeditions\n\n\n\n\n\n\n1.2 expeditions.sites\nThis table defines the primary spatial unit of deployment for each survey method. A site represents a discrete application of a method (e.g., UVS, pBRUV, submersible) at a specific location and time during an expedition. Each method maintains its own internal sites table, but this shared expeditions.sites table serves as the canonical registry for cross-method integration, mapping, and analysis.\n\n\n\n\n\n\nWhat is a site?\n\n\n\nA site is defined by a unique combination of exp_id, method, and a 3-digit site number\n(e.g., FJI_2025_uvs_001)\n\nIt represents one deployment, diver, or survey event of a given method at a location\n\nEach site may contain multiple stations (e.g., depth strata, replicates, rigs)\n\nExamples:\n\nA UVS site might be a reef where divers conduct fish, benthic, and invertebrate surveys at different depths\n\nA pBRUV site could be a pelagic deployment of five camera rigs\nA submersible site is typically a single dive with multiple horizontal transects\n\nSites are the parent unit of stations and the core join key for spatial summaries, mapping, and integration across methods.\n\n\nAll methods share the following core site schema (Table 2)\n\n\n\n\nTable 2: expeditions.sites Table Schema\n\n\n\n\n\n\n\n\n\nField\nType\nRequired\nDescription\n\n\n\n\nps_site_id\nSTRING\ntrue\nUnique site ID (exp_id_method_###), e.g., FJI_2025_uvs_001\n\n\nexp_id\nSTRING\ntrue\nForeign key to expeditions.info\n\n\nmethod\nSTRING\ntrue\nField method used (e.g., uvs, pbruv, edna, sub)\n\n\nregion\nSTRING\ntrue\nBroad geographic or administrative unit (e.g., Murat, Chocó, Tuamotu, Duff Islands).\n\n\nsubregion\nSTRING\ntrue\nIntermediate feature within the region such as an atoll, island, gulf, or reef complex\n\n\nlocality\nSTRING\nfalse\nLocal named feature such as a village, bay, cove, reef (e.g., Lolieng, Ensenada Utría).\n\n\ndate\nDATE\ntrue\nDate of the site-level deployment in ISO 8601 format (YYYY-MM-DD)\n\n\ntime\nTIME\ntrue\nLocal time of the deployment in 24-hour format (HH:MM:SS)\n\n\nlatitude\nFLOAT\ntrue\nApproximate latitude (decimal degrees, WGS84)\n\n\nlongitude\nFLOAT\ntrue\nApproximate longitude (decimal degrees, WGS84)\n\n\nlead\nSTRING\ntrue\nName of the lead scientist or survey team lead\n\n\nnotes\nSTRING\nfalse\nOptional comments, metadata, or field observations",
+    "crumbs": [
+      "Expeditions Dataset"
     ]
   }
 ]
