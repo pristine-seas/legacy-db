@@ -2,11 +2,11 @@
   {
     "objectID": "index.html",
     "href": "index.html",
-    "title": "Pristine Seas Scientific Database",
+    "title": "",
     "section": "",
-    "text": "Why This Matters\nConservation starts with knowledge. This database helps answer fundamental questions about ocean health, marine biodiversity, and ecosystem change by:\nWhether you’re a scientist or conservation partner, this documentation will guide you through the database’s architecture, conventions, and workflows.",
+    "text": "Code\nThe Pristine Seas Science Database is a centralized, modular system that stores ecological data collected from more than a decade of scientific expeditions led by National Geographic Pristine Seas. It is designed to support high-integrity, reproducible research on marine biodiversity and inform conservation policy around the world.",
     "crumbs": [
-      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Why This Matters</span>"
+      "Overview"
     ]
   },
   {
@@ -134,31 +134,31 @@
   {
     "objectID": "index.html#why-this-matters",
     "href": "index.html#why-this-matters",
-    "title": "Pristine Seas Scientific Database",
-    "section": "",
-    "text": "Unifying biological, habitat, and environmental data from multiple methods\nAnchoring all records to a shared spatial and taxonomic backbone\nEnabling fast, reproducible analysis across sites, regions, and years",
+    "title": "",
+    "section": "Why This Matters",
+    "text": "Why This Matters\nConservation starts with knowledge. This database helps answer fundamental questions about ocean health, marine biodiversity, and ecosystem change by:\n\nUnifying biological, habitat, and environmental data from multiple methods\nAnchoring all records to a shared spatial and taxonomic backbone\nEnabling fast, reproducible analysis across sites, regions, and years\n\nWhether you’re a scientist or conservation partner, this documentation will guide you through the database’s architecture, conventions, and workflows.",
     "crumbs": [
-      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Why This Matters</span>"
+      "Overview"
     ]
   },
   {
     "objectID": "index.html#key-features",
     "href": "index.html#key-features",
-    "title": "Pristine Seas Scientific Database",
+    "title": "",
     "section": "Key Features",
     "text": "Key Features\n\nModular by method: Supports fish surveys, benthic assessments, eDNA, BRUVs, submersible surveys, and more\nSpatially anchored: Built around a nested expedition → region → site → station structure\nTaxonomically standardized: Harmonized names, traits, and groupings across datasets\nAnalysis-ready: Long-format tables, clear join keys, and BigQuery-native organization\nCollaborator-friendly: Designed for transparency, reproducibility, and shared work",
     "crumbs": [
-      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Why This Matters</span>"
+      "Overview"
     ]
   },
   {
     "objectID": "index.html#explore-the-documentation",
     "href": "index.html#explore-the-documentation",
-    "title": "Pristine Seas Scientific Database",
+    "title": "",
     "section": "Explore the Documentation",
-    "text": "Explore the Documentation\nThis site provides a structured walkthrough of the database:\n\nArchitecture: How the system is organized and how sites and stations are defined\nExpeditions: How expeditions metadata and other spatial info is stored\nTaxonomy: How species and traits are organized\nLookup: Controlled vocabularies and contributor metadata\nData Access: How to work with the data in BigQuery or R",
+    "text": "Explore the Documentation\nThis site provides a structured walkthrough of the database:\n\nArchitecture: How the system is organized and how sites and stations are defined\nExpeditions: How expeditions metadata and other spatial info is stored\nTaxonomy: How species and traits are organized\nLookup: Controlled vocabularies and contributor metadata\nMethod datasets: How to work with the data in BigQuery or R",
     "crumbs": [
-      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Why This Matters</span>"
+      "Overview"
     ]
   },
   {
@@ -238,11 +238,11 @@
   {
     "objectID": "index.html#fair-data-commitment",
     "href": "index.html#fair-data-commitment",
-    "title": "Pristine Seas Scientific Database",
+    "title": "",
     "section": "FAIR Data Commitment",
     "text": "FAIR Data Commitment\nThe Pristine Seas Science Database is designed to uphold the FAIR data principles — ensuring that all data are Findable, Accessible, Interoperable, and Reusable for the long term. This includes:\n\nFindable: Unique identifiers (ps_site_id, taxon_id) and rich metadata ensure all records can be discovered and indexed\nAccessible: Hosted in BigQuery with open protocols and companion tools for direct querying, downloading, and exploration\nInteroperable: Uses tidy formats, SI units, ISO 8601 dates, and controlled vocabularies across all tables\nReusable: Fully documented with versioning, contributor metadata, QA flags, and modular design to support transparent reuse and scientific replication\n\nTogether, these practices ensure the database serves as a durable, transparent, and reusable resource for science and conservation.",
     "crumbs": [
-      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Why This Matters</span>"
+      "Overview"
     ]
   },
   {
@@ -373,6 +373,566 @@
     "text": "2 Currently Documented Methods\nThis section of the documentation focuses on the following datasets:\n\nUnderwater Visual Surveys (UVS): SCUBA-based protocols for reef fish, benthic cover, invertebrates, and coral recruits\n(More to come): pBRUVS, sBRUVS, eDNA, submersibles, and others\n\nEach method is documented in its own subsection, with table-level details, controlled vocabularies, and usage notes.",
     "crumbs": [
       "Method Datasets"
+    ]
+  },
+  {
+    "objectID": "rov.html",
+    "href": "rov.html",
+    "title": "ROV Dataset",
+    "section": "",
+    "text": "The rov/` dataset contains ….",
+    "crumbs": [
+      "Method Datasets",
+      "ROV"
+    ]
+  },
+  {
+    "objectID": "rov.html#dataset-structure",
+    "href": "rov.html#dataset-structure",
+    "title": "ROV Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below.",
+    "crumbs": [
+      "Method Datasets",
+      "ROV"
+    ]
+  },
+  {
+    "objectID": "rov.html#tables",
+    "href": "rov.html#tables",
+    "title": "ROV Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 rov.sites",
+    "crumbs": [
+      "Method Datasets",
+      "ROV"
+    ]
+  },
+  {
+    "objectID": "edna.html",
+    "href": "edna.html",
+    "title": "eDNA Dataset",
+    "section": "",
+    "text": "The edna.sites table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time and serves as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples (replicates) may be collected across different depth strata, recorded in the corresponding edna.stations table.\nIn addition to the core site fields, the edna.sites table includes method-specific metadata (Table 1), such as:\n\nexposure – Same controlled vocabulary as in uvs_sites\n\nhabitat – Same as uvs_sites, with the following additional categories:\n\nopen water – Offshore or pelagic environments\nbay – Semi-enclosed coastal embayments\nestuary – Transitional area between river and marine systems\nmangrove – Shallow, intertidal forested coastal habitat\n\n\n\n\n\n\nTable 1: Additional fields to the core site fields in the edna_sites table\n\n\n\n\n\n\n\n\n\nTable\nField\nType\nRequired\nDescription\n\n\n\n\nedna\nhabitat\nSTRING\nTRUE\nDominant habitat type. Allowed values: *fore reef*, *back reef*, *fringing reef*, *patch reef*, *reef flat*, *channel*, *seagrass*, *rocky reef*, *open water*, *bay*, *estuary*, *mangrove*, *other*.\n\n\nexposure\nSTRING\nTRUE\nWind and wave exposure at the site. Allowed values: *windward*, *leeward*, *lagoon*, *other*.\n\n\npaired_ps_site_id\nSTRING\nFALSE\n`ps_site_id` of a paired site (e.g., a `uvs` or `pbruvs` site), if applicable\n\n\nn_stations\nINTEGER\nTRUE\nNumber of unique stations (i.e., depth strata) sampled at the site\n\n\nn_samples\nINTEGER\nTRUE\nTotal number of water samples (replicates) collected at the site\n\n\nsite_photos\nSTRING\nFALSE\npath to associated site photos, if available (e.g., eDNA/site_photos/COL-2022-edna-001)",
+    "crumbs": [
+      "Method Datasets",
+      "eDNA"
+    ]
+  },
+  {
+    "objectID": "edna.html#tables",
+    "href": "edna.html#tables",
+    "title": "eDNA Dataset",
+    "section": "",
+    "text": "The edna.sites table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time and serves as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples (replicates) may be collected across different depth strata, recorded in the corresponding edna.stations table.\nIn addition to the core site fields, the edna.sites table includes method-specific metadata (Table 1), such as:\n\nexposure – Same controlled vocabulary as in uvs_sites\n\nhabitat – Same as uvs_sites, with the following additional categories:\n\nopen water – Offshore or pelagic environments\nbay – Semi-enclosed coastal embayments\nestuary – Transitional area between river and marine systems\nmangrove – Shallow, intertidal forested coastal habitat\n\n\n\n\n\n\nTable 1: Additional fields to the core site fields in the edna_sites table\n\n\n\n\n\n\n\n\n\nTable\nField\nType\nRequired\nDescription\n\n\n\n\nedna\nhabitat\nSTRING\nTRUE\nDominant habitat type. Allowed values: *fore reef*, *back reef*, *fringing reef*, *patch reef*, *reef flat*, *channel*, *seagrass*, *rocky reef*, *open water*, *bay*, *estuary*, *mangrove*, *other*.\n\n\nexposure\nSTRING\nTRUE\nWind and wave exposure at the site. Allowed values: *windward*, *leeward*, *lagoon*, *other*.\n\n\npaired_ps_site_id\nSTRING\nFALSE\n`ps_site_id` of a paired site (e.g., a `uvs` or `pbruvs` site), if applicable\n\n\nn_stations\nINTEGER\nTRUE\nNumber of unique stations (i.e., depth strata) sampled at the site\n\n\nn_samples\nINTEGER\nTRUE\nTotal number of water samples (replicates) collected at the site\n\n\nsite_photos\nSTRING\nFALSE\npath to associated site photos, if available (e.g., eDNA/site_photos/COL-2022-edna-001)",
+    "crumbs": [
+      "Method Datasets",
+      "eDNA"
+    ]
+  },
+  {
+    "objectID": "sub.html",
+    "href": "sub.html",
+    "title": "Submersible Dataset",
+    "section": "",
+    "text": "The sub/ dataset contains ….",
+    "crumbs": [
+      "Method Datasets",
+      "Submersible"
+    ]
+  },
+  {
+    "objectID": "sub.html#dataset-structure",
+    "href": "sub.html#dataset-structure",
+    "title": "Submersible Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below.",
+    "crumbs": [
+      "Method Datasets",
+      "Submersible"
+    ]
+  },
+  {
+    "objectID": "sub.html#tables",
+    "href": "sub.html#tables",
+    "title": "Submersible Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 sub.sites",
+    "crumbs": [
+      "Method Datasets",
+      "Submersible"
+    ]
+  },
+  {
+    "objectID": "uvs_inverts.html",
+    "href": "uvs_inverts.html",
+    "title": "Invertebrates Surveys",
+    "section": "",
+    "text": "Invertebrate Surveys",
+    "crumbs": [
+      "Method Datasets",
+      "Underwater Visual Surveys (UVS)",
+      "Inverts"
+    ]
+  },
+  {
+    "objectID": "dscm.html",
+    "href": "dscm.html",
+    "title": "Deep Sea Cameras Dataset",
+    "section": "",
+    "text": "The dscm/ dataset contains ….",
+    "crumbs": [
+      "Method Datasets",
+      "Deep Sea Cameras"
+    ]
+  },
+  {
+    "objectID": "dscm.html#dataset-structure",
+    "href": "dscm.html#dataset-structure",
+    "title": "Deep Sea Cameras Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below.",
+    "crumbs": [
+      "Method Datasets",
+      "Deep Sea Cameras"
+    ]
+  },
+  {
+    "objectID": "dscm.html#tables",
+    "href": "dscm.html#tables",
+    "title": "Deep Sea Cameras Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 dscm.sites",
+    "crumbs": [
+      "Method Datasets",
+      "Deep Sea Cameras"
+    ]
+  },
+  {
+    "objectID": "sbruv.html",
+    "href": "sbruv.html",
+    "title": "Seabed BRUVS Dataset",
+    "section": "",
+    "text": "The sbruv/ dataset contains …."
+  },
+  {
+    "objectID": "sbruv.html#dataset-structure",
+    "href": "sbruv.html#dataset-structure",
+    "title": "Seabed BRUVS Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below."
+  },
+  {
+    "objectID": "sbruv.html#tables",
+    "href": "sbruv.html#tables",
+    "title": "Seabed BRUVS Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 sbruv.sites"
+  },
+  {
+    "objectID": "uvs_recruits.html",
+    "href": "uvs_recruits.html",
+    "title": "Coral Recruits Surveys",
+    "section": "",
+    "text": "Coral Recruit Surveys",
+    "crumbs": [
+      "Method Datasets",
+      "Underwater Visual Surveys (UVS)",
+      "Recruits"
+    ]
+  },
+  {
+    "objectID": "pbruv.html",
+    "href": "pbruv.html",
+    "title": "Pelagic BRUVS Dataset",
+    "section": "",
+    "text": "The pbruv/ dataset contains …."
+  },
+  {
+    "objectID": "pbruv.html#dataset-structure",
+    "href": "pbruv.html#dataset-structure",
+    "title": "Pelagic BRUVS Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below."
+  },
+  {
+    "objectID": "pbruv.html#tables",
+    "href": "pbruv.html#tables",
+    "title": "Pelagic BRUVS Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 pbruv.sites"
+  },
+  {
+    "objectID": "birds.html",
+    "href": "birds.html",
+    "title": "Seabirds Dataset",
+    "section": "",
+    "text": "The seabirds/ dataset contains ….",
+    "crumbs": [
+      "Method Datasets",
+      "Seabird surveys"
+    ]
+  },
+  {
+    "objectID": "birds.html#dataset-structure",
+    "href": "birds.html#dataset-structure",
+    "title": "Seabirds Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below.",
+    "crumbs": [
+      "Method Datasets",
+      "Seabird surveys"
+    ]
+  },
+  {
+    "objectID": "birds.html#tables",
+    "href": "birds.html#tables",
+    "title": "Seabirds Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 birds.sites",
+    "crumbs": [
+      "Method Datasets",
+      "Seabird surveys"
+    ]
+  },
+  {
+    "objectID": "06_uvs.html",
+    "href": "06_uvs.html",
+    "title": "Underwater Visual Surveys Dataset",
+    "section": "",
+    "text": "The uvs/ dataset contains all data collected using Pristine Seas’ SCUBA-based underwater visual survey (UVS) protocols. These methods assess reef fish, benthic cover, invertebrates, and coral recruits at spatially co-located reef sites, using a standardized and depth-stratified survey design.\nEach UVS site typically includes multiple stations across depth strata (e.g., shallow, deep), where several survey protocols may be conducted in parallel.\nThe dataset is structured to balance:\nThis architecture enables flexible, protocol-specific analysis and integrated reef assessments across taxa and trophic groups.",
+    "crumbs": [
+      "Method Datasets",
+      "Underwater Visual Surveys (UVS)"
+    ]
+  },
+  {
+    "objectID": "06_uvs.html#dataset-structure",
+    "href": "06_uvs.html#dataset-structure",
+    "title": "Underwater Visual Surveys Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nuvs/\n├── sites               # Deployment-level metadata for each UVS dive\n├── stations            # Depth-stratified units within each dive\n├── blt_stations        # Fish transects (BLT)\n├── blt_observations    # Raw fish counts\n├── blt_biomass_by_taxa # Station-level biomass summaries\n├── lpi_stations        # Benthic transects\n├── lpi_counts          # Raw point intercepts\n├── lpi_cover_by_taxa   # Cover summary by benthic taxon\n├── inverts_stations    # Invertebrate survey transects\n├── inverts_counts      # Raw invertebrate observations\n├── recruits_stations   # Coral recruit transects\n├── recruits_counts     # Raw coral recruit counts\nEach table is documented in its own section below.",
+    "crumbs": [
+      "Method Datasets",
+      "Underwater Visual Surveys (UVS)"
+    ]
+  },
+  {
+    "objectID": "06_uvs.html#tables",
+    "href": "06_uvs.html#tables",
+    "title": "Underwater Visual Surveys Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 uvs.sites\nThis table contains site-level metadata for all underwater visual surveys. Each row represents a discrete SCUBA dive at a location, typically involving multiple co-located survey protocols (e.g., fish BLT, LPI, inverts, recruits).\nIt follows the core site schema defined in expeditions.sites, with additional UVS-specific fields (Table 1)\n\n\n\n\nTable 1: Adiditonal fields in the uvs.sites table\n\n\n\n\n\n\n\n\n\nField\nType\nRequired\nDescription\n\n\n\n\nsite_name\nSTRING\nfalse\nLocal site name. Used in previous surveys or by local partners\n\n\nhabitat\nSTRING\ntrue\nDominant reef habitat type (e.g., fore reef, patch reef, fringing reef)\n\n\nexposure\nSTRING\ntrue\nWave and wind exposure (e.g., windward, leeward, lagoon)\n\n\nprotected\nBOOLEAN\nfalse\nWhether the site is inside a marine protected area (MPA)\n\n\nblt\nBOOLEAN\nfalse\nIndicates whether fish belt transects were conducted\n\n\nlpi\nBOOLEAN\nfalse\nIndicates whether benthic point intercept surveys were conducted\n\n\ninverts\nBOOLEAN\nfalse\nIndicates whether invertebrate surveys were conducted\n\n\nrecruits\nBOOLEAN\nfalse\nIndicates whether coral recruit transects were conducted\n\n\nysi\nBOOLEAN\nfalse\nIndicates whether YSI environmental profiles were collected\n\n\nphotomosaic\nBOOLEAN\nfalse\nIndicates whether a photomosaic survey was conducted\n\n\nedna\nBOOLEAN\nfalse\nIndicates whether eDNA samples were collected at the site\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nControlled vocabulary\n\n\n\nhabitat\n\nfore reef — Outer reef slope exposed to ocean swell.\nback reef — Sheltered zone behind the reef crest\n\nfringing reef — Reef growing directly from the shoreline\n\npatch reef — Isolated reef outcrop within a lagoon or sandy area\n\nreef flat — Shallow, flat reef section, often exposed at low tide\n\nchannel — Natural break or passage between reef structures\n\nseagrass — Vegetated, soft-bottom habitat dominated by seagrasses\n\nrocky reef — Reef formed by consolidated rock\n\nother — Habitat not captured by the above categories\n\nexposure\n\nwindward — Facing prevailing winds and swell\n\nleeward — Sheltered from prevailing winds\n\nlagoon — Within an enclosed or semi-enclosed reef lagoon\n\nother — Exposure type not described above",
+    "crumbs": [
+      "Method Datasets",
+      "Underwater Visual Surveys (UVS)"
+    ]
+  },
+  {
+    "objectID": "10_uvs_recruits.html",
+    "href": "10_uvs_recruits.html",
+    "title": "Coral Recruits Surveys",
+    "section": "",
+    "text": "Coral Recruit Surveys",
+    "crumbs": [
+      "Method Datasets",
+      "Underwater Visual Surveys (UVS)",
+      "Recruits"
+    ]
+  },
+  {
+    "objectID": "15_sub.html",
+    "href": "15_sub.html",
+    "title": "Submersible Dataset",
+    "section": "",
+    "text": "The sub/ dataset contains ….",
+    "crumbs": [
+      "Method Datasets",
+      "Submersible"
+    ]
+  },
+  {
+    "objectID": "15_sub.html#dataset-structure",
+    "href": "15_sub.html#dataset-structure",
+    "title": "Submersible Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below.",
+    "crumbs": [
+      "Method Datasets",
+      "Submersible"
+    ]
+  },
+  {
+    "objectID": "15_sub.html#tables",
+    "href": "15_sub.html#tables",
+    "title": "Submersible Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 sub.sites",
+    "crumbs": [
+      "Method Datasets",
+      "Submersible"
+    ]
+  },
+  {
+    "objectID": "17_dscm.html",
+    "href": "17_dscm.html",
+    "title": "Deep Sea Cameras Dataset",
+    "section": "",
+    "text": "The dscm/ dataset contains ….",
+    "crumbs": [
+      "Method Datasets",
+      "Deep Sea Cameras"
+    ]
+  },
+  {
+    "objectID": "17_dscm.html#dataset-structure",
+    "href": "17_dscm.html#dataset-structure",
+    "title": "Deep Sea Cameras Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below.",
+    "crumbs": [
+      "Method Datasets",
+      "Deep Sea Cameras"
+    ]
+  },
+  {
+    "objectID": "17_dscm.html#tables",
+    "href": "17_dscm.html#tables",
+    "title": "Deep Sea Cameras Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 dscm.sites",
+    "crumbs": [
+      "Method Datasets",
+      "Deep Sea Cameras"
+    ]
+  },
+  {
+    "objectID": "04_lookup.html",
+    "href": "04_lookup.html",
+    "title": "Lookup Dataset",
+    "section": "",
+    "text": "The lookup/` dataset contains ….",
+    "crumbs": [
+      "Lookup Tables"
+    ]
+  },
+  {
+    "objectID": "04_lookup.html#dataset-structure",
+    "href": "04_lookup.html#dataset-structure",
+    "title": "Lookup Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below.",
+    "crumbs": [
+      "Lookup Tables"
+    ]
+  },
+  {
+    "objectID": "04_lookup.html#tables",
+    "href": "04_lookup.html#tables",
+    "title": "Lookup Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables",
+    "crumbs": [
+      "Lookup Tables"
+    ]
+  },
+  {
+    "objectID": "01_architecture.html",
+    "href": "01_architecture.html",
+    "title": "Database Architecture",
+    "section": "",
+    "text": "The Pristine Seas Science Database is designed as a modular, analysis-ready system that organizes ecological data collected across global expeditions. The structure reflects the need for both flexibility across diverse survey methods and consistency in how data are referenced, accessed, and analyzed.\nAt the highest level, the database consists of method datasets, each representing a distinct survey technique, and shared reference datasets that provide the taxonomic, spatial, and categorical backbone needed for integration.",
+    "crumbs": [
+      "Database Architecture"
+    ]
+  },
+  {
+    "objectID": "01_architecture.html#core-structure",
+    "href": "01_architecture.html#core-structure",
+    "title": "Database Architecture",
+    "section": "1 Core Structure",
+    "text": "1 Core Structure\nThe database is implemented in Google BigQuery under the project pristine-seas. It is organized into multiple top-level datasets, grouped by function:\n\n1.1 Method Datasets\nEach method has its own dataset (e.g., uvs, pbruv, sub, edna) that stores raw and summarized outputs from a given type of field survey. These follow a consistent pattern:\n\nsites — Survey events or deployments\nstations — Sampling units within a site\nobservations — Primary records (e.g., species counts, detections)\nsummaries (optional) — Station-level aggregates\n\n\n\n1.2 Shared Reference Datasets\nThese provide the common scaffolding that links all method datasets:\n\nexpeditions/ — Canonical registry of expeditions, regions, sites, and stations\ntaxonomy/ — Reference lists of species and traits\nlookup/ — Controlled vocabularies, and contributor metadata\n\nTogether, these support spatial joins, taxonomic harmonization, and metadata consistency.\n\n\n1.3 Layout\npristine-seas/\n├── expeditions/\n│   ├── info\n│   ├── sites\n│   └── stations\n├── uvs/\n│   ├── sites\n│   ├── stations\n│   ├── lpi_stations\n│   ├── lpi_counts\n│   ├── lpi_cover_by_taxa\n│   ├── blt_stations\n│   ├── blt_observations\n│   ├── blt_biomass_by_taxa\n│   ├── inverts_stations\n│   ├── inverts_counts\n│   ├── recruits_stations\n│   ├── recruits_counts\n├── sbruv/\n│   └── sites\n│   └── stations\n│   └── MaxN\n├── pbruv/\n│   └── sites\n│   └── stations\n│   └── MaxN\n├── birds/\n│   └── sites\n│   └── stations\n│   └── counts\n├── edna/\n│   └── sites\n│   └── stations\n│   └── detections\n├── sub/\n│   └── sites\n│   └── stations\n│   └── observations\n├── dscm/\n│   └── sites\n│   └── stations\n│   └── observations\n├── taxonomy\n│   └── fish\n│   └── corals\n│   └── inverts\n├── lookup/\n│   ├── contributors\n│   └── vocabularies",
+    "crumbs": [
+      "Database Architecture"
+    ]
+  },
+  {
+    "objectID": "01_architecture.html#data-model",
+    "href": "01_architecture.html#data-model",
+    "title": "Database Architecture",
+    "section": "2 Data Model",
+    "text": "2 Data Model\nAll sampling data in the Pristine Seas Database are structured around a shared spatial hierarchy. This enables consistent grouping and comparison of observations across expeditions, methods, and regions.\nThe hierarchy consists of six nested levels:\n\nExpedition\nA discrete field campaign or cruise\ne.g., COL_2024\n\nRegion\nBroad administrative, ecological, or biogeographic unit.\ne.g., Murat, Chocó, Temotu\n\nSubregion\nMid-scale feature within the region such as a single island, atoll, gulf, or reef complex\ne.g., Mussau, Golfo de Tribugá, Utupua\n\nLocality Local named feature such as a reef, bay, cove, or village\ne.g., Navigator bank, Lolieng, Tasitel\n\nSite\nA specific location within the subregion where a survey method (e.g., UVS, BRUVS, eDNA) was used. e.g., COL_2024_uvs_001\n\nStation\nA discrete sampling unit within a site, corresponding to a specific depth, or replicate. e.g., COL_2024_uvs_001_10m\n\n\n\n\n\n\n\nNaming Conventions\n\n\n\n\n\n\nNaming Conventions\n\n\n\nTo ensure consistency, traceability, and joinability across all datasets, Pristine Seas uses machine-readable, structured identifiers for sites and stations.\n\nexp_id: ISO3_YEAR\n  → Example: FJI_2025\nps_site_id: exp_id_method_###\n  → Always use 3-digit padding for site numbers (e.g., 001, 045, 112)\n  → Examples:\n    FJI_2025_uvs_001\n    FJI_2025_pbruv_003\n    FJI_2025_sub_014\nps_station_id: ps_site_id_depth or ps_site_id_replicate\n  → Depth and replicate suffixes use fixed formats (e.g., 10m, r101)\n  → Examples:\n    FJI_2025_uvs_001_10m – Underwater visual survey at 10m depth\n    FJI_2025_pbruv_003_r102 – rig 102 of pelagic BRUV deployment 3\n    FJI_2025_dscm_006_300m – deep sea camera at 300m\n\nThese identifiers are used throughout the database as primary keys in spatial/, and foreign keys in all method datasets.",
+    "crumbs": [
+      "Database Architecture"
+    ]
+  },
+  {
+    "objectID": "01_architecture.html#style-conventions",
+    "href": "01_architecture.html#style-conventions",
+    "title": "Database Architecture",
+    "section": "3 Style & Conventions",
+    "text": "3 Style & Conventions\nThis style guide defines naming, formatting, and structural standards used throughout the database, ensuring clean workflows in R, SQL, and visualization tools.\n\n\n\n\n\n\nDatabase Style Guide\n\n\n\nField Naming\n\nTable and field names use snake_case\nAll names are lowercase unless scientific names require capitalization (e.g., Genus species)\nNo spaces or special characters\nNames are concise, descriptive, and consistently formatted\n\nUnits and Standards\n\nAll measurements use the metric system (SI units)\ne.g., depth_m, biomass_gm2, area_m2, temperature_c\nDates use ISO 8601: YYYY-MM-DD\n\nTimes use 24-hour format: HH:MM:SS\n\nStructural Conventions\n\nTables follow a long format — one row per observation or measurement\nps_site_id and ps_station_id serve as universal spatial keys across all modules\nControlled vocabularies (e.g., habitat, gear, exposure) are standardized in lookup/\nDatasets are modular, documented, and reproducible",
+    "crumbs": [
+      "Database Architecture"
+    ]
+  },
+  {
+    "objectID": "09_uvs_inverts.html",
+    "href": "09_uvs_inverts.html",
+    "title": "Invertebrates Surveys",
+    "section": "",
+    "text": "Invertebrate Surveys",
+    "crumbs": [
+      "Method Datasets",
+      "Underwater Visual Surveys (UVS)",
+      "Inverts"
+    ]
+  },
+  {
+    "objectID": "03_taxonomy.html",
+    "href": "03_taxonomy.html",
+    "title": "Taxonomy Dataset",
+    "section": "",
+    "text": "The taxonomy/` dataset contains ….",
+    "crumbs": [
+      "Taxonomy Dataset"
+    ]
+  },
+  {
+    "objectID": "03_taxonomy.html#dataset-structure",
+    "href": "03_taxonomy.html#dataset-structure",
+    "title": "Taxonomy Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below.",
+    "crumbs": [
+      "Taxonomy Dataset"
+    ]
+  },
+  {
+    "objectID": "03_taxonomy.html#tables",
+    "href": "03_taxonomy.html#tables",
+    "title": "Taxonomy Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 Fish",
+    "crumbs": [
+      "Taxonomy Dataset"
+    ]
+  },
+  {
+    "objectID": "05_methods.html",
+    "href": "05_methods.html",
+    "title": "Overview",
+    "section": "",
+    "text": "The Pristine Seas Science Database is organized around modular method datasets, each corresponding to a specific field protocol used during scientific expeditions. These include underwater visual surveys (UVS), BRUVS, eDNA sampling, submersible dives, and more. Each method has its own schema tailored to the sampling design, data structure, and analytical needs of that technique.\nAll method datasets follow a common pattern of internal tables — typically including:\nDespite methodological differences, each dataset is aligned with shared spatial, taxonomic, and vocabulary references. This allows for standardized integration, analysis, and reporting across methods and expeditions.",
+    "crumbs": [
+      "Method Datasets"
+    ]
+  },
+  {
+    "objectID": "05_methods.html#structure-and-purpose",
+    "href": "05_methods.html#structure-and-purpose",
+    "title": "Overview",
+    "section": "1 Structure and Purpose",
+    "text": "1 Structure and Purpose\nEach method dataset:\n\nCaptures raw field data and derived metrics in a tidy, analysis-ready format\n\nRespects the structure and nuances of the field protocol\n\nJoins seamlessly to the core spatial (expeditions.sites), taxonomic (taxonomy.fish, etc.), and controlled vocabulary (lookup/) tables\n\nEnables cross-method integration through common keys and shared architecture",
+    "crumbs": [
+      "Method Datasets"
+    ]
+  },
+  {
+    "objectID": "05_methods.html#currently-documented-methods",
+    "href": "05_methods.html#currently-documented-methods",
+    "title": "Overview",
+    "section": "2 Currently Documented Methods",
+    "text": "2 Currently Documented Methods\nThis section of the documentation focuses on the following datasets:\n\nUnderwater Visual Surveys (UVS): SCUBA-based protocols for reef fish, benthic cover, invertebrates, and coral recruits\n(More to come): pBRUVS, sBRUVS, eDNA, submersibles, and others\n\nEach method is documented in its own subsection, with table-level details, controlled vocabularies, and usage notes.",
+    "crumbs": [
+      "Method Datasets"
+    ]
+  },
+  {
+    "objectID": "11_edna.html",
+    "href": "11_edna.html",
+    "title": "eDNA Dataset",
+    "section": "",
+    "text": "The edna.sites table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time and serves as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples (replicates) may be collected across different depth strata, recorded in the corresponding edna.stations table.\nIn addition to the core site fields, the edna.sites table includes method-specific metadata (Table 1), such as:\n\nexposure – Same controlled vocabulary as in uvs_sites\n\nhabitat – Same as uvs_sites, with the following additional categories:\n\nopen water – Offshore or pelagic environments\nbay – Semi-enclosed coastal embayments\nestuary – Transitional area between river and marine systems\nmangrove – Shallow, intertidal forested coastal habitat\n\n\n\n\n\n\nTable 1: Additional fields to the core site fields in the edna_sites table\n\n\n\n\n\n\n\n\n\nTable\nField\nType\nRequired\nDescription\n\n\n\n\nedna\nhabitat\nSTRING\nTRUE\nDominant habitat type. Allowed values: *fore reef*, *back reef*, *fringing reef*, *patch reef*, *reef flat*, *channel*, *seagrass*, *rocky reef*, *open water*, *bay*, *estuary*, *mangrove*, *other*.\n\n\nexposure\nSTRING\nTRUE\nWind and wave exposure at the site. Allowed values: *windward*, *leeward*, *lagoon*, *other*.\n\n\npaired_ps_site_id\nSTRING\nFALSE\n`ps_site_id` of a paired site (e.g., a `uvs` or `pbruvs` site), if applicable\n\n\nn_stations\nINTEGER\nTRUE\nNumber of unique stations (i.e., depth strata) sampled at the site\n\n\nn_samples\nINTEGER\nTRUE\nTotal number of water samples (replicates) collected at the site\n\n\nsite_photos\nSTRING\nFALSE\npath to associated site photos, if available (e.g., eDNA/site_photos/COL-2022-edna-001)",
+    "crumbs": [
+      "Method Datasets",
+      "eDNA"
+    ]
+  },
+  {
+    "objectID": "11_edna.html#tables",
+    "href": "11_edna.html#tables",
+    "title": "eDNA Dataset",
+    "section": "",
+    "text": "The edna.sites table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time and serves as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples (replicates) may be collected across different depth strata, recorded in the corresponding edna.stations table.\nIn addition to the core site fields, the edna.sites table includes method-specific metadata (Table 1), such as:\n\nexposure – Same controlled vocabulary as in uvs_sites\n\nhabitat – Same as uvs_sites, with the following additional categories:\n\nopen water – Offshore or pelagic environments\nbay – Semi-enclosed coastal embayments\nestuary – Transitional area between river and marine systems\nmangrove – Shallow, intertidal forested coastal habitat\n\n\n\n\n\n\nTable 1: Additional fields to the core site fields in the edna_sites table\n\n\n\n\n\n\n\n\n\nTable\nField\nType\nRequired\nDescription\n\n\n\n\nedna\nhabitat\nSTRING\nTRUE\nDominant habitat type. Allowed values: *fore reef*, *back reef*, *fringing reef*, *patch reef*, *reef flat*, *channel*, *seagrass*, *rocky reef*, *open water*, *bay*, *estuary*, *mangrove*, *other*.\n\n\nexposure\nSTRING\nTRUE\nWind and wave exposure at the site. Allowed values: *windward*, *leeward*, *lagoon*, *other*.\n\n\npaired_ps_site_id\nSTRING\nFALSE\n`ps_site_id` of a paired site (e.g., a `uvs` or `pbruvs` site), if applicable\n\n\nn_stations\nINTEGER\nTRUE\nNumber of unique stations (i.e., depth strata) sampled at the site\n\n\nn_samples\nINTEGER\nTRUE\nTotal number of water samples (replicates) collected at the site\n\n\nsite_photos\nSTRING\nFALSE\npath to associated site photos, if available (e.g., eDNA/site_photos/COL-2022-edna-001)",
+    "crumbs": [
+      "Method Datasets",
+      "eDNA"
+    ]
+  },
+  {
+    "objectID": "14_birds.html",
+    "href": "14_birds.html",
+    "title": "Seabirds Dataset",
+    "section": "",
+    "text": "The seabirds/ dataset contains ….",
+    "crumbs": [
+      "Method Datasets",
+      "Seabird surveys"
+    ]
+  },
+  {
+    "objectID": "14_birds.html#dataset-structure",
+    "href": "14_birds.html#dataset-structure",
+    "title": "Seabirds Dataset",
+    "section": "1 Dataset Structure",
+    "text": "1 Dataset Structure\nEach table is documented in its own section below.",
+    "crumbs": [
+      "Method Datasets",
+      "Seabird surveys"
+    ]
+  },
+  {
+    "objectID": "14_birds.html#tables",
+    "href": "14_birds.html#tables",
+    "title": "Seabirds Dataset",
+    "section": "2 Tables",
+    "text": "2 Tables\n\n2.1 birds.sites",
+    "crumbs": [
+      "Method Datasets",
+      "Seabird surveys"
+    ]
+  },
+  {
+    "objectID": "07_uvs_blt.html",
+    "href": "07_uvs_blt.html",
+    "title": "Fish Belt Transect (BLT) Surveys",
+    "section": "",
+    "text": "Fish BLT Surveys\nThe fish belt transect (BLT) protocol is the primary method used to quantify reef fish assemblages at UVS sites. Divers swim standardized belt transects, visually identifying and sizing all fishes observed within a defined area. This method yields robust estimates of fish abundance, biomass, and community structure across depth strata and regions (see SOP for full methods).\nFish BLT data are stored into three tables:\n\nuvs.blt_stations — Metadata for each station, including depth, diver, effort, and summary metrics\nuvs.blt_observations — Raw fish counts by species, size class, and transect\nuvs.blt_biomass_by_taxa — Derived biomass by station and taxon, using length-weight relationships\n\nAll records are linked via ps_station_id, and species names are standardized using taxon_id from taxonomy.fish.\n\nuvs.blt_stations\nThis table contains one row per depth-stratified fish survey conducted at a UVS site. Each row includes dive metadata, survey effort (e.g., number of transects, area surveyed), and ecological summaries such as richness, total abundance, and biomass. Stations are linked to uvs.sites via ps_site_id. The ps_station_id is generated by appending a standardized depth bin label to the ps_site_id.\n\n\n\n\n\n\nStandard depth strata for UVS methods\n\n\n\nTo ensure consistency across sites and protocols, station depth (depth_m) is binned into standard strata using fixed thresholds. The binned depth label is then appended to the ps_site_id to generate a unique ps_station_id.\nDepth strata and labels:\n\nSupershallow: &lt;= 6 m → 05m\n\nShallow: 7–14 m → 10m\n\nDeep: &gt;= 15 m → 20m\n\nExamples:\n\nIf a fish transect is conducted at 5.8 m → station ID = FJI_2025_uvs_001_05m\n\nIf the same site has another transect at 14.7 m → FJI_2025_uvs_001_10m\n\nThis depth binning scheme ensures consistent stratification across analyses, regardless of slight depth variation between dives.\n\n\n\n\n\n\nTable 1: Fields in the uvs.blt_stations table\n\n\n\n\n\n\n\n\n\nField\nType\nRequired\nDescription\n\n\n\n\nps_station_id\nSTRING\ntrue\nUnique station ID (ps_site_id_depth), e.g., CHL_2024_uvs_001_20m\n\n\nps_site_id\nSTRING\ntrue\n◂ Foreign key to UVS site table\n\n\nexp_id\nSTRING\ntrue\n◂ Expedition ID (ISO3_YEAR)\n\n\nmethod\nSTRING\ntrue\n◂ Survey method (uvs)\n\n\nprotocol\nSTRING\ntrue\nSurvey protocol (fish_blt) used at the station\n\n\ndivers\nSTRING\ntrue\nNames of divers who conducted the transects (comma-separated)\n\n\ndate\nDATE\ntrue\n◂ Survey date (YYYY-MM-DD)\n\n\ntime\nTIME\ntrue\n◂ Survey start time (24-hour format)\n\n\ndepth_m\nFLOAT\ntrue\nAverage depth of the station (m)\n\n\ndepth_strata\nSTRING\ntrue\nBinned depth category: supershallow, shallow, or deep\n\n\nregion\nSTRING\ntrue\n◂ Region name\n\n\nsubregion\nSTRING\ntrue\n◂ Subregion name\n\n\nlocality\nSTRING\nfalse\n◂ Optional local feature (e.g., reef, bay, cove)\n\n\nn_transects\nINTEGER\ntrue\nNumber of fish transects completed at the station\n\n\ntransect_length\nFLOAT\ntrue\nLength of each transect (m)\n\n\ntransect_width\nFLOAT\ntrue\nWidth of each transect (m)\n\n\nsurvey_area_m2\nFLOAT\ntrue\nTotal area surveyed at the station (m²)\n\n\nhabitat\nSTRING\ntrue\n◂ Habitat type (see controlled vocabulary)\n\n\nexposure\nSTRING\ntrue\n◂ Exposure type (see controlled vocabulary)\n\n\nn_species\nINTEGER\nfalse\nSpecies richness (optional summary)\n\n\nabundance_m2\nFLOAT\nfalse\nFish abundance (individuals/m², optional summary)\n\n\nbiomass_gm2\nFLOAT\nfalse\nFish biomass (grams/m², optional summary)\n\n\nnotes\nSTRING\nfalse\nOptional comments or QA notes\n\n\n\n\n\n\n\n\n\n\n\n\nuvs.blt_observations\nThis table contains one row per fish observation recorded on an individual transect during a belt transect survey. Observations represent raw field data collected by divers and include species identity, estimated size, and count. Each row corresponds to a unique combination of species, size class, and transect.\n\nLinked to the uvs.blt_stations table via ps_station_id\nTaxonomic identity is standardized using accepted_name and aphia_id, which join to taxonomy.fish\nFish size (length_cm) and abundance (count) are used to calculate derived metrics (e.g., biomass) in downstream summaries\n\n\n\n\n\n\n\nTransect dimensions by fish size\n\n\n\n\nFish ≥ 20 cm are recorded along a 25 m × 4 m belt (100 m²)\nFish &lt; 20 cmare recorded along a 25 m × 2 m belt (50 m²) Note: When transects deviate from standard dimensions, actual surveyed area should be recorded and used for calculations.\n\n\n\n\n\n\n\nTable 2: fish.observations Table Schema\n\n\n\n\n\n\n\n\n\nField\nType\nRequired\nDescription\n\n\n\n\nobs_id\nSTRING\ntrue\nUnique observation ID from diver datasheet (e.g., CHL_2024_blt_AMF_0001)\n\n\nps_station_id\nSTRING\ntrue\n◂ Foreign key linking to uvs.blt_stations\n\n\ndiver\nSTRING\ntrue\nName of the diver who recorded the observation\n\n\nstation_label\nSTRING\nfalse\nField-assigned depth stratum label (e.g., shallow, deep)\n\n\ntransect\nSTRING\ntrue\nTransect label: A, B, or C; OFF for observations recorded outside standard transects\n\n\ndepth_m\nFLOAT\ntrue\nDepth at which the transect was conducted\n\n\naccepted_name\nSTRING\ntrue\nScientific name (Genus species) of observed taxon\n\n\naphia_id\nSTRING\ntrue\nUnique AphiaID from WoRMS — links to taxonomy.fish\n\n\nlength_cm\nFLOAT\ntrue\nEstimated total length (cm) of individual or size class\n\n\nterminal_phase\nBOOLEAN\nfalse\nTRUE if individual was identified as terminal phase (e.g., parrotfishes)\n\n\ncount\nINTEGER\ntrue\nNumber of individuals observed in this size class\n\n\nnotes\nSTRING\nfalse\nOptional comments or QA notes\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nOff-transect observations\n\n\n\nFish observed outside of standard transects (e.g., large pelagics, megafauna) are recorded using transect = \"OFF\". These are included for completeness but should be treated separately in standardized analyses.\n\n\n\n\nuvs.blt_biomass_by_taxa\nThis table contains station-level summaries of reef fish biomass and abundance by species, derived from raw BLT transect observations. It is the primary analysis-ready table for generating summaries, figures, and community structure plots.\nEach row represents a unique combination of ps_station_id and species, with metrics standardized to g/m² (biomass) and ind./m² (abundance). All values are computed using species-specific length–weight parameters from the taxonomy.fish table.\nTaxonomic and ecological fields — including family, trophic group, and functional group — are joined from the central species reference and enable flexible aggregation for trophic or functional analyses.\n\n\n\n\nTable 3: uva.blt_biomass_by_taxa Table Schema\n\n\n\n\n\n\n\n\n\nField\nType\nRequired\nDescription\n\n\n\n\nps_station_id\nSTRING\ntrue\n◂ Foreign key to uvs.blt_stations\n\n\nexp_id\nSTRING\ntrue\n◂ Expedition ID (ISO3_YEAR)\n\n\nps_site_id\nSTRING\ntrue\n◂ Site ID for spatial grouping\n\n\nregion\nSTRING\ntrue\n◂ Region name\n\n\nsubregion\nSTRING\ntrue\n◂ Subregion name\n\n\ndepth_strata\nSTRING\ntrue\nBinned depth category: supershallow, shallow, or deep\n\n\ndepth_m\nFLOAT\ntrue\nAverage depth of the station (m)\n\n\naphia_id\nSTRING\ntrue\n◂ Species ID (linked to taxonomy.fish)\n\n\naccepted_name\nSTRING\nfalse\nScientific name (Genus species)\n\n\nfamily\nSTRING\nfalse\nTaxonomic family (e.g., Acanthuridae)\n\n\ntrophic_group\nSTRING\nfalse\nEcological trophic group (e.g., piscivore, herbivore)\n\n\nfunctional_group\nSTRING\nfalse\nFunctional role (e.g., browser, planktivore)\n\n\ncount\nINTEGER\nfalse\nTotal number of individuals observed\n\n\nabundance_m2\nFLOAT\nfalse\nAverage density (individuals per m²)\n\n\nbiomass_gm2\nFLOAT\nfalse\nAverage estimated biomass (g/m²)",
+    "crumbs": [
+      "Method Datasets",
+      "Underwater Visual Surveys (UVS)",
+      "Fish BLT"
+    ]
+  },
+  {
+    "objectID": "02_expeditions.html",
+    "href": "02_expeditions.html",
+    "title": "Expeditions Dataset",
+    "section": "",
+    "text": "The expeditions/ dataset anchors the entire spatial structure of the Pristine Seas Science Database. It provides a canonical registry of expeditions, spatial hierarchy, and field deployments across all survey methods. These tables enable consistent joins, filtering, and spatial aggregation across datasets.",
+    "crumbs": [
+      "Expeditions Dataset"
+    ]
+  },
+  {
+    "objectID": "02_expeditions.html#tables",
+    "href": "02_expeditions.html#tables",
+    "title": "Expeditions Dataset",
+    "section": "1 Tables",
+    "text": "1 Tables\n\n1.1 expeditions.info\nThis table stores metadata for each expedition conducted by the Pristine Seas team. Each row corresponds to a unique expedition and defines the top-level context for all associated sampling efforts.\n\n\n\n\nTable 1: expeditions.info Table Schema\n\n\n\n\n\n\n\n\n\nField\nType\nRequired\nDescription\n\n\n\n\nexp_id\nSTRING\ntrue\nUnique expedition identifier in the format ISO3_YEAR (e.g., FJI_2025)\n\n\nnumber\nINTEGER\ntrue\nSequential expedition number (e.g., 43)\n\n\nname\nSTRING\ntrue\nOfficial or working expedition name\n\n\ncountry\nSTRING\ntrue\nPrimary country or jurisdiction visited\n\n\nstart_date\nDATE\ntrue\nExpedition start date in ISO 8601 format (YYYY-MM-DD)\n\n\nend_date\nDATE\ntrue\nExpedition end date in ISO 8601 format (YYYY-MM-DD)\n\n\nlead\nSTRING\ntrue\nOverall expedition lead\n\n\nscience_lead\nSTRING\ntrue\nLead scientist for the research campaign\n\n\nvessel\nSTRING\nfalse\nName of the vessel or platform used\n\n\nship_track\nSTRING\nfalse\nWKT LINESTRING representing the ship’s route (optional)\n\n\npartners\nSTRING\nfalse\nInstitutional collaborators (optional)\n\n\ndescription\nSTRING\nfalse\nBrief description of expedition goals and scope\n\n\nnotes\nSTRING\nfalse\nOptional free-text notes or admin metadata\n\n\n\n\n\n\n\n\n\n\nTo date, our team has conducted 47 expeditions across 30 countries since our first one in 2007.\n\n\n\n\n\n\n\n\nFigure 1: Timeline of expeditions\n\n\n\n\n\n\n1.2 expeditions.sites\nThe expeditions.sites table defines the canonical spatial unit for all Pristine Seas field deployments (Table 2). Each row represents a single application of a survey method (e.g., UVS, pBRUV, submersible) at a specific place and time during an expedition.\nWhile method-specific site tables exist (e.g., uvs.sites, sub.sites), this shared table provides a centralized registry that supports cross-method integration, standardized mapping, and consistent spatial joins.\n\n\n\n\n\n\nWhat is a site?\n\n\n\nA site is defined by a unique combination of exp_id, method, and a 3-digit site number\n(e.g., FJI_2025_uvs_001)\n\nIt represents one deployment, diver, or survey event of a given method at a location\n\nEach site may contain multiple stations (e.g., depth strata, replicates, rigs)\n\nExamples:\n- A **UVS site** could be a reef dive where divers conduct fish, benthic, and invertebrate surveys at multiple depths\n- A pBRUV site is a pelagic drop of five video rigs — each a separate station\n- A submersible site refers to a single dive, typically comprising multiple horizontal transects\nSites serve as the parent unit of stations and a universal spatial key across all modules.\n\n\n\n\n\n\nTable 2: expeditions.sites Table Schema\n\n\n\n\n\n\n\n\n\nField\nType\nRequired\nDescription\n\n\n\n\nps_site_id\nSTRING\ntrue\nUnique site ID (exp_id_method_###), e.g., FJI_2025_uvs_001\n\n\nexp_id\nSTRING\ntrue\nForeign key to expeditions.info\n\n\nmethod\nSTRING\ntrue\nField method used (e.g., uvs, pbruv, edna, sub)\n\n\nregion\nSTRING\ntrue\nBroad geographic or administrative unit (e.g., Murat, Chocó, Tuamotu, Duff Islands).\n\n\nsubregion\nSTRING\ntrue\nIntermediate feature within the region such as an atoll, island, gulf, or reef complex\n\n\nlocality\nSTRING\nfalse\nLocal named feature such as a village, bay, cove, reef (e.g., Lolieng, Ensenada Utría).\n\n\ndate\nDATE\ntrue\nDate of the site-level deployment in ISO 8601 format (YYYY-MM-DD)\n\n\ntime\nTIME\ntrue\nLocal time of the deployment in 24-hour format (HH:MM:SS)\n\n\nlatitude\nFLOAT\ntrue\nApproximate latitude (decimal degrees, WGS84)\n\n\nlongitude\nFLOAT\ntrue\nApproximate longitude (decimal degrees, WGS84)\n\n\nlead\nSTRING\ntrue\nName of the lead scientist or survey team lead\n\n\nnotes\nSTRING\nfalse\nOptional comments, metadata, or field observations",
+    "crumbs": [
+      "Expeditions Dataset"
     ]
   }
 ]

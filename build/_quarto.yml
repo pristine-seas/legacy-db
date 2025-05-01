@@ -16,41 +16,41 @@ website:
       - text: "Overview"
         file: index.qmd
       - text: "Database Architecture"
-        file: architecture.qmd
+        file: 01_architecture.qmd
       - text: "Expeditions Dataset"
-        file: expeditions.qmd
+        file: 02_expeditions.qmd
       - text: "Taxonomy Dataset"
-        file: taxonomy.qmd
+        file: 03_taxonomy.qmd
       - text: "Lookup Tables"
-        file: lookup.qmd
+        file: 04_lookup.qmd
       - section: "Method Datasets"
-        file: methods.qmd
+        file: 05_methods.qmd
         contents:
         - section: "Underwater Visual Surveys (UVS)"
-          file: uvs.qmd
+          file: 06_uvs.qmd
           contents:
             - text: "Fish BLT"
-              file: uvs_blt.qmd
+              file: 07_uvs_blt.qmd
             - text: "Benthos LPI"
-              file: uvs_lpi.qmd
+              file: 08_uvs_lpi.qmd
             - text: "Inverts"
-              file: uvs_inverts.qmd
+              file: 09_uvs_inverts.qmd
             - text: "Recruits"
-              file: uvs_recruits.qmd
+              file: 10_uvs_recruits.qmd
         - section: "eDNA"
-          file: edna.qmd
+          file: 11_edna.qmd
         - section: "Seabed BRUVS"
-          file: sbruvs.qmd
+          file: 12_sbruv.qmd
         - section: "Pelagic BRUVS"
-          file: pbruvs.qmd
+          file: 13_pbruv.qmd
         - section: "Seabird surveys"
-          file: birds.qmd
+          file: 14_birds.qmd
         - section: "Submersible"
-          file: sub.qmd
-        - section: "Deep Sea Cameras"
-          file: dscm.qmd
+          file: 15_sub.qmd
         - section: "ROV"
-          file: rov.qmd
+          file: 16_rov.qmd
+        - section: "Deep Sea Cameras"
+          file: 17_dscm.qmd
           
   page-footer:
     center: "© 2024 National Geographic Society. All rights reserved."

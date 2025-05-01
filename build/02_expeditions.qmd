@@ -1,0 +1,278 @@
+---
+title: "Expeditions Dataset"
+format: 
+  html:
+    theme: lux
+    self-contained: true
+    code-fold: true
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+    number-sections: true
+    number-depth: 3
+---
+
+```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
+options(scipen = 999)
+
+library(PristineSeasR)
+library(bigrquery)
+library(gt)
+library(gtExtras)
+library(tibble)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(lubridate)
+
+knitr::opts_chunk$set(eval = F, warning = F, message = F, include = F, echo = F)
+
+ps_paths <- PristineSeasR::get_sci_drive_paths()
+
+prj_path <- file.path(ps_paths$projects, "legacy-db")
+
+ps_data_path <- ps_paths$datasets
+  
+bigrquery::bq_auth(email = "marine.data.science@ngs.org")
+
+project_id <- "pristine-seas"
+
+bq_connection <- DBI::dbConnect(bigrquery::bigquery(), 
+                                project = project_id)
+```
+
+The `expeditions/` dataset anchors the entire spatial structure of the Pristine Seas Science Database. It provides a canonical registry of expeditions, spatial hierarchy, and field deployments across all survey methods. These tables enable consistent joins, filtering, and spatial aggregation across datasets.
+
+## Tables
+
+### `expeditions.info`
+
+This table stores metadata for each expedition conducted by the Pristine Seas team. Each row corresponds to a unique expedition and defines the top-level context for all associated sampling efforts.
+
+```{r eval = T, include = T}
+#| label: tbl-exp.info
+#| tbl-cap: "expeditions.info Table Schema"
+
+exp.info_fields <- tribble(
+  ~field,          ~type,     ~required,  ~description,
+  "exp_id",        "STRING",  TRUE,       "Unique expedition identifier in the format ISO3_YEAR (e.g., FJI_2025)",
+  "number",        "INTEGER", TRUE,       "Sequential expedition number (e.g., 43)",
+  "name",          "STRING",  TRUE,       "Official or working expedition name",
+  "country",       "STRING",  TRUE,       "Primary country or jurisdiction visited",
+  "start_date",    "DATE",    TRUE,       "Expedition start date in ISO 8601 format (YYYY-MM-DD)",
+  "end_date",      "DATE",    TRUE,       "Expedition end date in ISO 8601 format (YYYY-MM-DD)",
+  "lead",          "STRING",  TRUE,       "Overall expedition lead",
+  "science_lead",  "STRING",  TRUE,       "Lead scientist for the research campaign",
+  "vessel",        "STRING",  FALSE,      "Name of the vessel or platform used",
+  "ship_track",    "STRING",  FALSE,      "`WKT LINESTRING` representing the ship's route (optional)",
+  "partners",      "STRING",  FALSE,      "Institutional collaborators (optional)",
+  "description",   "STRING",  FALSE,      "Brief description of expedition goals and scope",
+  "notes",         "STRING",  FALSE,      "Optional free-text notes or admin metadata"
+)
+
+exp.info_fields |>
+  gt() |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+```{r eval = T, include = T}
+# Read and clean the raw data
+exp_info_url <- "https://docs.google.com/spreadsheets/d/1YVjkTWcxB1UseknmGvGmayeKP2fH_9UIbubksmkSGMU/edit#gid=0"
+
+expeditions_data <- googlesheets4::read_sheet(exp_info_url)
+
+expeditions_clean <- expeditions_data %>%
+  janitor::clean_names() %>%
+  separate(date, into = c("start_date", "end_date"), sep = " - ") %>%
+  rename(exp_id        = expedition_id,
+         number        = expedition_number,
+         name          = expedition_name,
+         lead          = expedition_leader,
+         science_lead  = science_lead,
+         country       = country,
+         vessel        = ship_name,
+         partners      = partners) %>%
+  mutate(start_date   = ymd(start_date),
+         end_date     = ymd(end_date),
+         ship_track   = NA_character_,
+         description  = NA_character_,
+         notes        = NA_character_) %>%
+  select(exp_id, number, name, country, start_date, end_date, lead, science_lead, vessel, ship_track, partners, description, notes)
+
+
+```
+
+To date, our team has conducted **`r nrow(expeditions_clean)`** expeditions across **`r length(unique(expeditions_clean$country))`** countries since our first one in 2007. 
+
+```{r eval = T, include = T}
+#| label: fig-expeditions-timeline
+#| fig-cap: "Timeline of expeditions"
+#| fig-width: 10
+#| fig-height: 8
+#| 
+
+expeditions_timeline <- expeditions_clean %>%
+  mutate(year = year(start_date)) %>%
+  filter(!is.na(year)) %>%
+  arrange(year) %>%
+  group_by(year) %>%
+  summarise(n = n(),
+            expedition_list = paste(name, collapse = "<br>"),
+            .groups = "drop") %>%
+  mutate(cumulative = cumsum(n))
+
+# Elegant cumulative line plot
+p <- ggplot(expeditions_timeline, 
+            aes(x = year,
+                y = cumulative,
+                group = 1,
+                text = paste0("<b>Year:</b> ", year, "<br>",
+                              "<b>Cumulative:</b> ", cumulative, "<br>",
+                              "<b>Expeditions:</b><br>", expedition_list))) +
+  geom_line(color = "#1F77B4", linewidth = 1.3, lineend = "round") +
+  geom_point(color = "#1F77B4", size = 3) +
+  scale_x_continuous(breaks = unique(expeditions_timeline$year)) +
+  labs(title = "Pristine Seas Expeditions",
+       subtitle = "Number of expeditions through time",
+       x = NULL,
+       y = NULL) +
+  theme_minimal(base_family = "Inter") +
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        axis.text = element_text(size = 12),
+        panel.grid.major = element_line(color = "#eaeaea"),
+        panel.grid.minor = element_blank(),
+        axis.line = element_blank())
+
+# Convert to interactive plotly
+ggplotly(p, 
+         tooltip = "text") %>%
+  layout(hoverlabel = list(bgcolor = "#ffffff",
+                           font = list(family = "Inter", size = 13)),
+         margin = list(t = 60, b = 40, l = 30, r = 30),
+         hovermode = "x unified")
+```
+
+```{r create-dataset, include = FALSE}
+if (!bq_dataset_exists(bq_dataset("pristine-seas", "expeditions"))) {
+  bq_dataset_create(
+    bq_dataset("pristine-seas", "expeditions"),
+    description = "Core reference dataset for the Pristine Seas Science Database. Contains metadata and spatial hierarchy for all expeditions, including expedition info, sites, and stations. Provides the backbone for spatial joins, standardization, and integration across all survey methods."
+  )
+}
+
+# Define table schema
+exp.info_schema <- exp.info_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "expeditions", "info"),
+                fields = exp.info_schema)
+
+bq_table_upload(bq_table("pristine-seas", "expeditions", "info"),
+                values = expeditions_clean,
+                create_disposition = "CREATE_NEVER",
+                write_disposition = "WRITE_APPEND")
+```
+
+### `expeditions.sites`
+
+The expeditions.sites table defines the canonical spatial unit for all Pristine Seas field deployments (@tbl-exp.sites). Each row represents a single application of a survey method (e.g., UVS, pBRUV, submersible) at a specific place and time during an expedition.
+
+While method-specific site tables exist (e.g., uvs.sites, sub.sites), this shared table provides a centralized registry that supports cross-method integration, standardized mapping, and consistent spatial joins.
+
+::: {.callout-tip title="What is a site?"}
+
+A site is defined by a unique combination of `exp_id`, `method`, and a 3-digit site number  
+_(e.g., `FJI_2025_uvs_001`)_
+
+- It represents one **deployment, diver, or survey event** of a given method at a location  
+- Each site may contain **multiple stations** (e.g., depth strata, replicates, rigs)
+
+**Examples:**
+
+	- A **UVS site** could be a reef dive where divers conduct fish, benthic, and invertebrate surveys at multiple depths
+	- A pBRUV site is a pelagic drop of five video rigs — each a separate station
+	- A submersible site refers to a single dive, typically comprising multiple horizontal transects
+
+Sites serve as the **parent unit** of stations and a universal spatial key across all modules.
+
+:::
+
+
+```{r eval = T, include = T}
+#| label: tbl-exp.sites
+#| tbl-cap: "expeditions.sites Table Schema"
+
+exp.sites_fields <- tribble(
+  ~field,         ~type,     ~required, ~description,
+  "ps_site_id",   "STRING",  TRUE,      "Unique site ID (`exp_id_method_###`), e.g., `FJI_2025_uvs_001`",
+  "exp_id",       "STRING",  TRUE,      "Foreign key to `expeditions.info`",
+  "method",       "STRING",  TRUE,      "Field method used (e.g., `uvs`, `pbruv`, `edna`, `sub`)",
+  "region",       "STRING",  TRUE,      "Broad geographic or administrative unit (e.g., Murat, Chocó, Tuamotu, Duff Islands).",
+  "subregion",    "STRING",  TRUE,      "Intermediate feature within the region such as an atoll, island, gulf, or reef complex",
+  "locality",     "STRING",  FALSE,     "Local named feature such as a village, bay, cove, reef (e.g., Lolieng, Ensenada Utría).",
+  "date",         "DATE",    TRUE,      "Date of the site-level deployment in ISO 8601 format (`YYYY-MM-DD`)",
+  "time",         "TIME",    TRUE,      "Local time of the deployment in 24-hour format (`HH:MM:SS`)",
+  "latitude",     "FLOAT",   TRUE,      "Approximate latitude (decimal degrees, WGS84)",
+  "longitude",    "FLOAT",   TRUE,      "Approximate longitude (decimal degrees, WGS84)",
+  "lead",         "STRING",  TRUE,      "Name of the lead scientist or survey team lead",
+  "notes",        "STRING",  FALSE,     "Optional comments, metadata, or field observations"
+)
+
+exp.sites_fields |>
+  gt() |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+
+```{r create-tbl, include = FALSE}
+# Define table schema
+exp.sites_schema <- exp.sites_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "expeditions", "sites"),
+                fields = exp.sites_schema)
+```
+

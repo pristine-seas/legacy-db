@@ -1,0 +1,168 @@
+---
+title: "Underwater Visual Surveys Dataset"
+format: 
+  html:
+    theme: lux
+    self-contained: true
+    code-fold: true
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+    number-sections: true
+    number-depth: 3
+---
+
+```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
+options(scipen = 999)
+
+library(PristineSeasR)
+library(bigrquery)
+library(gt)
+library(gtExtras)
+library(tibble)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(lubridate)
+
+knitr::opts_chunk$set(eval = F, warning = F, message = F, include = F, echo = F)
+
+ps_paths <- PristineSeasR::get_sci_drive_paths()
+
+prj_path <- file.path(ps_paths$projects, "legacy-db")
+
+ps_data_path <- ps_paths$datasets
+  
+bigrquery::bq_auth(email = "marine.data.science@ngs.org")
+
+project_id <- "pristine-seas"
+
+bq_connection <- DBI::dbConnect(bigrquery::bigquery(), 
+                                project = project_id)
+```
+
+The `uvs/` dataset contains all data collected using Pristine Seas’ SCUBA-based underwater visual survey (UVS) protocols. These methods assess reef fish, benthic cover, invertebrates, and coral recruits at spatially co-located reef sites, using a standardized and depth-stratified survey design.
+
+Each UVS site typically includes multiple stations across depth strata (e.g., shallow, deep), where several survey protocols may be conducted in parallel.
+
+The dataset is structured to balance:
+
+- Modularity by protocol — each sub-method (BLT, LPI, inverts, recruits) has dedicated tables
+- Shared spatial infrastructure — common sites and stations tables ensure alignment across protocols
+
+This architecture enables flexible, protocol-specific analysis and integrated reef assessments across taxa and trophic groups.
+
+---
+
+## Dataset Structure
+
+```text
+uvs/
+├── sites               # Deployment-level metadata for each UVS dive
+├── stations            # Depth-stratified units within each dive
+├── blt_stations        # Fish transects (BLT)
+├── blt_observations    # Raw fish counts
+├── blt_biomass_by_taxa # Station-level biomass summaries
+├── lpi_stations        # Benthic transects
+├── lpi_counts          # Raw point intercepts
+├── lpi_cover_by_taxa   # Cover summary by benthic taxon
+├── inverts_stations    # Invertebrate survey transects
+├── inverts_counts      # Raw invertebrate observations
+├── recruits_stations   # Coral recruit transects
+├── recruits_counts     # Raw coral recruit counts
+```
+Each table is documented in its own section below.
+
+## Tables 
+
+### `uvs.sites`
+
+This table contains site-level metadata for all underwater visual surveys. Each row represents a discrete SCUBA dive at a location, typically involving multiple co-located survey protocols (e.g., fish BLT, LPI, inverts, recruits).
+
+It follows the core site schema defined in `expeditions.sites`, with additional UVS-specific fields (@tbl-uvs.sites)
+
+```{r eval = T, include = T}
+#| label: tbl-uvs.sites
+#| tbl-cap: "Adiditonal fields in the `uvs.sites` table"
+#| 
+
+uvs.sites_fields <- tribble(
+  ~field,         ~type,     ~required, ~description,
+  "site_name",    "STRING",  FALSE,     "Local site name. Used in previous surveys or by local partners",
+  "habitat",      "STRING",  TRUE,      "Dominant reef habitat type (e.g., fore reef, patch reef, fringing reef)",
+  "exposure",     "STRING",  TRUE,      "Wave and wind exposure (e.g., windward, leeward, lagoon)",
+  "protected",    "BOOLEAN", FALSE,     "Whether the site is inside a marine protected area (MPA)",
+  "blt",          "BOOLEAN", FALSE,     "Indicates whether fish belt transects were conducted",
+  "lpi",          "BOOLEAN", FALSE,     "Indicates whether benthic point intercept surveys were conducted",
+  "inverts",      "BOOLEAN", FALSE,     "Indicates whether invertebrate surveys were conducted",
+  "recruits",     "BOOLEAN", FALSE,     "Indicates whether coral recruit transects were conducted",
+  "ysi",          "BOOLEAN", FALSE,     "Indicates whether YSI environmental profiles were collected",
+  "photomosaic",  "BOOLEAN", FALSE,     "Indicates whether a photomosaic survey was conducted",
+  "edna",         "BOOLEAN", FALSE,     "Indicates whether eDNA samples were collected at the site"
+)
+
+uvs.sites_fields |>
+  gt() |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+::: {.callout-tip title="Controlled vocabulary"}
+
+**`habitat`**
+
+- *fore reef* — Outer reef slope exposed to ocean swell.
+- *back reef* — Sheltered zone behind the reef crest  
+- *fringing reef* — Reef growing directly from the shoreline  
+- *patch reef* — Isolated reef outcrop within a lagoon or sandy area  
+- *reef flat* — Shallow, flat reef section, often exposed at low tide  
+- *channel* — Natural break or passage between reef structures  
+- *seagrass* — Vegetated, soft-bottom habitat dominated by seagrasses  
+- *rocky reef* — Reef formed by consolidated rock  
+- *other* — Habitat not captured by the above categories  
+
+**`exposure`**
+
+- *windward* — Facing prevailing winds and swell  
+- *leeward* — Sheltered from prevailing winds  
+- *lagoon* — Within an enclosed or semi-enclosed reef lagoon  
+- *other* — Exposure type not described above  
+
+:::
+
+```{r create-dataset, include = FALSE}
+if (!bq_dataset_exists(bq_dataset("pristine-seas", "uvs"))) {
+  bq_dataset_create(
+    bq_dataset("pristine-seas", "uvs"),
+    description = "Underwater visual survey (UVS) dataset. Includes site metadata, depth-stratified stations, and observations from fish BLT, benthic LPI, invertebrate, and coral recruit protocols."
+  )
+}
+
+# Define table schema
+uvs.sites_schema <- uvs.sites_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "uvs", "sites"),
+                fields = uvs.sites_schema)
+```

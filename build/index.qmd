@@ -52,11 +52,11 @@ Together, these practices ensure the database serves as a durable, transparent, 
 
 This site provides a structured walkthrough of the database:
 
-- [Architecture](architecture.qmd): How the system is organized and how sites and stations are defined
-- [Expeditions](expeditions.qmd): How expeditions metadata and other spatial info is stored
-- [Taxonomy](taxonomy.qmd): How species and traits are organized
-- [Lookup](lookup.qmd): Controlled vocabularies and contributor metadata
-- [Data Access](access.qmd): How to work with the data in BigQuery or R
+- [Architecture](01_architecture.qmd): How the system is organized and how sites and stations are defined
+- [Expeditions](02_expeditions.qmd): How expeditions metadata and other spatial info is stored
+- [Taxonomy](03_taxonomy.qmd): How species and traits are organized
+- [Lookup](04_lookup.qmd): Controlled vocabularies and contributor metadata
+- [Method datasets](05_methods.qmd): How to work with the data in BigQuery or R
 
 
 ---

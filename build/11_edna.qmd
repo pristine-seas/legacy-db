@@ -1,0 +1,87 @@
+---
+title: "eDNA Dataset"
+format: 
+  html:
+    theme: lux
+    self-contained: true
+    code-fold: true
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+    number-sections: true
+    number-depth: 3
+---
+
+```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
+options(scipen = 999)
+
+library(PristineSeasR)
+library(bigrquery)
+library(gt)
+library(gtExtras)
+library(tibble)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(lubridate)
+
+knitr::opts_chunk$set(eval = F, warning = F, message = F, include = F, echo = F)
+
+ps_paths <- PristineSeasR::get_sci_drive_paths()
+
+prj_path <- file.path(ps_paths$projects, "legacy-db")
+
+ps_data_path <- ps_paths$datasets
+  
+bigrquery::bq_auth(email = "marine.data.science@ngs.org")
+
+project_id <- "pristine-seas"
+
+bq_connection <- DBI::dbConnect(bigrquery::bigquery(), 
+                                project = project_id)
+```
+
+## Tables 
+
+### `edna.sites`
+
+The `edna.sites` table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time and serves as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples (replicates) may be collected across different depth strata, recorded in the corresponding `edna.stations` table.
+
+In addition to the **core site fields**, the `edna.sites` table includes method-specific metadata (@tbl-edna-site-schema), such as:
+
+  - **`exposure`** – Same controlled vocabulary as in `uvs_sites`  
+  - **`habitat`** – Same as `uvs_sites`, with the following additional categories:
+    - **_open water_** – Offshore or pelagic environments
+    - **_bay_** – Semi-enclosed coastal embayments
+    - **_estuary_** – Transitional area between river and marine systems
+    - **_mangrove_** – Shallow, intertidal forested coastal habitat
+    
+    
+```{r edna_fields, eval = T, include = T}
+#| label: tbl-edna-site-schema
+#| tbl-cap: "Additional fields to the core site fields in the `edna_sites` table"
+
+edna_site_fields <- tibble::tibble(Method = "edna",
+                                   Field = c("habitat", "exposure", "paired_ps_site_id", "n_stations", "n_samples", "site_photos"),
+                                   Type = c("STRING", "STRING","STRING","INTEGER", "INTEGER", "STRING"),
+                                   Required = c(TRUE, TRUE, FALSE, TRUE, TRUE, FALSE),
+                                   Description = c("Dominant habitat type. Allowed values: *fore reef*, *back reef*, *fringing reef*, *patch reef*, *reef flat*, *channel*, *seagrass*, *rocky reef*, *open water*, *bay*, *estuary*, *mangrove*, *other*.",
+                                                   "Wind and wave exposure at the site. Allowed values: *windward*, *leeward*, *lagoon*, *other*.",
+                                                   "`ps_site_id` of a paired site (e.g., a `uvs` or `pbruvs` site), if applicable",
+                                                   "Number of unique stations (i.e., depth strata) sampled at the site",
+                                                   "Total number of water samples (replicates) collected at the site",
+                                                   "path to associated site photos, if available (e.g.,  eDNA/site_photos/COL-2022-edna-001)"))
+
+edna_site_fields |>
+  gt::gt(groupname_col = "Method") |> 
+  tab_options(row_group.as_column = T) |> 
+  tab_stubhead(label = "Table") |> 
+  tab_options(table.font.size = 13,
+              table.border.top.style = "solid",
+              table.border.top.width = px(2),
+              table.border.top.color = "black",
+              heading.align = "center",
+              column_labels.font.weight = "bold")
+```
+
