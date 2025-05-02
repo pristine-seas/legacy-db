@@ -1,0 +1,422 @@
+---
+title: "UVS Fish Codes"
+format: 
+  html:
+    theme: lux
+    self-contained: true
+    code-fold: true
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+    number-sections: true
+    number-depth: 3
+---
+
+```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
+options(scipen = 999)
+
+library(PristineSeasR)
+library(bigrquery)
+library(gt)
+library(gtExtras)
+library(tibble)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(lubridate)
+
+knitr::opts_chunk$set(eval = F, warning = F, message = F, include = F, echo = F)
+
+ps_paths <- PristineSeasR::get_sci_drive_paths()
+
+prj_path <- file.path(ps_paths$projects, "legacy-db")
+
+ps_data_path <- ps_paths$datasets
+  
+bigrquery::bq_auth(email = "marine.data.science@ngs.org")
+
+project_id <- "pristine-seas"
+
+bq_connection <- DBI::dbConnect(bigrquery::bigquery(), 
+                                project = project_id)
+```
+
+This table maps shorthand taxon codes used during underwater visual surveys (UVS) to authoritative taxonomic identifiers and names. It serves as a translation layer between diver-entered field codes and the canonical taxonomy in `taxonomy.fish`.
+
+Each row corresponds to a unique `taxon_code` used in the field, whether referring to an accepted species, a synonym, or a higher-level taxon (genus or family). This mapping enables consistent, traceable integration of UVS data with modern taxonomic standards and trait metadata.
+
+Why it matters
+
+  - Legacy harmonization: Links historical field entries to accepted names and identifiers
+  - Soft joins: Enables flexible, code-to-species mapping across datasets
+  - Traceability: Maintains original diver intent while supporting global taxonomy
+
+This table captures both the field-level identity (what divers recorded) and the accepted scientific classification (based on WoRMS and FishBase), enabling robust reconciliation and trait-based analysis.
+
+```{r eval = T, include = T}
+#| label: tbl-fish-codes
+#| tbl-cap: "UVS Fish Codes"
+#| 
+uvs_fish_codes_fields <- tribble(
+  ~field,               ~type,     ~required, ~description,
+  "taxon_code",         "STRING",  TRUE,      "Short code used in field datasheets (e.g., `CH.ATR`)",
+  "taxon_name",         "STRING",  TRUE,      "Original name assigned to code (e.g., `Chromis atrilobata`)",
+  "aphia_id",           "INTEGER",  TRUE,      "AphiaID corresponding to `taxon_name` (may be outdated or unaccepted)",
+  "rank",               "STRING",  TRUE,      "Taxonomic rank of the observation (`species`, `genus`, `family`)",
+  "status",             "STRING",  TRUE,      "Taxonomic status of original name (`accepted`, `synonym`, `unresolved`)",
+  "accepted_name",      "STRING",  TRUE,      "Accepted scientific name (`Genus species`)",
+  "accepted_aphia_id",  "INTEGER",  TRUE,      "Accepted AphiaID for current taxonomy",
+  "fb_spec_code",       "INTEGER", FALSE,     "Optional FishBase SpecCode for cross-referencing",
+  "notes",              "STRING",  FALSE,     "Optional comments or notes (e.g., name updates, uncertainty)"
+)
+
+uvs_fish_codes_fields |>
+  gt() |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+#### How are codes generated?
+
+`taxon_code` is the primary join key across all UVS fish datasets in the Pristine Seas Database. These short, deterministic codes are optimized for diver entry — concise, unambiguous, and easy to write underwater.
+
+
+::: {.callout-important title="Taxon Code Logic"}
+
+**Field codes (`taxon_code`)** are used across UVS datasets to record species in a compact, consistent format optimized for field entry. They follow a structured and deterministic convention:
+
+##### Format for Species-Level Codes
+**`GEN2.SPEC4`** — First 2 letters of the genus + first 4 of the species (uppercase)
+
+- *Acanthurus tristis* → `AC.TRIS`  
+- *Apogon tricolor* → `AP.TRIC`  
+- *Anthias tricolor* → `AN.TRIC`
+
+##### Handling Duplicates
+When multiple species would share the same code:
+
+- The most common taxon keeps the default
+- Others extend the **genus** or **species** portion to ensure uniqueness
+
+**Examples**  
+- *Apogon tristis* → `AP.TRIS`  
+- *Aplodactylus tristis* → `APL.TRIS`  
+- *Labroides bilineatus* → `LA.BILI`  
+- *Labroides bilinearis* → `LA.BILIN`
+
+##### Genus- and Family-Level Codes
+Used when IDs are not to species:
+
+- Genus → `GEN4.SP` (e.g., *Labroides* sp. → `LABR.SP`)  
+- Family → `FAM4.SPP` (e.g., *Labridae* spp. → `LABR.SPP`)
+
+These conventions ensure clean joins, traceability, and consistent taxonomy across field data and reference tables.
+
+:::
+
+```{r}
+# Define table schema
+uvs_fish_codes_schema <- uvs_fish_codes_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "taxonomy", "uvs_fish_codes"),
+                fields = uvs_fish_codes_schema)
+```
+
+```{r taxa_list}
+library(readxl)
+library(janitor)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(bdc)        # for bdc_clean_names
+library(worrms)     # for wm_records_names
+
+#== 1. Akiona taxa
+
+akiona_taxa <- read_excel(file.path(prj_path, 
+                                    "data/raw/taxonomy/Pacific_LW_parameters_V1_07Apr2025.xlsx.xlsx"),
+                          sheet = "Length-Weight Parameter Table") |> 
+  clean_names() |> 
+  mutate(taxon = str_replace_all(taxon, "Plectorhincus", "Plectorhinchus"),
+         taxon = str_replace_all(taxon, "nagasakensis", "nagasakiensis"),
+         taxon = case_when(taxon == "Pristiapogon trimaculatus" ~ "Pristicon trimaculatus",
+                           TRUE ~ taxon)) |> 
+  mutate(taxon = str_squish(taxon),
+         taxon = str_remove_all(taxon, "\\bspecies\\b"),
+         taxon = str_trim(taxon)) |> 
+  filter(!str_detect(taxon, " x ")) |> 
+  distinct(taxon)
+
+#== 2. Pristine Seas field species lists
+
+png_paths <- list(AMF = file.path(ps_paths$expeditions,  "PNG-2024", "data/primary/raw/fish", "PNG_2024_fish_fieldbook_AMF.xlsx"),
+                  JEC = file.path(ps_paths$expeditions,  "PNG-2024", "data/primary/raw/fish", "PNG_2024_fish_fieldbook_JEC_FINAL.xlsx"),
+                  LEG1 = file.path(ps_paths$expeditions, "PNG-2024", "reports/Murat_Lovongai_fish_species_list.xlsx"),
+                  LEG2 = file.path(ps_paths$expeditions, "PNG-2024", "reports/Manus_NW_Islands_fish_species_list.xlsx"))
+
+png_taxa <- bind_rows(read_xlsx(png_paths$AMF, sheet = "all_species") |> 
+                        transmute(taxon_valid_name = original_scientific_name),
+                      read_xlsx(png_paths$JEC, sheet = "all_species") |> 
+                        transmute(taxon_valid_name = original_scientific_name),
+                      read_xlsx(png_paths$LEG1, sheet = "New Ireland Species List") |> 
+                        transmute(taxon_valid_name),
+                      read_xlsx(png_paths$LEG2, sheet = "SPECIES LIST", col_names = FALSE, range = "A4:A622") |>
+                        set_names("taxon_valid_name") |> 
+                        filter(taxon_valid_name != "BONY FISHES"))
+
+slb_taxa <- readxl::read_xlsx(file.path(ps_paths$expeditions,
+                                        "SLB-2024/data/primary/raw/fish","SLB_2024_fish_fieldbook_AMF.xlsx"),
+                              sheet = "all_species") |> 
+  distinct(taxon_valid_name = original_scientific_name)
+
+
+#== 3. Combine, standardize, and clean all field taxa =======
+
+exp_taxa <- bind_rows(png_taxa, slb_taxa) |> 
+  mutate(taxon_valid_name = str_replace_all(taxon_valid_name, "Plectorhincus", "Plectorhinchus"),
+         taxon = str_squish(taxon_valid_name),
+         taxon = str_replace_all(taxon, regex("\\s*\\b(spp?|sp)\\.?\\s*$", ignore_case = TRUE), " species"),
+         taxon = case_when(taxon == "Hemiramphid species"              ~ "Hemiramphidae species",
+                           taxon == "Meiacanthus oualensis"            ~ "Meiacanthus oualanensis",
+                           taxon == "Chrysiptera anarzae"              ~ "Chrysiptera arnazae",
+                           taxon == "Acanthoplesiops haitti"           ~ "Acanthoplesiops hiatti",
+                           taxon == "Hippocampus barbiganti"           ~ "Hippocampus bargibanti",
+                           taxon == "Pomacentrus simisang"             ~ "Pomacentrus simsiang",
+                           taxon == "Chromis parasema"                 ~ "Chrysiptera parasema",
+                           taxon == "Amblygobius eskiae"               ~ "Amblygobius esakiae",
+                           taxon == "Apogon cladophilus"               ~ "Apogon cladophilos",
+                           taxon == "Apogon fragalis"                  ~ "Apogon fragilis" ,
+                           taxon == "Istigobius nigoocellus"           ~ "Istigobius nigrocellus",
+                           taxon == "Atherinomorus enddrachtensis"     ~ "Atherinomorus endrachtensis",
+                           taxon == "Balistoides conspicullum"         ~ "Balistoides conspicillum",
+                           taxon == "Cantherhines fronticinctua"       ~ "Cantherhines fronticinctus",
+                           taxon == "Cephalopholis albomarginata"      ~ "Cephalopholis albomarginatus",
+                           taxon == "Dischistodus pseudochrysopoecilu" ~ "Dischistodus pseudochrysopoecilus",
+                           taxon == "Fusigobius aureua"                ~ "Fusigobius aurea",
+                           taxon == "Moringa bicolor"                  ~ "Moringua bicolor	",
+                           taxon == "Moringa ferruginea"               ~ "Moringua ferruginea	",
+                           taxon == "Moringa javanica"                 ~ "Moringua javanica",
+                           taxon == "Moringa microchir"                ~ "Moringua microchir",
+                           taxon == "Pentapodus nagasakensis"          ~ "Pentapodus nagasakiensis",
+                           taxon == "Pristotis obtrusirostris"         ~ "Pristotis obtusirostris",
+                           taxon == "Parioglossus formosa"             ~ "Parioglossus formosus",
+                           taxon == "Petroscirtes thepassi"            ~ "Petroscirtes thepassii",
+                           taxon == "Priolepis palladicincta"          ~ "Priolepis pallidicincta",
+                           TRUE ~ taxon)) |> 
+  distinct(taxon)
+
+## == 2.2 filter known bad entries
+
+bad_names <- c(
+  "Istibobius spence", "Ecsenius prooculus", "Canthidermis maculatus", "Carangidae unid.",
+  "Amblyglyphidodon batunai", "Ecsenius yaeyamaenis", "Platax boersi", "Pentapodus nagasakensis",
+  "Abalistes stellaris", "Arothron manillensis", "Centropyge interruptus",
+  "Cheilodipterus isostigma", "Chelonodon patoca", "Gymnothorax rueppellii",
+  "Helcogramma striatum", "Leiognathus equulus", "Lutjanus russelli",
+  "Lutjanus timorensis", "Ostorhinchus apogonides", "Pictichromis paccagnellae",
+  "Polydactylus microstomus", "Scolopsis margaritifer", "Scorpaenopsis oxycephala", "Unid microgoby", "Unid sand goby", "Mollyensis",
+  "Scolopsis trilineatus", "Strongylura urvilli", "Taeniura meyeni", "Zebrasoma veliferum", "Upeneus guttatus"
+)
+
+exp_taxa <- exp_taxa |> 
+  filter(!taxon %in% akiona_taxa$taxon, # Remove taxon already in Akiona
+         !str_detect(taxon, " x "), # Remove hybrids
+         !str_detect(taxon, regex("hybrid", ignore_case = TRUE)), # Remove hybrids
+         !str_detect(taxon, regex("Unid\\.", ignore_case = TRUE)), # Remove this
+         !str_to_lower(taxon) %in% str_to_lower(bad_names)) |> 
+  mutate(taxon = str_squish(str_remove(taxon, "\\bspecies\\b")))
+
+#== 5. Merge all cleaned names
+
+all_taxa <- bind_rows(akiona_taxa,
+                      exp_taxa) |> 
+  distinct()
+```
+
+```{r aphiaIDs}
+# === 1. Standardize and clean taxon names
+
+all_taxa_clean <- bdc::bdc_clean_names(all_taxa$taxon) |> 
+  distinct(taxon       = scientificName,
+           taxon_clean = names_clean) |> 
+  mutate(across(everything(), str_squish))
+
+# === 2. Prepare names for WoRMS query
+
+clean_names <- all_taxa_clean$taxon_clean |> 
+  unique() |> 
+  na.omit()  # drops NA
+
+batches <- split(clean_names, ceiling(seq_along(clean_names) / 100))
+
+# === 3. Query WoRMS in batches
+
+worms_raw <- purrr::map_dfr(batches, ~worrms::wm_records_names(.x))
+
+# === 4. Extract key fields from WoRMS response
+
+worms_records <- worms_raw |> 
+  select(taxon_clean = scientificname, 
+         rank,
+         aphia_id = AphiaID, 
+         name_status = status, 
+         accepted_name = valid_name, 
+         accepted_aphia_id = valid_AphiaID) 
+
+# === 5. Identify and resolve duplicates
+
+worms_dupes <- worms_records |> 
+  get_dupes(taxon_clean)
+
+# Deduplicate: retain best record per taxon_clean
+resolved_taxa <- worms_dupes |> 
+  group_by(taxon_clean) |> 
+  arrange(taxon_clean,
+          desc(name_status == "accepted" | is.na(name_status)),  # accepted or missing treated as better
+          desc(aphia_id == accepted_aphia_id)                    # prefer accepted == AphiaID
+  ) |> 
+  slice_head(n = 1) |> 
+  ungroup()
+
+# === 6. Combine resolved and unique entries
+
+worms_unique <- worms_records |> 
+  anti_join(worms_dupes, by = "taxon_clean")
+
+worms_final <- bind_rows(worms_unique, resolved_taxa) |> 
+  select(-dupe_count)
+
+# === 7. Merge resolved WoRMS metadata back to original taxa
+
+final_taxa <- all_taxa_clean |>
+  left_join(worms_final, by = "taxon_clean") |>
+  select(taxon,               # Original name from fieldbooks or Akiona
+         taxon_clean,         # Cleaned version used for lookup
+         rank,
+         aphia_id,
+         name_status,
+         accepted_name,
+         accepted_aphia_id) |>
+  distinct() |>
+  arrange(taxon)
+
+final_taxa <- final_taxa |> 
+  filter(!is.na(aphia_id))
+```
+
+```{r SpecCodes}
+library(rfishbase)
+
+# === 1. Load FishBase species codes ===
+
+fb_taxa <- load_taxa() |> 
+  distinct(Species, SpecCode) |> 
+  rename(fb_spec_code = SpecCode)
+
+
+# === 2. Join by accepted name first ===
+
+joined1 <- final_taxa |> 
+  left_join(fb_taxa, by = c("accepted_name" = "Species"))
+
+# === 3. Fallback: join by original field name if no match ===
+
+joined2 <- joined1 |> 
+  filter(is.na(fb_spec_code)) |> 
+  select(-fb_spec_code) |> 
+  left_join(fb_taxa, by = c("taxon" = "Species"))
+
+# === 4. Recombine, keeping best available match ===
+
+final_taxa <- bind_rows(joined1 |> filter(!is.na(fb_spec_code)),
+                        joined2)
+
+#final_taxa |> 
+#  filter(is.na(fb_spec_code), rank == "Species") |> 
+#  select(taxon_code, accepted_name, aphia_id, taxon, taxon_clean) |> 
+#  arrange(accepted_name) |> 
+#  write_csv(file.path(prj_path, "data/raw/taxonomy/fb_missing_taxa.csv"))
+
+# === 6. Join manually curated FishBase codes ===
+
+
+fb_manual <- read_csv(file.path(prj_path, "data/raw/taxonomy/fb_missing_taxa.csv")) |> 
+  distinct(accepted_name, fb_spec_code_manual)
+
+final_taxa <- final_taxa |> 
+  left_join(fb_manual, by = "accepted_name") |> 
+  mutate(fb_spec_code = coalesce(fb_spec_code, fb_spec_code_manual)) |> 
+  select(-fb_spec_code_manual)
+```
+
+```{r ps_codes}
+codes <- final_taxa |> 
+  mutate(taxon_code = case_when(rank == "Species" ~ str_c(str_sub(word(taxon, 1), 1, 2),
+                                                          ".",
+                                                          str_sub(word(taxon, 2), 1, 4)),
+                                rank == "Genus" ~ str_c(str_sub(taxon, 1, 4),
+                                                        ".SP"),
+                                rank == "Family" ~ str_c(str_sub(taxon, 1, 4),
+                                                         ".SPP"),
+                                TRUE ~ NA_character_),
+         taxon_code = str_to_upper(taxon_code)) |>
+  select(taxon_code, everything())
+
+# dupe_codes <- codes |> 
+#  janitor::get_dupes(taxon_code)
+# 
+# dupe_codes |> 
+#  write_csv(file.path(prj_path, "data/raw/taxonomy/taxon_code_dupes.csv"))
+
+dupes_resolved <- read_csv(file.path(prj_path, "data/raw/taxonomy/taxon_code_dupes.csv"))
+
+codes <- codes |> 
+  left_join(dupes_resolved |> 
+              distinct(taxon_code_resolved, taxon),
+            by = "taxon") |> 
+  mutate(taxon_code = coalesce(taxon_code_resolved, taxon_code)) |> 
+  select(-taxon_code_resolved)
+
+final_taxa <- final_taxa |>
+  left_join(codes) |> 
+  filter(!is.na(taxon_code))
+```
+
+```{r}
+final_taxa <- final_taxa |> 
+  rename(taxon_name = taxon,
+         status = name_status) |> 
+  mutate(rank = str_to_lower(rank),
+         fb_spec_code = as.integer(fb_spec_code)) |> 
+  select(taxon_code, taxon_name, aphia_id, rank, everything(), -taxon_clean)
+
+write_csv(final_taxa, file.path(prj_path, "data/processed/taxonomy/uvs_fish_taxa_codes.csv"))
+
+bq_table_upload(bq_table("pristine-seas", "taxonomy", "uvs_fish_codes"),
+                values = final_taxa,
+                create_disposition = "CREATE_NEVER",
+                write_disposition = "WRITE_APPEND")
+```
+

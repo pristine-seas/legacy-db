@@ -21,6 +21,16 @@ website:
         file: 02_expeditions.qmd
       - text: "Taxonomy Dataset"
         file: 03_taxonomy.qmd
+        contents:
+          - text: "Fish"
+            file: 03_taxonomy_fish.qmd
+            contents:
+              - text: "UVS codes"
+                file: 03_taxonomy_fish_codes.qmd
+          - text: "Benthos"
+            file: 03_taxonomy_benthos.qmds
+          - text: "Inverts"
+            file: 03_taxonomy_inverts.qmds
       - text: "Lookup Tables"
         file: 04_lookup.qmd
       - text: "Methods Datasets"

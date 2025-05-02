@@ -771,7 +771,7 @@
     "href": "01_architecture.html#style-conventions",
     "title": "Database Architecture",
     "section": "3 Style & Conventions",
-    "text": "3 Style & Conventions\n\n\n\n\n\n\nDatabase Style Guide\n\n\n\nNaming\n\nTable and field names use snake_case-\nAll names are lowercase, except for proper nouns (e.g., scientific names, geographic locations)\nNo spaces or special characters\nNames are concise, descriptive, and consistently formatted\n\nUnits and Standards\n\nMetric system (SI) for all measurements ( e.g., depth_m, biomass_gm2, temperature_c )\nDates (ISO 8601): YYYY-MM-DD\n\nTimes (24-hour format): HH:MM:SS\n\nStructure\n\nTables follow a long format — one row per observation or measurement\nps_site_id and ps_station_id are universal spatial keys\nControlled vocabularies (e.g., habitat, exposure) live in lookup/\nEach dataset is modular, documented, and reproducible",
+    "text": "3 Style & Conventions\n\n\n\n\n\n\nDatabase Style Guide\n\n\n\nNaming\n\nTable and field names use snake_case\nAll names are lowercase, except for proper nouns like scientific names or geographic locations.\nNo spaces or special characters\nNames are concise, descriptive, and consistently formatted\n\nUnits and Standards\n\nMetric system (SI) for all measurements ( e.g., depth_m, biomass_gm2, temperature_c )\nDates (ISO 8601): YYYY-MM-DD\n\nTimes (24-hour format): HH:MM:SS\n\nStructure\n\nTables follow a long format — one row per observation or measurement\nps_site_id and ps_station_id are universal spatial keys\nControlled vocabularies (e.g., habitat, exposure) live in lookup/\nEach dataset is modular, documented, and reproducible",
     "crumbs": [
       "Database Architecture"
     ]
@@ -793,7 +793,7 @@
     "href": "03_taxonomy.html",
     "title": "Taxonomy Dataset",
     "section": "",
-    "text": "The taxonomy/` dataset contains ….",
+    "text": "The taxonomy/ dataset is the backbone of biological consistency in the Pristine Seas Science Database. It provides harmonized reference lists and ecological traits for all taxa recorded across expeditions, enabling seamless integration of species-level data across methods, habitats, and years.\nThis shared taxonomy serves three essential roles:\n\nIdentity resolution — Ensures consistent naming using authoritative sources (e.g., WoRMS, Coral Traits)\nEcological interpretation — Assigns functional and trophic traits for downstream analyses (e.g., predator biomass, herbivore richness)\nData integration — Supports clean joins between observation tables and trait metadata\n\nEach major taxonomic group is documented in a dedicated table:\ntaxonomy/\n├── fish    # Reef and pelagic fishes from UVS, BRUVS, etc\n├── nthos   # Sessile benthic taxa from LPI, recruits, photomosaics (e.g., corals, algae, sponges)\n├── inverts # Sessile and mobile invertebrates\nAll tables follow a standardized schema, centered on aphia_id (WoRMS) as the canonical key. Fields include accepted_name, family, trophic_group, functional_group, and additional group-specific traits.",
     "crumbs": [
       "Taxonomy Dataset"
     ]
@@ -986,6 +986,29 @@
     "text": "3 fff\n::: { .callout-tip title=“Hierarchical Spatial Levels”}\nTo ensure consistency, traceability, and joinability across all datasets, Pristine Seas uses machine-readable, structured identifiers for sites and stations.\n:::\n\nNaming Conventions\n\n\n\n\n\n\nNaming Conventions\n\n\n\nTo ensure consistency, traceability, and joinability across all datasets, Pristine Seas uses machine-readable, structured identifiers for sites and stations.\n\nexp_id: ISO3_YEAR\n  → Example: FJI_2025\nps_site_id: exp_id_method_###\n  → Always use 3-digit padding for site numbers (e.g., 001, 045, 112)\n  → Examples:\n    FJI_2025_uvs_001\n    FJI_2025_pbruv_003\n    FJI_2025_sub_014\nps_station_id: ps_site_id_depth or ps_site_id_replicate\n  → Depth and replicate suffixes use fixed formats (e.g., 10m, r101)\n  → Examples:\n    FJI_2025_uvs_001_10m – Underwater visual survey at 10m depth\n    FJI_2025_pbruv_003_r102 – rig 102 of pelagic BRUV deployment 3\n    FJI_2025_dscm_006_300m – deep sea camera at 300m\n\nThese identifiers are used throughout the database as primary keys in spatial/, and foreign keys in all method datasets.",
     "crumbs": [
       "Database Architecture"
+    ]
+  },
+  {
+    "objectID": "03_taxonomy_fish.html",
+    "href": "03_taxonomy_fish.html",
+    "title": "Fish Taxa Table",
+    "section": "",
+    "text": "hello",
+    "crumbs": [
+      "Taxonomy Dataset",
+      "Fish"
+    ]
+  },
+  {
+    "objectID": "03_taxonomy_fish_codes.html",
+    "href": "03_taxonomy_fish_codes.html",
+    "title": "UVS Fish Codes",
+    "section": "",
+    "text": "This table maps shorthand taxon codes used during underwater visual surveys (UVS) to authoritative taxonomic identifiers and names. It serves as a translation layer between diver-entered field codes and the canonical taxonomy in taxonomy.fish.\nEach row corresponds to a unique taxon_code used in the field, whether referring to an accepted species, a synonym, or a higher-level taxon (genus or family). This mapping enables consistent, traceable integration of UVS data with modern taxonomic standards and trait metadata.\nWhy it matters\n\nLegacy harmonization: Links historical field entries to accepted names and identifiers\nSoft joins: Enables flexible, code-to-species mapping across datasets\nTraceability: Maintains original diver intent while supporting global taxonomy\n\nThis table captures both the field-level identity (what divers recorded) and the accepted scientific classification (based on WoRMS and FishBase), enabling robust reconciliation and trait-based analysis.\n\n\n\n\nTable 1: UVS Fish Codes\n\n\n\n\n\n\n\n\n\nField\nType\nRequired\nDescription\n\n\n\n\ntaxon_code\nSTRING\ntrue\nShort code used in field datasheets (e.g., CH.ATR)\n\n\ntaxon_name\nSTRING\ntrue\nOriginal name assigned to code (e.g., Chromis atrilobata)\n\n\nrank\nSTRING\ntrue\nTaxonomic rank of the observation (species, genus, family)\n\n\naphia_id\nSTRING\ntrue\nAphiaID corresponding to taxon_name (may be outdated or unaccepted)\n\n\naccepted_aphia_id\nSTRING\ntrue\nAccepted AphiaID for current taxonomy\n\n\naccepted_name\nSTRING\ntrue\nAccepted scientific name (Genus species)\n\n\nstatus\nSTRING\ntrue\nTaxonomic status of original name (accepted, synonym, unresolved)\n\n\nfishbase_id\nINTEGER\ntrue\nOptional FishBase species ID for cross-referencing\n\n\nnotes\nSTRING\nfalse\nOptional comments or notes (e.g., name updates, uncertainty)\n\n\n\n\n\n\n\n\n\n\n\nHow are codes generated?\ntaxon_code is the primary join key across all UVS fish datasets in the Pristine Seas Database. These short, deterministic codes are optimized for diver entry — concise, unambiguous, and easy to write underwater.\n\n\n\n\n\n\nTaxon Code Logic\n\n\n\nField codes (taxon_code) are used across UVS datasets to record species in a compact, consistent format optimized for field entry. They follow a structured and deterministic convention:\n\nFormat for Species-Level Codes\nGEN2.SPEC4 — First 2 letters of the genus + first 4 of the species (uppercase)\n\nAcanthurus tristis → AC.TRIS\n\nApogon tricolor → AP.TRIC\n\nAnthias tricolor → AN.TRIC\n\n\n\nHandling Duplicates\nWhen multiple species would share the same code:\n\nThe most common taxon keeps the default\nOthers extend the genus or species portion to ensure uniqueness\n\nExamples\n- Apogon tristis → AP.TRIS\n- Aplodactylus tristis → APL.TRIS\n- Labroides bilineatus → LA.BILI\n- Labroides bilinearis → LA.BILIN\n\n\nGenus- and Family-Level Codes\nUsed when IDs are not to species:\n\nGenus → GEN4.SP (e.g., Labroides sp. → LABR.SP)\n\nFamily → FAM4.SPP (e.g., Labridae spp. → LABR.SPP)\n\nThese conventions ensure clean joins, traceability, and consistent taxonomy across field data and reference tables.",
+    "crumbs": [
+      "Taxonomy Dataset",
+      "Fish",
+      "UVS codes"
     ]
   }
 ]

@@ -138,8 +138,8 @@ These identifiers are used throughout the database as primary keys in `spatial/`
 
 **Naming**
 
-- Table and field names use **`snake_case`**-
-- All names are lowercase, except for proper nouns (e.g., scientific names, geographic locations)
+- Table and field names use **`snake_case`**
+- All names are lowercase, except for proper nouns like scientific names or geographic locations. 
 - **No spaces or special characters** 
 - Names are concise, descriptive, and consistently formatted
 

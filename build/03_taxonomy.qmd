@@ -42,15 +42,32 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `taxonomy`/` dataset contains ....
+The `taxonomy/` dataset is the backbone of biological consistency in the Pristine Seas Science Database. It provides harmonized reference lists and ecological traits for all taxa recorded across expeditions, enabling seamless integration of species-level data across methods, habitats, and years.
 
----
+This shared taxonomy serves three essential roles:
 
-## Dataset Structure
+  - ***Identity resolution*** — Ensures consistent naming using authoritative sources (e.g., WoRMS, Coral Traits)
+  - ***Ecological interpretation*** — Assigns functional and trophic traits for downstream analyses (e.g., predator biomass, herbivore richness)
+  - ***Data integration*** — Supports clean joins between observation tables and trait metadata
 
-Each table is documented in its own section below.
+Each major taxonomic group is documented in a dedicated table:
 
-## Tables 
+``` text
+taxonomy/
+├── fish    # Reef and pelagic fishes from UVS, BRUVS, etc
+├── nthos   # Sessile benthic taxa from LPI, recruits, photomosaics (e.g., corals, algae, sponges)
+├── inverts # Sessile and mobile invertebrates
+```
 
-### Fish
+All tables follow a standardized schema, centered on aphia_id (WoRMS) as the canonical key. Fields include accepted_name, family, trophic_group, functional_group, and additional group-specific traits.
+
+
+```{r}
+if (!bq_dataset_exists(bq_dataset("pristine-seas", "taxonomy"))) {
+  bq_dataset_create(
+    bq_dataset("pristine-seas", "taxonomy"),
+    description = "Reference taxonomy and trait metadata for all organisms recorded in Pristine Seas surveys. Provides standardized species names, AphiaIDs, and ecological groupings across methods."
+  )
+}
+```
 

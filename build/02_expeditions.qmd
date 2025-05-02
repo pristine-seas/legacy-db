@@ -42,7 +42,7 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The expeditions/ dataset provides the spatial and operational backbone of the Pristine Seas Science Database. It registers each expedition and the associated fieldwork—tracking where, when, and how different survey methods were used across the globe.
+The `expeditions/` dataset provides the spatial and operational backbone of the Pristine Seas Science Database. It registers each expedition and the associated fieldwork—tracking where, when, and how different survey methods were used across the globe.
 
 All other datasets link back to this spatial framework, enabling consistent integration, filtering, and analysis across expeditions, regions, and methods.
 
@@ -116,8 +116,6 @@ expeditions_clean <- expeditions_data %>%
          description  = NA_character_,
          notes        = NA_character_) %>%
   select(exp_id, number, name, country, start_date, end_date, lead, science_lead, vessel, ship_track, partners, description, notes)
-
-
 ```
 
 Since 2009, Pristine Seas has conducted `r nrow(expeditions_clean)` expeditions across `r length(unique(expeditions_clean$country))` countries and territories, spanning tropical reefs, polar seas, deep trenches, and remote archipelagos.
