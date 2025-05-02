@@ -42,13 +42,16 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `expeditions/` dataset anchors the entire spatial structure of the Pristine Seas Science Database. It provides a canonical registry of expeditions, spatial hierarchy, and field deployments across all survey methods. These tables enable consistent joins, filtering, and spatial aggregation across datasets.
+The expeditions/ dataset provides the spatial and operational backbone of the Pristine Seas Science Database. It registers each expedition and the associated fieldwork—tracking where, when, and how different survey methods were used across the globe.
+
+All other datasets link back to this spatial framework, enabling consistent integration, filtering, and analysis across expeditions, regions, and methods.
 
 ## Tables
 
 ### `expeditions.info`
 
-This table stores metadata for each expedition conducted by the Pristine Seas team. Each row corresponds to a unique expedition and defines the top-level context for all associated sampling efforts.
+This table contains metadata for every scientific expedition conducted by the Pristine Seas team. Each row defines a unique field campaign—its country, region, vessel, leadership, dates, and collaborators.
+
 
 ```{r eval = T, include = T}
 #| label: tbl-exp.info
@@ -117,7 +120,7 @@ expeditions_clean <- expeditions_data %>%
 
 ```
 
-To date, our team has conducted **`r nrow(expeditions_clean)`** expeditions across **`r length(unique(expeditions_clean$country))`** countries since our first one in 2007. 
+Since 2009, Pristine Seas has conducted `r nrow(expeditions_clean)` expeditions across `r length(unique(expeditions_clean$country))` countries and territories, spanning tropical reefs, polar seas, deep trenches, and remote archipelagos.
 
 ```{r eval = T, include = T}
 #| label: fig-expeditions-timeline
@@ -197,28 +200,27 @@ bq_table_upload(bq_table("pristine-seas", "expeditions", "info"),
 
 ### `expeditions.sites`
 
-The expeditions.sites table defines the canonical spatial unit for all Pristine Seas field deployments (@tbl-exp.sites). Each row represents a single application of a survey method (e.g., UVS, pBRUV, submersible) at a specific place and time during an expedition.
+This table defines the primary spatial unit for fieldwork. A site represents a distinct instance where a survey method (e.g., UVS, pBRUV, eDNA) was applied at a specific location and time during an expedition.
 
-While method-specific site tables exist (e.g., uvs.sites, sub.sites), this shared table provides a centralized registry that supports cross-method integration, standardized mapping, and consistent spatial joins.
+While method-specific datasets (e.g., uvs.sites, sub.sites) manage their own site records, the shared `expeditions.sites` table acts as the central reference for joining across methods, mapping, and spatial summaries.
 
 ::: {.callout-tip title="What is a site?"}
 
 A site is defined by a unique combination of `exp_id`, `method`, and a 3-digit site number  
 _(e.g., `FJI_2025_uvs_001`)_
 
-- It represents one **deployment, diver, or survey event** of a given method at a location  
-- Each site may contain **multiple stations** (e.g., depth strata, replicates, rigs)
+- Represents one field survey event using a given method.  
+- May contain multiple stations representing depth strata or replicates
 
-**Examples:**
+**Examples**:
 
-	- A **UVS site** could be a reef dive where divers conduct fish, benthic, and invertebrate surveys at multiple depths
-	- A pBRUV site is a pelagic drop of five video rigs — each a separate station
-	- A submersible site refers to a single dive, typically comprising multiple horizontal transects
+ - A **UVS site** may include fish and benthic surveys across several depth zones
+ - A **pBRUV** site consists of a 5-rig open-ocean camera deployment
+ - A **submersible** site corresponds to a single dive with multiple transects
 
-Sites serve as the **parent unit** of stations and a universal spatial key across all modules.
+Sites are the **parent unit** of stations and serve as the core spatial key for integration across methods.
 
 :::
-
 
 ```{r eval = T, include = T}
 #| label: tbl-exp.sites
@@ -259,7 +261,6 @@ exp.sites_fields |>
   gt_theme_nytimes()
 ```
 
-
 ```{r create-tbl, include = FALSE}
 # Define table schema
 exp.sites_schema <- exp.sites_fields |>
@@ -275,4 +276,3 @@ exp.sites_schema <- exp.sites_fields |>
 bq_table_create(bq_table(project_id, "expeditions", "sites"),
                 fields = exp.sites_schema)
 ```
-

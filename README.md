@@ -20,13 +20,6 @@ ps-db/
 - **Documentation** is authored in Quarto and rendered to `Build/docs/`
 - **Ingestion** scripts live in `Ingest/` and push cleaned data into BigQuery
 
-## 📖 Documentation Site
-
-You can view the full database structure, standards, and spatial model at:  
-➡️ https://pristine-seas.github.io/legacy-db/
-
-*(GitHub Pages will activate automatically after first push and render.)*
-
 ## 📝 License
 
 MIT License unless otherwise stated. All original data remain property of National Geographic Pristine Seas.

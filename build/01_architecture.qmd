@@ -3,6 +3,8 @@ title: "Database Architecture"
 format: 
   html:
     theme: lux
+    mermaid:
+      theme: default  # or 'dark', 'neutral'
     self-contained: true
     code-fold: true
     toc: true 
@@ -12,36 +14,36 @@ format:
     number-depth: 3
 ---
 
+The **Pristine Seas Science Database** is a modular, analysis-ready system for organizing ecological data collected across more than 40 expeditions worldwide. Its design balances flexibility — to accommodate diverse survey methods — and consistency — to support clean integration, querying, and long-term analysis.
 
-The Pristine Seas Science Database is designed as a modular, analysis-ready system that organizes ecological data collected across global expeditions. The structure reflects the need for both flexibility across diverse survey methods and consistency in how data are referenced, accessed, and analyzed.
+At its core, the system is organized around two major dataset groups:
 
-
-At the highest level, the database consists of **method datasets**, each representing a distinct survey technique, and **shared reference datasets** that provide the taxonomic, spatial, and categorical backbone needed for integration.
+- **Method Datasets**: One for each survey technique (e.g., UVS, BRUVS, eDNA), with standardized tables for sites, stations, observations, and summaries
+- **Reference Datasets**: Shared taxonomic, spatial, and lookup tables that provide a unified backbone across all methods
 
 ---
 
 ## Core Structure
 
-The database is implemented in **Google BigQuery** under the project `pristine-seas`. It is organized into multiple top-level datasets, grouped by function:
+All data are hosted in **Google BigQuery** under the project `pristine-seas`, organized into top-level datasets grouped by function.
+
 
 ### Method Datasets
 
-Each method has its own dataset (e.g., `uvs`, `pbruv`, `sub`, `edna`) that stores raw and summarized outputs from a given type of field survey. These follow a  consistent pattern:
+Each method has its own dataset (e.g., `uvs`, `pbruv`, `sub`, `edna`) that stores raw and summarized outputs from a given type of field survey. These follow a common structure, with tables for:
 
-- `sites` — Survey events or deployments
-- `stations` — Sampling units within a site
-- `observations` — Primary records (e.g., species counts, detections)
-- `summaries` *(optional)* — Station-level aggregates
+- `sites` — Survey events or deployments (e.g., dive, deployment, survey)
+- `stations` — Sampling units within a site (e.g., depth strata, rigs)
+- `observations` — Primary ecological or environmental records
+- `summaries` — Aggregated station-level metrics
 
-### Shared Reference Datasets
+### Reference Datasets
 
-These provide the common scaffolding that links all method datasets:
+These datasets provide a shared scaffold for spatial joins, species trait integration, QA/QC, and consistent metadata across all methods:
 
-- **`expeditions/`** — Canonical registry of expeditions, regions, sites, and stations
-- **`taxonomy/`** — Reference lists of species and traits
-- **`lookup/`** — Controlled vocabularies, and contributor metadata
-
-Together, these support spatial joins, taxonomic harmonization, and metadata consistency.
+- **`expeditions/`** — Registry of expeditions, sites, stations, and regional hierarchy
+- **`taxonomy/`** — Harmonized species lists and trait metadata
+- **`lookup/`** — Controlled vocabularies, flags, and contributor metadata
 
 ### Layout
 
@@ -54,43 +56,21 @@ pristine-seas/
 ├── uvs/
 │   ├── sites
 │   ├── stations
-│   ├── lpi_stations
-│   ├── lpi_counts
-│   ├── lpi_cover_by_taxa
 │   ├── blt_stations
 │   ├── blt_observations
 │   ├── blt_biomass_by_taxa
+│   ├── lpi_stations
+│   ├── lpi_counts
+│   ├── lpi_cover_by_taxa
 │   ├── inverts_stations
 │   ├── inverts_counts
 │   ├── recruits_stations
 │   ├── recruits_counts
-├── sbruv/
-│   └── sites
-│   └── stations
-│   └── MaxN
-├── pbruv/
-│   └── sites
-│   └── stations
-│   └── MaxN
-├── birds/
-│   └── sites
-│   └── stations
-│   └── counts
-├── edna/
-│   └── sites
-│   └── stations
-│   └── detections
-├── sub/
-│   └── sites
-│   └── stations
-│   └── observations
-├── dscm/
-│   └── sites
-│   └── stations
-│   └── observations
-├── taxonomy
-│   └── fish
-│   └── corals
+├── sbruv/    ├── pbruv/    ├── edna/    ├── sub/    ├── dscm/    ├── birds/
+│   ├── ...     ├── ...       ├── ...      ├── ...      ├── ...      ├── ...
+├── taxonomy/
+│   ├── fish
+│   ├── corals
 │   └── inverts
 ├── lookup/
 │   ├── contributors
@@ -100,25 +80,23 @@ pristine-seas/
 
 ## Data Model
 
-All sampling data in the Pristine Seas Database are structured around a shared spatial hierarchy. This enables consistent grouping and comparison of observations across expeditions, methods, and regions.
-
-The hierarchy consists of six nested levels:
+All data in the Pristine Seas Science Database are structured around a shared, hierarchical spatial model. This enables standardized grouping, filtering, and integration across methods, expeditions, and geographies.
 
 - **Expedition**  
-  A discrete field campaign or cruise  
+  A defined field campaign
   _e.g., `COL_2024`_
 
   - **Region**  
-    Broad administrative, ecological, or biogeographic unit.   
+    Broad geographic or administrative area   
     _e.g., Murat, Chocó, Temotu_
 
     - **Subregion**  
-      Mid-scale feature within the region such as a single island, atoll, gulf, or reef complex  
-      _e.g.,  Mussau, Golfo de Tribugá, Utupua_
+      Intermediate unit like an island such as a single island, atoll, gulf, or reef complex  
+      _e.g.,  Navigator bank, Mussau, Golfo de Tribugá, Utupua_
 
       - **Locality**
-        Local named feature such as a reef, bay, cove, or village  
-        _e.g., Navigator bank, Lolieng, Tasitel_
+        Local named feature such as a community, village, islet.  
+        _e.g.,  Lolieng, Tasitel_
 
         - **Site**  
           A specific location within the subregion where a survey method (e.g., UVS, BRUVS, eDNA) was used.
@@ -156,29 +134,26 @@ These identifiers are used throughout the database as primary keys in `spatial/`
 
 ## Style & Conventions
 
-This style guide defines naming, formatting, and structural standards used throughout the database, ensuring clean workflows in R, SQL, and visualization tools.
-
 ::: {.callout-note title="Database Style Guide"}
 
-**Field Naming**
+**Naming**
 
-- Table and field names use **`snake_case`**
-- All names are **lowercase** unless scientific names require capitalization (e.g., *Genus species*)
-- **No spaces or special characters**
+- Table and field names use **`snake_case`**-
+- All names are lowercase, except for proper nouns (e.g., scientific names, geographic locations)
+- **No spaces or special characters** 
 - Names are concise, descriptive, and consistently formatted
 
 **Units and Standards**
 
-- All measurements use the **metric system (SI units)**  
-  _e.g., `depth_m`, `biomass_gm2`, `area_m2`, `temperature_c`_
-- Dates use **ISO 8601**: `YYYY-MM-DD`  
-- Times use **24-hour format**: `HH:MM:SS`
+- **Metric system (SI)** for  all measurements ( _e.g., `depth_m`, `biomass_gm2`, `temperature_c`_ )
+- Dates (**ISO 8601**): `YYYY-MM-DD`  
+- Times (**24-hour format**): `HH:MM:SS`
 
-**Structural Conventions**
+**Structure**
 
 - Tables follow a **long format** — one row per observation or measurement
-- `ps_site_id` and `ps_station_id` serve as universal spatial keys across all modules
-- Controlled vocabularies (e.g., habitat, gear, exposure) are standardized in `lookup/`
-- Datasets are modular, documented, and reproducible
+- `ps_site_id` and `ps_station_id` are universal spatial keys
+- Controlled vocabularies (e.g., habitat, exposure) live in `lookup/`
+- Each dataset is modular, documented, and reproducible
 
 :::

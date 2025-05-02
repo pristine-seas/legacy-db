@@ -9,54 +9,73 @@ format:
 
 ![](images/ps_logo-01.png){fig-align="center" width="567"}
 
-The **Pristine Seas Science Database** is a centralized, modular system that stores ecological data collected from more than a decade of scientific expeditions led by **National Geographic Pristine Seas**. It is designed to support high-integrity, reproducible research on marine biodiversity and inform conservation policy around the world.
+The **Pristine Seas Science Database** is a centralized, modular system for ecological data collected across more than a decade of scientific expeditions led by **National Geographic Pristine Seas**. It is designed to support high-integrity, reproducible research on marine biodiversity and inform global ocean conservation policy.
 
 ------------------------------------------------------------------------
 
 ## Why This Matters
 
-Conservation starts with knowledge. This database helps answer fundamental questions about ocean health, marine biodiversity, and ecosystem change by:
+Conservation begins with knowledge. The Pristine Seas Science Database is a globally unique resource that helps answer foundational questions about ocean health, biodiversity, and ecosystem change.
 
-- Unifying biological, habitat, and environmental data from multiple methods
-- Anchoring all records to a shared spatial and taxonomic backbone
-- Enabling fast, reproducible analysis across sites, regions, and years
+Spanning all major ocean basins and more than 40 expeditions, it brings together standardized data from Arctic fjords to tropical reefs — across ecosystems as varied as coastal bays, deep-sea trenches, and open-ocean pelagic zones. Its strength lies in its **breadth** and **integration**: from seabird surveys to submersible dives, eDNA to benthic cover — all unified by a shared spatial and taxonomic scaffold.
 
-Whether you're a scientist or conservation partner, this documentation will guide you through the database’s architecture, conventions, and workflows.
+This system enables:
+
+- Fast, reproducible analysis across sites, regions, and years  
+- Cross-method synthesis grounded in a modular yet consistent structure  
+- Scalable science that informs conservation, policy, and decision-making  
+
+Whether you’re a scientist, analyst, or conservation partner, this documentation will guide you through the structure, conventions, and workflows that make the Pristine Seas Science Database a powerful tool for understanding and protecting our oceans.
 
 ------------------------------------------------------------------------
 
 ## Key Features
 
-- **Modular by method**: Supports fish surveys, benthic assessments, eDNA, BRUVs, submersible surveys, and more
-- **Spatially anchored**: Built around a nested expedition → region → site → station structure
-- **Taxonomically standardized**: Harmonized names, traits, and groupings across datasets
-- **Analysis-ready**: Long-format tables, clear join keys, and BigQuery-native organization
-- **Collaborator-friendly**: Designed for transparency, reproducibility, and shared work
+The database is designed for flexibility, scientific rigor, and long-term usability. Its core features include:
+
+- **Modular by Method**  
+  Supports diverse survey protocols — from reef fish and benthic cover to eDNA, BRUVS, submersibles, and seabird transects — each with a standardized schema.
+
+- **Spatially Anchored**  
+  Built on a hierarchical spatial model: expedition → region → subregion → site → station. This structure enables robust spatial integration and filtering.
+
+- **Taxonomically Standardized**  
+  Centralized taxonomy with harmonized species names, traits, and functional groups across all methods.
+
+- **Analysis-Ready**  
+  Tidy-format tables, clear join keys, and native organization in Google BigQuery make the system efficient for large-scale ecological analyses.
+
+- **Collaborator-Friendly**  
+  Transparent, well-documented, and modular — designed for reuse, extension, and shared scientific workflows.
 
 ------------------------------------------------------------------------
 
 ## FAIR Data Commitment
 
-The Pristine Seas Science Database is designed to uphold the FAIR data principles — ensuring that all data are Findable, Accessible, Interoperable, and Reusable for the long term. This includes:
+The database adheres to the FAIR data principles — ensuring that all records are:
 
-- **Findable**: Unique identifiers (ps_site_id, taxon_id) and rich metadata ensure all records can be discovered and indexed
-- **Accessible**: Hosted in BigQuery with open protocols and companion tools for direct querying, downloading, and exploration
-- **Interoperable**: Uses tidy formats, SI units, ISO 8601 dates, and controlled vocabularies across all tables
-- **Reusable**:  Fully documented with versioning, contributor metadata, QA flags, and modular design to support transparent reuse and scientific replication
+- **Findable**  
+  With unique identifiers (e.g., `ps_site_id`, `aphia_id`) and rich metadata for discovery and indexing.
 
-Together, these practices ensure the database serves as a durable, transparent, and reusable resource for science and conservation.
+- **Accessible**  
+  Hosted in Google BigQuery, with open protocols and companion tools for direct querying and download.
+
+- **Interoperable**  
+  Built using tidy data principles, standardized units (SI), ISO 8601 dates, and controlled vocabularies.
+
+- **Reusable**  
+  Fully documented with versioning, contributor metadata, QA flags, and modular design — supporting transparency, scientific replication, and long-term utility.
 
 ------------------------------------------------------------------------
 
 ## Explore the Documentation
 
-This site provides a structured walkthrough of the database:
+This site provides a structured guide to the database and its use:
 
-- [Architecture](01_architecture.qmd): How the system is organized and how sites and stations are defined
-- [Expeditions](02_expeditions.qmd): How expeditions metadata and other spatial info is stored
-- [Taxonomy](03_taxonomy.qmd): How species and traits are organized
-- [Lookup](04_lookup.qmd): Controlled vocabularies and contributor metadata
-- [Method datasets](05_methods.qmd): How to work with the data in BigQuery or R
-
+- [Architecture](01_architecture.qmd): Core structure and spatial model
+- [Expeditions](02_expeditions.qmd): Expedition metadata and site definitions
+- [Taxonomy](03_taxonomy.qmd): Species identifiers and traits
+- [Lookup](04_lookup.qmd): Controlled vocabularies and contributor registry
+- [Method Datasets](05_methods.qmd): Quality controlled raw and processed data by survey type
 
 ---

@@ -3,7 +3,7 @@ project:
   output-dir: ../docs
 
 website:
-  title: "Pristine Seas Scientific Database"
+  title: "Pristine Seas Science Database"
   site-url: https://pristine-seas.github.io/legacy-db/
   repo-url: https://github.com/pristine-seas/legacy-db
   page-navigation: true
