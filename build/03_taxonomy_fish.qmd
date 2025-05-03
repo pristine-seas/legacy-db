@@ -128,7 +128,7 @@ core_taxonomy_schema |>
 ```
 
 ```{r taxonomy}
-final_taxa <- read_csv(file.path(prj_path, "data/processed/taxonomy/uvs_fish_taxa_codes.csv"))
+fish_taxa <- read_csv(file.path(prj_path, "data/processed/taxonomy/taxonomy.uvs_fish_codes.csv"))
 
 plan(multicore)
 
@@ -143,13 +143,13 @@ get_taxonomic_ranks <- function(id) {
     })
   }
 
-taxonomy_ranks <- future_map_dfr(final_taxa$accepted_aphia_id,
+taxonomy_ranks <- future_map_dfr(fish_taxa$accepted_aphia_id,
                                  get_taxonomic_ranks,
                                  .options = furrr_options(seed = TRUE)) |>
   clean_names() |>
   select(accepted_aphia_id, kingdom, phylum, class, order, family, genus)
 
-final_taxa <- final_taxa |> 
+fish_taxa <- fish_taxa |> 
   left_join(distinct(taxonomy_ranks), by = "accepted_aphia_id")
 ```
 
@@ -202,7 +202,7 @@ common_fams <- read_csv(file.path(prj_path, "data/raw/taxonomy/fish/fish_common_
 additional_common_names <- read_csv(file.path(prj_path, "data/raw/taxonomy/fish/fish_common_names_missing.csv")) |> 
   clean_names() 
 
-final_taxa <- final_taxa |> 
+fish_taxa <- fish_taxa |> 
   left_join(common_fams) |> 
   left_join(common_names) |> 
   left_join(additional_common_names, by = c("accepted_name" = "scientific_name")) |> 
@@ -329,7 +329,7 @@ fb_ecology <- rfishbase::ecology() |>
   distinct()
 
 # 5. Merge traits into final taxonomy
-final_taxa <- final_taxa |> 
+fish_taxa <- fish_taxa |> 
   left_join(akiona_df |> 
               distinct(accepted_name = taxon, trophic_group),
             by = "accepted_name") |> 
@@ -390,7 +390,7 @@ gt(morphometrics_schema) |>
 
 ```{r}
 # 1. Join Akiona length-weight parameters
-join1 <- final_taxa |> 
+join1 <- fish_taxa |> 
   left_join(akiona_df |> 
               mutate(lw_source = "Akiona et al. (2025)") |> 
               select(accepted_name = taxon, lw_a, lw_b, ltl_ratio, lw_type, lw_source),
@@ -404,7 +404,7 @@ join2 <- join1 |>
             by = "fb_spec_code") 
 
 # 3. Combine rows with and without Akiona data
-final_taxa <- bind_rows(join1 |> filter(!is.na(lw_a)),
+fish_taxa <- bind_rows(join1 |> filter(!is.na(lw_a)),
                         join2)
 
 missin_ab <- tibble::tribble(~accepted_name,                     ~a,       ~b,   
@@ -421,20 +421,22 @@ missin_ab <- tibble::tribble(~accepted_name,                     ~a,       ~b,
                              "Rabaulichthys altipinnis",   0.00389,  3.12, 
                              "Rhabdamia novaluna",         0.01096,  3.09) # From FISHBASE
 
-final_taxa <- final_taxa |> 
+fish_taxa <- fish_taxa |> 
   left_join(missin_ab) |> 
   mutate(lw_a = coalesce(a, lw_a),
          lw_b = coalesce(b, lw_b)) |> 
   select(-a, -b)
 
-final_taxa$lw_a[final_taxa$accepted_name == "Nemanthias bicolor"] <- 0.01737
-final_taxa$lw_b[final_taxa$accepted_name == "Nemanthias bicolor"] <- 2.832
-final_taxa$ltl_ratio[final_taxa$accepted_name == "Nemanthias bicolor"] <- 1
-final_taxa$lw_type[final_taxa$accepted_name == "Nemanthias bicolor"] <- "TL"
-final_taxa$lw_source[final_taxa$accepted_name == "Nemanthias bicolor"] <- "Akiona et al. (2025)"
+fish_taxa$lw_a[fish_taxa$accepted_name == "Nemanthias bicolor"] <- 0.01737
+fish_taxa$lw_b[fish_taxa$accepted_name == "Nemanthias bicolor"] <- 2.832
+fish_taxa$ltl_ratio[fish_taxa$accepted_name == "Nemanthias bicolor"] <- 1
+fish_taxa$lw_type[fish_taxa$accepted_name == "Nemanthias bicolor"] <- "TL"
+fish_taxa$lw_source[fish_taxa$accepted_name == "Nemanthias bicolor"] <- "Akiona et al. (2025)"
 
-final_taxa <- final_taxa |> 
-  rename(lw_type = lw_length_type )
+fish_taxa <- fish_taxa |> 
+  left_join(fb_estimates |> 
+              select(fb_spec_code, tl_max, tl_max_source),
+            by = "fb_spec_code") 
 ```
 
 ### Habitat
@@ -460,12 +462,9 @@ habitat_schema <- tribble(
   "habitat_zone",  "STRING", FALSE,      "Spatial habitat classification based on FishBase. One of: 'reef-associated', 'benthopelagic', 'demersal', 'pelagic', 'pelagic-neritic', 'pelagic-oceanic', 'bathypelagic', 'bathydemersal', 'unknown'."
 )
 
-final_taxa <- final_taxa |> 
+fish_taxa <- fish_taxa |> 
   left_join(fb_species_db |> 
-              select(fb_spec_code = SpecCode, habitat = DemersPelag))
-
-final_taxa <- final_taxa |> 
-  rename(habitat_zone = habitat )
+              select(fb_spec_code = SpecCode, habitat_zone = DemersPelag))
 ```
 
 ### Fishery importance
@@ -490,11 +489,11 @@ fisheries_schema <- tribble(
   "fishery_importance","STRING", FALSE,     "FishBase classification of the species' importance to fisheries (e.g., 'minor commercial', 'subsistence fisheries', 'highly commercial', 'of no interest')."
 )
 
-final_taxa <- final_taxa |> 
+fish_taxa <- fish_taxa |> 
   left_join(fb_species_db |> 
               select(fb_spec_code = SpecCode, fishery_importance = Importance))
 
-final_taxa$fishery_importance[final_taxa$fishery_importance == " "] <- NA_character_
+fish_taxa$fishery_importance[fish_taxa$fishery_importance == " "] <- NA_character_
 ```
 
 ### Conservation Status (IUCN)
@@ -537,7 +536,7 @@ iucn_clean <- iucn_db |>
   rename(iucn_cat = iucn_redlist_cat,
          iucn_sis_id = iucn_taxon_id)
 
-final_taxa <- final_taxa |> 
+fish_taxa <- fish_taxa |> 
   left_join(iucn_clean) 
 ```
 
@@ -574,22 +573,22 @@ bq_table_create(
 )
 
 bq_table_upload(bq_table("pristine-seas", "taxonomy", "fish"),
-                values = final_taxa,
+                values = fish_taxa,
                 create_disposition = "CREATE_NEVER",
                 write_disposition = "WRITE_APPEND")
 
-final_taxa |> 
+fish_taxa |> 
   arrange(family, accepted_name, genus) |> 
-  write_csv(file.path(prj_path, "data/processed/taxonomy/fish.csv"))
+  write_csv(file.path(prj_path, "data/processed/taxonomy/taxonomy.fish.csv"))
 ```
 
 ## Summary
 
 ```{r include = T, eval = T}
-final_taxa <-  read_csv(file.path(prj_path, "data/processed/taxonomy/fish.csv"))
+fish_taxa <-  read_csv(file.path(prj_path, "data/processed/taxonomy/taxonomy.fish.csv"))
 ```
 
-Overall, the `taxonomy.fish` table contains `r nrow(final_taxa)` entries, representing `r length(unique(final_taxa$accepted_name))` unique taxa across `r length(unique(final_taxa$family))` families (@fig-richness-treemap). The majority of records are teleost fishes, with `r length(unique(final_taxa$accepted_name[final_taxa$class == "Teleostei"]))` taxa, while elasmobranchs account for `r length(unique(final_taxa$accepted_name[final_taxa$class != "Teleostei"]))` taxa.
+Overall, the `taxonomy.fish` table contains `r nrow(fish_taxa)` entries, representing `r length(unique(fish_taxa$accepted_name))` unique taxa across `r length(unique(fish_taxa$family))` families (@fig-richness-treemap). The majority of records are teleost fishes, with `r length(unique(fish_taxa$accepted_name[fish_taxa$class == "Teleostei"]))` taxa, while elasmobranchs account for `r length(unique(fish_taxa$accepted_name[fish_taxa$class != "Teleostei"]))` taxa.
 
 ```{r include = T, eval = T}
 #| label: fig-missingness
@@ -597,7 +596,7 @@ Overall, the `taxonomy.fish` table contains `r nrow(final_taxa)` entries, repres
 #| fig-width: 10
 #| fig-height: 7
 
-visdat::vis_miss(final_taxa)
+visdat::vis_miss(fish_taxa)
 ```
 
 Our database has excellent coverage for all core identity fields, including taxonomy and length-weight parameters. However, we still have work to do to fill gaps in trophic traits, habitat associations, and fisheries importance (@fig-missingness)
@@ -630,7 +629,7 @@ lvl_opts <-  list(list(level = 1,
                                     color = "white", 
                                     fontWeight = "normal")))
 
-hc_data <- final_taxa |> 
+hc_data <- fish_taxa |> 
   mutate(n = 1) |> 
   mutate_if(is.numeric, round,2) |> 
   data_to_hierarchical(c(order, family), n)
@@ -650,14 +649,14 @@ diversity_treemap
 
 The best represented families include (@fig-taxa-by-fam-trophic):
 
-  - Wrasses (families: Labridae and Scaridae) with `r length(unique(final_taxa$accepted_name[final_taxa$family == "Labridae"]))` and  `r length(unique(final_taxa$accepted_name[final_taxa$family == "Scaridae"]))` species, respectively. 
-  - Gobies (families Gobidae and Microdesmidae) with `r length(unique(final_taxa$accepted_name[final_taxa$family == "Gobiidae"]))` and `r length(unique(final_taxa$accepted_name[final_taxa$family == "Microdesmidae"]))` species, respectively.
-  - Damselfishes (family: Pomacentridae) with `r length(unique(final_taxa$accepted_name[final_taxa$family == "Pomacentridae"]))` species
-  - Cardinalfishes (family: Apogonidae) with `r length(unique(final_taxa$accepted_name[final_taxa$family == "Apogonidae"]))` species.
+  - Wrasses (families: Labridae and Scaridae) with `r length(unique(fish_taxa$accepted_name[fish_taxa$family == "Labridae"]))` and  `r length(unique(fish_taxa$accepted_name[fish_taxa$family == "Scaridae"]))` species, respectively. 
+  - Gobies (families Gobidae and Microdesmidae) with `r length(unique(fish_taxa$accepted_name[fish_taxa$family == "Gobiidae"]))` and `r length(unique(fish_taxa$accepted_name[fish_taxa$family == "Microdesmidae"]))` species, respectively.
+  - Damselfishes (family: Pomacentridae) with `r length(unique(fish_taxa$accepted_name[fish_taxa$family == "Pomacentridae"]))` species
+  - Cardinalfishes (family: Apogonidae) with `r length(unique(fish_taxa$accepted_name[fish_taxa$family == "Apogonidae"]))` species.
 
 ### Taxa by Trophic Group
 
-Most species in the dataset are classified as Lower-carnivores, with `r length(unique(final_taxa$accepted_name[final_taxa$trophic_group == "Lower-carnivore"]))` species, followed by `r length(unique(final_taxa$accepted_name[final_taxa$trophic_group == "Planktivore"]))` planktivores and `r length(unique(final_taxa$accepted_name[final_taxa$trophic_group == "Herbivore/Detritivore"]))` herbivores/detritivores. The dataset also includes `r length(unique(final_taxa$accepted_name[final_taxa$trophic_group == "Top-predator"]))` top predators—such as groupers, snappers, and jacks—and `r length(unique(final_taxa$accepted_name[final_taxa$trophic_group == "Shark"]))` sharks.
+Most species in the dataset are classified as Lower-carnivores, with `r length(unique(fish_taxa$accepted_name[fish_taxa$trophic_group == "Lower-carnivore"]))` species, followed by `r length(unique(fish_taxa$accepted_name[fish_taxa$trophic_group == "Planktivore"]))` planktivores and `r length(unique(fish_taxa$accepted_name[fish_taxa$trophic_group == "Herbivore/Detritivore"]))` herbivores/detritivores. The dataset also includes `r length(unique(fish_taxa$accepted_name[fish_taxa$trophic_group == "Top-predator"]))` top predators—such as groupers, snappers, and jacks—and `r length(unique(fish_taxa$accepted_name[fish_taxa$trophic_group == "Shark"]))` sharks.
 
 ```{r include = T, eval = T}
 #| label: fig-taxa-by-fam-trophic
@@ -667,7 +666,7 @@ Most species in the dataset are classified as Lower-carnivores, with `r length(u
 #| 
 trophic_levels <- rev(c("Herbivore/Detritivore", "Planktivore", "Lower-carnivore", "Top-predator", "Shark"))
 
-taxonomy.fish <- final_taxa |>
+taxonomy.fish <- fish_taxa |>
   mutate(trophic_group = factor(trophic_group, levels = trophic_levels, ordered = TRUE))
 
 trophic_palette <- c("Herbivore/Detritivore" = "#7BD389", 
@@ -700,7 +699,7 @@ Most species in the dataset are classified as reef-associated with a primarily b
 #| label: fig-taxa-by-habitat
 #| fig-cap: "Number of species by habitat zone and feeding path"
 #| fig-width: 9
-final_taxa |> 
+fish_taxa |> 
   filter(rank == "species") |> 
   group_by(habitat_zone, feeding_path) |> 
   summarise(n = n()) |> 
@@ -730,11 +729,11 @@ use_palette <- c("of no interest"          = "#d9d9d9",  # light grey
                  "highly commercial"       = "#e31a1c")   # bold red
 
 fisheries_levels <- rev(c("of no interest",
-                      "of potential interest",
-                      "subsistence fisheries",
-                      "minor commercial",
-                      "commercial",
-                      "highly commercial"))
+                          "of potential interest",
+                          "subsistence fisheries",
+                          "minor commercial",
+                          "commercial",
+                          "highly commercial"))
 
 taxonomy.fish <- taxonomy.fish |>
   mutate(fishery_importance = factor(fishery_importance,
