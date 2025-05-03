@@ -41,7 +41,7 @@ Each method has its own dataset (e.g., `uvs`, `pbruv`, `sub`, `edna`) that store
 
 These datasets provide a shared scaffold for spatial joins, species trait integration, QA/QC, and consistent metadata across all methods:
 
-- **`expeditions/`** — Registry of expeditions, sites, stations, and regional hierarchy
+- **`expeditions/`** — Registry of expeditions, sites, and regional hierarchy
 - **`taxonomy/`** — Harmonized species lists and trait metadata
 - **`lookup/`** — Controlled vocabularies, flags, and contributor metadata
 
@@ -52,7 +52,6 @@ pristine-seas/
 ├── expeditions/
 │   ├── info
 │   ├── sites
-│   └── stations
 ├── uvs/
 │   ├── sites
 │   ├── stations
@@ -70,7 +69,7 @@ pristine-seas/
 │   ├── ...     ├── ...       ├── ...      ├── ...      ├── ...      ├── ...
 ├── taxonomy/
 │   ├── fish
-│   ├── corals
+│   ├── benthos
 │   └── inverts
 ├── lookup/
 │   ├── contributors

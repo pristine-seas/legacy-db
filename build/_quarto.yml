@@ -19,20 +19,6 @@ website:
         file: 01_architecture.qmd
       - text: "Expeditions Dataset"
         file: 02_expeditions.qmd
-      - text: "Taxonomy Dataset"
-        file: 03_taxonomy.qmd
-        contents:
-          - text: "Fish"
-            file: 03_taxonomy_fish.qmd
-            contents:
-              - text: "UVS codes"
-                file: 03_taxonomy_fish_codes.qmd
-          - text: "Benthos"
-            file: 03_taxonomy_benthos.qmds
-          - text: "Inverts"
-            file: 03_taxonomy_inverts.qmds
-      - text: "Lookup Tables"
-        file: 04_lookup.qmd
       - text: "Methods Datasets"
         file: 05_methods.qmd
         contents:
@@ -61,6 +47,20 @@ website:
           file: 16_rov.qmd
         - text: "Deep Sea Cameras"
           file: 17_dscm.qmd
+      - text: "Taxonomy Dataset"
+        file: 03_taxonomy.qmd
+        contents:
+          - text: "Fish"
+            file: 03_taxonomy_fish.qmd
+            contents:
+              - text: "Field codes"
+                file: 03_taxonomy_fish_codes.qmd
+          - text: "Benthos"
+            file: 03_taxonomy_benthos.qmds
+          - text: "Inverts"
+            file: 03_taxonomy_inverts.qmds    
+      - text: "Lookup Tables"
+        file: 04_lookup.qmd
           
   page-footer:
     center: "© 2024 National Geographic Society. All rights reserved."

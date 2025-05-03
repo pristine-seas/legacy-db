@@ -1,5 +1,5 @@
 ---
-title: "UVS Fish Codes"
+title: "Field Codes"
 format: 
   html:
     theme: lux
@@ -25,6 +25,8 @@ library(dplyr)
 library(ggplot2)
 library(plotly)
 library(lubridate)
+library(janitor)
+library(readxl)
 
 knitr::opts_chunk$set(eval = F, warning = F, message = F, include = F, echo = F)
 
@@ -48,15 +50,15 @@ Each row corresponds to a unique `taxon_code` used in the field, whether referri
 
 Why it matters
 
-  - Legacy harmonization: Links historical field entries to accepted names and identifiers
-  - Soft joins: Enables flexible, code-to-species mapping across datasets
-  - Traceability: Maintains original diver intent while supporting global taxonomy
+  - **Legacy harmonization**: Links historical field entries to accepted names and identifiers
+  - **Soft joins**: Enables flexible, code-to-species mapping across datasets
+  - **Traceability**: Maintains original diver intent while supporting global taxonomy
 
 This table captures both the field-level identity (what divers recorded) and the accepted scientific classification (based on WoRMS and FishBase), enabling robust reconciliation and trait-based analysis.
 
 ```{r eval = T, include = T}
 #| label: tbl-fish-codes
-#| tbl-cap: "UVS Fish Codes"
+#| tbl-cap: "Schema for taxonomy.uvs_fish_codes — Mapping Field Codes to Accepted Taxonomy"
 #| 
 uvs_fish_codes_fields <- tribble(
   ~field,               ~type,     ~required, ~description,
@@ -113,6 +115,7 @@ When multiple species would share the same code:
 - Others extend the **genus** or **species** portion to ensure uniqueness
 
 **Examples**  
+
 - *Apogon tristis* → `AP.TRIS`  
 - *Aplodactylus tristis* → `APL.TRIS`  
 - *Labroides bilineatus* → `LA.BILI`  
@@ -126,6 +129,17 @@ Used when IDs are not to species:
 
 These conventions ensure clean joins, traceability, and consistent taxonomy across field data and reference tables.
 
+##### Hybrids
+Hybrid taxa use an extended code format: `GEN2.SPxSP`
+
+- Combine first two genus letters with `x` and capitalized genus/species initials of each parent
+- Use consistent casing and separators
+
+**Examples**  
+
+- *Acanthurus achilles × nigricans* → `AC.ACxNI`  
+- *Acanthurus olivaceus × nigricans* → `AC.OLxNI`  
+- *Paracirrhites arcatus × bicolor* → `PA.ARxBI`  
 :::
 
 ```{r}
@@ -312,17 +326,10 @@ worms_final <- bind_rows(worms_unique, resolved_taxa) |>
 
 final_taxa <- all_taxa_clean |>
   left_join(worms_final, by = "taxon_clean") |>
-  select(taxon,               # Original name from fieldbooks or Akiona
-         taxon_clean,         # Cleaned version used for lookup
-         rank,
-         aphia_id,
-         name_status,
-         accepted_name,
-         accepted_aphia_id) |>
+  mutate(rank = str_to_lower(rank)) |> 
+  select(taxon, taxon_clean, rank, aphia_id, name_status, accepted_name, accepted_aphia_id) |>
   distinct() |>
-  arrange(taxon)
-
-final_taxa <- final_taxa |> 
+  arrange(taxon) |> 
   filter(!is.na(aphia_id))
 ```
 
@@ -361,24 +368,23 @@ final_taxa <- bind_rows(joined1 |> filter(!is.na(fb_spec_code)),
 
 # === 6. Join manually curated FishBase codes ===
 
-
 fb_manual <- read_csv(file.path(prj_path, "data/raw/taxonomy/fb_missing_taxa.csv")) |> 
   distinct(accepted_name, fb_spec_code_manual)
 
 final_taxa <- final_taxa |> 
   left_join(fb_manual, by = "accepted_name") |> 
-  mutate(fb_spec_code = coalesce(fb_spec_code, fb_spec_code_manual)) |> 
+  mutate(fb_spec_code = as.integer(coalesce(fb_spec_code, fb_spec_code_manual))) |> 
   select(-fb_spec_code_manual)
 ```
 
 ```{r ps_codes}
 codes <- final_taxa |> 
-  mutate(taxon_code = case_when(rank == "Species" ~ str_c(str_sub(word(taxon, 1), 1, 2),
+  mutate(taxon_code = case_when(rank == "species" ~ str_c(str_sub(word(taxon, 1), 1, 2),
                                                           ".",
                                                           str_sub(word(taxon, 2), 1, 4)),
-                                rank == "Genus" ~ str_c(str_sub(taxon, 1, 4),
+                                rank == "genus" ~ str_c(str_sub(taxon, 1, 4),
                                                         ".SP"),
-                                rank == "Family" ~ str_c(str_sub(taxon, 1, 4),
+                                rank == "family" ~ str_c(str_sub(taxon, 1, 4),
                                                          ".SPP"),
                                 TRUE ~ NA_character_),
          taxon_code = str_to_upper(taxon_code)) |>
@@ -405,13 +411,47 @@ final_taxa <- final_taxa |>
 ```
 
 ```{r}
-final_taxa <- final_taxa |> 
+## ADD the Hybrids
+hybrids <- read_excel(file.path(prj_path, 
+                                    "data/raw/taxonomy/Pacific_LW_parameters_V1_07Apr2025.xlsx.xlsx"),
+                          sheet = "Length-Weight Parameter Table") |> 
+  clean_names() |> 
+  rename(taxon_name = taxon,
+         accepted_name = reference_taxon) |> 
+  filter(str_detect(taxon_name, " x ")) |> 
+  mutate(taxon_code = case_when(taxon_name == "Acanthurus achilles x nigricans"  ~ "AC.ACxNI",
+                                taxon_name == "Acanthurus olivaceus x nigricans" ~ "AC.OLxNI",
+                                taxon_name == "Paracirrhites arcatus x bicolor"  ~ "PA.ARxBI",
+                                taxon_name == "Paracirrhites arcatus x nisus"    ~ "PA.ARxNI",
+                                taxon_name == "Paracirrhites nisus x xanthus"    ~ "PA.NIxXa",
+                                TRUE ~ NA_character_),
+         aphia_id = case_when(taxon_name == "Acanthurus achilles x nigricans"  ~ 219638,
+                              taxon_name == "Acanthurus olivaceus x nigricans" ~ 219625,
+                              taxon_name == "Paracirrhites arcatus x bicolor"  ~ 218866,
+                              taxon_name == "Paracirrhites arcatus x nisus"    ~ 218866,
+                              taxon_name == "Paracirrhites nisus x xanthus"    ~ 218866,
+                              TRUE ~ NA_integer_),
+         fb_spec_code = case_when(taxon_name == "Acanthurus achilles x nigricans"  ~ 6011,
+                                  taxon_name == "Acanthurus olivaceus x nigricans" ~ 4744,
+                                  taxon_name == "Paracirrhites arcatus x bicolor"  ~ 5835,
+                                  taxon_name == "Paracirrhites arcatus x nisus"    ~ 5835,
+                                  taxon_name == "Paracirrhites nisus x xanthus"    ~ 5835,
+                                  TRUE ~ NA_integer_),
+         accepted_aphia_id = aphia_id,
+         status = "hybrid",
+         status = "hybrid",
+         rank = "species") |> 
+  select(taxon_code, taxon_name, aphia_id, status, rank , accepted_name, accepted_aphia_id, fb_spec_code)
+
+
+final_taxa <- final_taxa |>
   rename(taxon_name = taxon,
          status = name_status) |> 
-  mutate(rank = str_to_lower(rank),
-         fb_spec_code = as.integer(fb_spec_code)) |> 
+  bind_rows(hybrids) |> 
   select(taxon_code, taxon_name, aphia_id, rank, everything(), -taxon_clean)
+```
 
+```{r}
 write_csv(final_taxa, file.path(prj_path, "data/processed/taxonomy/uvs_fish_taxa_codes.csv"))
 
 bq_table_upload(bq_table("pristine-seas", "taxonomy", "uvs_fish_codes"),
