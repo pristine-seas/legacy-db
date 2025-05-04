@@ -132,6 +132,22 @@ gt(inverts_stations_fields) |>
   gt_theme_nytimes()
 ```
 
+```{r}
+# Define table schema
+inverts_stations_schema <- inverts_stations_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "uvs", "inverts_stations"),
+                fields = inverts_stations_schema)
+```
+
 ---
 
 ##### Observations (`uvs.inverts_observations`)
@@ -195,9 +211,24 @@ gt(inverts_observations_fields) |>
   gt_theme_nytimes()
 ```
 
+```{r}
+inverts_obs_schema <- inverts_observations_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "uvs", "inverts_observations"),
+                fields = inverts_obs_schema)
+```
+
 ---
 
-##### Summary by taxa
+##### Density by taxa
 
 This table summarizes invertebrate density and size metrics by species at each station. It is the primary analysis-ready table for evaluating community structure and assessing the presence of key indicator species.
 
@@ -251,5 +282,20 @@ gt(inverts_by_taxa_fields) |>
   fmt_tf(columns = required, tf_style = "true-false") |> 
   fmt_markdown(columns = description) |> 
   gt_theme_nytimes()
+```
+
+```{r}
+inverts_density_schema <- inverts_by_taxa_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "uvs", "inverts_density_by_taxa"),
+                fields = inverts_density_schema)
 ```
 
