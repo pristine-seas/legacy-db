@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -42,64 +41,77 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `uvs/` dataset contains all data collected using Pristine Seas’ SCUBA-based underwater visual survey (UVS) protocols. These methods assess reef fish, benthic cover, invertebrates, and coral recruits at spatially co-located reef sites, using a standardized and depth-stratified survey design.
+### Overview
 
-Each UVS site typically includes multiple stations across depth strata (e.g., shallow, deep), where several survey protocols may be conducted in parallel.
+The `uvs/` dataset contains all data collected using Pristine Seas’ SCUBA-based underwater visual survey (UVS) protocols. These methods assess reef fish, benthic cover, mobile invertebrates, and coral recruits at spatially co-located sites using a standardized, depth-stratified design.
 
-The dataset is structured to balance:
+Each UVS site typically includes multiple stations across depth strata, with several survey protocols conducted in parallel.
 
-- Modularity by protocol — each sub-method (BLT, LPI, inverts, recruits) has dedicated tables
-- Shared spatial infrastructure — common sites and stations tables ensure alignment across protocols
+The dataset structure balances:
 
-This architecture enables flexible, protocol-specific analysis and integrated reef assessments across taxa and trophic groups.
-
----
-
-## Dataset Structure
+- **Protocol modularity**: each sub-method (BLT, LPI, inverts, recruits) has dedicated tables
+- **Spatial consistency**: shared sites and stations tables ensure alignment across protocols
+	
+This architecture enables both focused analyses (e.g., fish biomass by depth) and integrated reef assessments across taxa and trophic levels.
 
 ```text
 uvs/
 ├── sites               # Deployment-level metadata for each UVS dive
-├── stations            # Depth-stratified units within each dive
-├── blt_stations        # Fish transects (BLT)
+├── stations            # Depth-stratified sampling units within each site
+├── blt_stations        # Fish transect metadata (BLT)
 ├── blt_observations    # Raw fish counts
 ├── blt_biomass_by_taxa # Station-level biomass summaries
-├── lpi_stations        # Benthic transects
-├── lpi_counts          # Raw point intercepts
-├── lpi_cover_by_taxa   # Cover summary by benthic taxon
-├── inverts_stations    # Invertebrate survey transects
+├── lpi_stations        # Benthic transect metadata
+├── lpi_counts          # Raw point-intercept records
+├── lpi_cover_by_taxa   # Percent cover summaries
+├── inverts_stations    # Invertebrate transect metadata
 ├── inverts_counts      # Raw invertebrate observations
-├── recruits_stations   # Coral recruit transects
+├── recruits_stations   # Coral recruit transect metadata
 ├── recruits_counts     # Raw coral recruit counts
 ```
-Each table is documented in its own section below.
 
-## Tables 
+------------------------------------------------------------------------
 
-### `uvs.sites`
+### uvs.sites
 
-This table contains site-level metadata for all underwater visual surveys. Each row represents a discrete SCUBA dive at a location, typically involving multiple co-located survey protocols (e.g., fish BLT, LPI, inverts, recruits).
+This table stores site-level metadata for all UVS dives. Each row represents a unique SCUBA deployment where one or more survey protocols (e.g., fish, benthic, invertebrates) were conducted.
 
-It follows the core site schema defined in `expeditions.sites`, with additional UVS-specific fields (@tbl-uvs.sites)
+It inherits all core fields from`expeditions.sites` (e.g., site ID, coordinates, date), and adds UVS-specific fields that describe habitat type, exposure, protection status, and the survey methods deployed at the site (@tbl-uvs.sites).
 
 ```{r eval = T, include = T}
 #| label: tbl-uvs.sites
-#| tbl-cap: "Adiditonal fields in the `uvs.sites` table"
+#| tbl-cap: "Additional fields in the `uvs.sites` table, beyond the core site schema."
 #| 
+
+core_site_fields <- tribble(
+  ~field,         ~type,     ~required, ~description,
+  "ps_site_id",   "STRING",  TRUE,      "Unique site ID (`exp_id_method_###`), e.g., `FJI_2025_uvs_001`",
+  "exp_id",       "STRING",  TRUE,      "Foreign key to `expeditions.info`",
+  "method",       "STRING",  TRUE,      "Field method used (e.g., `uvs`, `pbruv`, `edna`, `sub`)",
+  "region",       "STRING",  TRUE,      "Broad geographic or administrative unit (e.g., Murat, Chocó, Tuamotu, Duff Islands).",
+  "subregion",    "STRING",  TRUE,      "Intermediate feature within the region such as an atoll, island, gulf, or reef complex",
+  "locality",     "STRING",  FALSE,     "Local named feature such as a village, bay, cove, reef (e.g., Lolieng, Ensenada Utría).",
+  "date",         "DATE",    TRUE,      "Date of the site-level deployment in ISO 8601 format (`YYYY-MM-DD`)",
+  "time",         "TIME",    TRUE,      "Local time of the deployment in 24-hour format (`HH:MM:SS`)",
+  "latitude",     "FLOAT",   TRUE,      "Approximate latitude (decimal degrees, WGS84)",
+  "longitude",    "FLOAT",   TRUE,      "Approximate longitude (decimal degrees, WGS84)",
+  "lead",         "STRING",  TRUE,      "Name of the lead scientist or survey team lead",
+  "notes",        "STRING",  FALSE,     "Optional comments, metadata, or field observations")
+
 
 uvs.sites_fields <- tribble(
   ~field,         ~type,     ~required, ~description,
-  "site_name",    "STRING",  FALSE,     "Local site name. Used in previous surveys or by local partners",
-  "habitat",      "STRING",  TRUE,      "Dominant reef habitat type (e.g., fore reef, patch reef, fringing reef)",
-  "exposure",     "STRING",  TRUE,      "Wave and wind exposure (e.g., windward, leeward, lagoon)",
-  "protected",    "BOOLEAN", FALSE,     "Whether the site is inside a marine protected area (MPA)",
-  "blt",          "BOOLEAN", FALSE,     "Indicates whether fish belt transects were conducted",
-  "lpi",          "BOOLEAN", FALSE,     "Indicates whether benthic point intercept surveys were conducted",
-  "inverts",      "BOOLEAN", FALSE,     "Indicates whether invertebrate surveys were conducted",
-  "recruits",     "BOOLEAN", FALSE,     "Indicates whether coral recruit transects were conducted",
-  "ysi",          "BOOLEAN", FALSE,     "Indicates whether YSI environmental profiles were collected",
-  "photomosaic",  "BOOLEAN", FALSE,     "Indicates whether a photomosaic survey was conducted",
-  "edna",         "BOOLEAN", FALSE,     "Indicates whether eDNA samples were collected at the site"
+  "site_name",    "STRING",  FALSE,     "Local site name used in previous surveys or by local partners.",
+  "habitat",      "STRING",  TRUE,      "Dominant habitat type (e.g., `fore reef`, `patch reef`, `fringing reef`).",
+  "exposure",     "STRING",  TRUE,      "Wave and wind exposure (e.g., `windward`, `leeward`, `lagoon`).",
+  "in_mpa",       "BOOLEAN", FALSE,     "TRUE if the site is located inside a marine protected area.",
+  "blt",          "BOOLEAN", FALSE,     "TRUE if fish belt transects were conducted at this site.",
+  "lpi",          "BOOLEAN", FALSE,     "TRUE if benthic point intercept surveys were conducted.",
+  "inverts",      "BOOLEAN", FALSE,     "TRUE if invertebrate surveys were conducted.",
+  "recruits",     "BOOLEAN", FALSE,     "TRUE if coral recruit transects were conducted.",
+  "ysi",          "BOOLEAN", FALSE,     "TRUE if YSI environmental profiles were collected.",
+  "photomosaic",  "BOOLEAN", FALSE,     "TRUE if a photomosaic survey was conducted.",
+  "edna",         "BOOLEAN", FALSE,     "TRUE if eDNA samples were collected at the site."
 )
 
 uvs.sites_fields |>
@@ -152,8 +164,27 @@ if (!bq_dataset_exists(bq_dataset("pristine-seas", "uvs"))) {
   )
 }
 
+
+uvs_sites_all_fields <- bind_rows(core_site_fields, uvs.sites_fields) |>
+  mutate(group = case_when(
+    field %in% c("ps_site_id", "exp_id", "method")               ~ "Identifiers",
+    field %in% c("region", "subregion", "locality", "site_name", "in_mpa") ~ "Spatial",
+    field %in% c("date", "time")                                 ~ "Temporal",
+    field %in% c("latitude", "longitude")                        ~ "Geolocation",
+    field %in% c("habitat", "exposure", "protected")             ~ "Environmental",
+    field %in% c("blt", "lpi", "inverts", "recruits", "ysi", "photomosaic", "edna") ~ "Survey Protocols",
+    field == "lead"                                              ~ "Metadata",
+    field == "notes"                                             ~ "Notes",
+    TRUE ~ "Other"
+  )) |>
+  arrange(factor(group, levels = c(
+    "Identifiers", "Spatial", "Temporal", "Geolocation",
+    "Environmental", "Survey Protocols", "Metadata", "Notes"
+  ))) |>
+  select(-group)
+
 # Define table schema
-uvs.sites_schema <- uvs.sites_fields |>
+uvs.sites_schema <- uvs_sites_all_fields |>
   mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
   transmute(name = field,
             type = type,
@@ -166,3 +197,4 @@ uvs.sites_schema <- uvs.sites_fields |>
 bq_table_create(bq_table(project_id, "uvs", "sites"),
                 fields = uvs.sites_schema)
 ```
+

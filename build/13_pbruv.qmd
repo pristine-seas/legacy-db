@@ -42,15 +42,17 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `pbruv/` dataset contains ....
+#### Overview
+
+
+#### Tables 
+------------------------------------------------------------------------
+
+##### Stations (`uvs.pbruv_stations`)
 
 ---
 
-## Dataset Structure
 
-Each table is documented in its own section below.
+##### Observations (`uvs.pbruv_observations`)
 
-## Tables 
-
-### `pbruv.sites`
-
+---

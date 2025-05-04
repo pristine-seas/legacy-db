@@ -42,9 +42,12 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-## Tables 
+#### Overview
 
-### `edna.sites`
+
+#### Tables 
+
+##### Sites (`edna.sites`)
 
 The `edna.sites` table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time and serves as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples (replicates) may be collected across different depth strata, recorded in the corresponding `edna.stations` table.
 

@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -41,4 +40,259 @@ project_id <- "pristine-seas"
 bq_connection <- DBI::dbConnect(bigrquery::bigquery(), 
                                 project = project_id)
 ```
+
+#### Overview
+
+The Line Point Intercept (LPI) protocol is used to quantify benthic community composition at Pristine Seas UVS sites. Divers swim along a fixed transect line and record the benthic taxon or category directly beneath a series of regularly spaced sampling points.
+
+Points are recorded every 20 cm along a 50-meter transect, yielding 250 point intercepts per station, typically divided into five 10-meter sections (50 points each). In some cases, shorter transects (e.g., 30 m) are used, resulting in fewer total points.
+
+This method yields high-resolution estimates of percent cover for key benthic groups—such as hard coral, macroalgae, crustose coralline algae (CCA), and cyanobacteria—and supports assessments of reef condition and spatial variability.
+
+LPI data are organized across three interlinked tables:
+
+- `uvs.lpi_stations` - Metadata and summary metrics for each LPI transect station
+- `uvs.lpi_counts` - Point intercept counts per morphotaxon, station, and section
+- `uvs.lpi_cover_by_taxa` - Percent cover summaries by taxon or functional group, per station
+
+All records are linked via ps_station_id. Taxa are harmonized using accepted_name and accepted_aphia_id, which represent the minimum resolved taxonomic level per morphotaxon.
+
+------------------------------------------------------------------------
+
+#### Tables 
+
+------------------------------------------------------------------------
+
+##### Stations (`uvs.lpi_stations`)
+
+Each row in this table represents a single depth-stratified LPI survey at a UVS site. Fields include spatial and habitat metadata, survey effort (e.g., transect length, number of sections, total points), and benthic summary metrics such as percent cover of hard coral, CCA, and cyanobacteria.
+
+```{r eval = T, include = T}
+#| label: tbl-lpi-stations-schema
+#| tbl-cap: "Schema for `uvs.lpi_stations`: metadata and summary metrics for each LPI transect station"
+
+lpi_stations_fields <- tribble(
+  ~field,              ~type,     ~required, ~description,
+
+  # Identifiers
+  "ps_station_id",     "STRING",  TRUE,     "Unique station ID (`ps_site_id_depth`).",
+  "ps_site_id",        "STRING",  TRUE,     "Foreign key to `uvs.sites`.",
+  "exp_id",            "STRING",  TRUE,     "Expedition ID (`ISO3_YEAR`).",
+  "method",            "STRING",  TRUE,     "Survey method (`uvs`).",
+  "protocol",          "STRING",  TRUE,     "Survey protocol (`benthic_lpi`).",
+  "divers",            "STRING",  TRUE,     "Divers who conducted the LPI transects.",
+
+  # Spatial and temporal
+  "region",            "STRING",  TRUE,     "Region name.",
+  "subregion",         "STRING",  TRUE,     "Subregion name.",
+  "locality",          "STRING",  FALSE,    "Optional local feature (e.g., reef, bay).",
+  "latitude",          "FLOAT",   TRUE,     "Latitude of station (decimal degrees, WGS84).",
+  "longitude",         "FLOAT",   TRUE,     "Longitude of station (decimal degrees, WGS84).",
+  "date",              "DATE",    TRUE,     "Date of LPI survey.",
+  "time",              "TIME",    TRUE,     "Start time of the LPI transects (24-hour format).",
+
+  # Environmental context
+  "depth_m",           "FLOAT",   TRUE,     "Average station depth (m).",
+  "depth_strata",      "STRING",  TRUE,     "Depth bin: `supershallow`, `shallow`, or `deep`.",
+  "habitat",           "STRING",  TRUE,     "Habitat type (e.g., fore reef, patch reef).",
+  "exposure",          "STRING",  TRUE,     "Exposure type (e.g., windward, leeward, lagoon).",
+
+  # Survey effort
+  "survey_distance", "INTEGER", TRUE,     "Total length of transect surveyed (m).",
+  "n_sections",        "INTEGER", TRUE,     "Number of 10m sections surveyed (typically 5).",
+  "n_points",          "INTEGER", TRUE,     "Total number of points sampled across all transects.",
+
+  # Summary metrics
+  "pct_coral",         "FLOAT",   FALSE,    "Percent of points classified as hard coral (Scleractinia).",
+  "pct_cca",           "FLOAT",   FALSE,    "Percent of points classified as crustose coralline algae (CCA).",
+  "pct_cyano",         "FLOAT",   FALSE,    "Percent of points classified as cyanobacteria.",
+
+  # Notes
+  "notes",             "STRING",  FALSE,    "Optional QA or field notes."
+)
+
+gt(lpi_stations_fields) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+```{r}
+# Define table schema
+lpi_stations_schema <- lpi_stations_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "uvs", "lpi_stations"),
+                fields = lpi_stations_schema)
+```
+
+---
+
+##### Counts (`uvs.lpi_counts`)
+
+This table stores summarized point intercept data from LPI transects. Each row represents the number of points at which a given morphotaxon was recorded within a specific station and transect section.
+
+Each record includes:
+
+- A diver-entered morphotaxon label (e.g., “Porites sp.”, “CCA”, “Turf”)
+- A standardized accepted_name and accepted_aphia_id (minimum taxonomic resolution)
+- A functional group classification (e.g., coral, CCA, macroalgae)
+
+The `n_points` field indicates how many times the morphotaxon was recorded in the section. This format supports fine-scale spatial summaries while preserving compatibility with aggregate-level analyses.
+
+```{r eval = T, include = T}
+#| label: tbl-lpi-counts-schema
+#| tbl-cap: "Schema for `uvs.lpi_counts`: point intercept counts by morphotaxon and transect section"
+
+lpi_counts_fields <- tribble(
+  ~field,              ~type,     ~required, ~description,
+
+  # Identification and traceability
+  "ps_station_id",     "STRING",  TRUE,      "Foreign key linking to `uvs.lpi_stations`.",
+  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the data.",
+  "station_label",     "STRING",  TRUE,      "Field-assigned stratum label (e.g., `shallow`, `deep`).",
+  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the LPI transect was conducted.",
+  "section",           "INTEGER", TRUE,      "Transect section number (typically 1–5 for 10 m intervals).",
+
+  # Taxonomic identity
+  "morphotaxon",       "STRING",  TRUE,      "Field-entered morphotaxon label (e.g., 'Porites sp.', 'CCA', 'Turf').",
+  "accepted_name",     "STRING",  TRUE,      "Standardized scientific name representing the minimum identifiable taxon.",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.benthic`.",
+  "functional_group",  "STRING",  TRUE,      "Functional group classification (e.g., `coral`, `CCA`, `turf`, `macroalgae`).",
+
+  # Observation details
+  "n_points",          "INTEGER", TRUE,      "Number of point intercepts assigned to the morphotaxon in the given section.",
+
+  # Notes
+  "notes",             "STRING",  FALSE,     "Optional comments or QA annotations."
+)
+
+lpi_counts_fields |> 
+  gt() |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+```{r}
+# Define table schema
+lpi_counts_schema <- lpi_counts_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "uvs", "lpi_counts"),
+                fields = lpi_counts_schema)
+```
+
+---
+
+
+##### Cover by taxa (`uvs.lpi_cover_by_taxa`)
+
+This table contains station-level summaries of benthic percent cover by taxon or group. Each row represents a unique combination of ps_station_id and benthic taxon, with cover calculated as the proportion of total points assigned to that taxon.
+
+Taxonomic identity is standardized via accepted_name and `accepted_aphia_id`. Functional group assignments support grouped summaries such as total coral, algae, or CCA cover, and are consistent with those used across reef condition assessments and visualizations.
+
+```{r eval = T, include = T}
+#| label: tbl-lpi-cover-schema
+#| tbl-cap: "Schema for `uvs.lpi_cover_by_taxa`: percent cover by taxon at each LPI station"
+
+lpi_cover_by_taxa_fields <- tribble(
+  ~field,               ~type,    ~required, ~description,
+
+  # Identifiers
+  "ps_station_id",     "STRING", TRUE,     "Unique station ID (`ps_site_id_depth`), e.g., `CHL_2024_uvs_001_20m`.",
+  "accepted_name",     "STRING", TRUE,     "Scientific name of the benthic taxon (`Genus species`) or category.",
+  "accepted_aphia_id", "INTEGER", TRUE,     "Unique AphiaID from WoRMS; foreign key to `taxonomy.benthic`.",
+
+  # Taxonomic traits
+  "functional_group",  "STRING", TRUE,     "Functional group classification (e.g., `coral`, `CCA`, `turf`, `macroalgae`).",
+
+  # Station spatial context
+  "depth_m",           "FLOAT",  TRUE,     "Mean depth (m) of the station.",
+  "depth_strata",      "STRING", TRUE,     "Depth bin label: `supershallow`, `shallow`, or `deep`.",
+  "region",            "STRING", TRUE,     "Region name.",
+  "subregion",         "STRING", TRUE,     "Subregion (e.g., island, gulf, reef complex).",
+  "locality",          "STRING", FALSE,    "Optional local feature (e.g., reef, bay, cove).",
+  "habitat",           "STRING", TRUE,     "Dominant habitat type at the station.",
+  "exposure",          "STRING", TRUE,     "Wave/wind exposure at the station (`windward`, `leeward`, `lagoon`).",
+
+  # Aggregated metrics
+  "n_points",          "INTEGER", TRUE,     "Total number of point intercepts assigned to the taxon.",
+  "pct_cover",         "FLOAT",  TRUE,     "Percent cover calculated as n_points divided by total points at the station * 100."
+)
+
+lpi_cover_by_taxa_fields |> 
+  gt() |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+```{r}
+# Define table schema
+lpi_cover_by_taxa_schema <- lpi_cover_by_taxa_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "uvs", "lpi_cover_by_taxa"),
+                fields = lpi_cover_by_taxa_schema)
+```
+
+
 

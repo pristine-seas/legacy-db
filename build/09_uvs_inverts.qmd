@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -42,4 +41,215 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-#### Invertebrate Surveys
+#### Overview
+
+The **invertebrate survey (inverts)** protocol is used to quantify the diversity, abundance, and size distribution of motile reef invertebrates at Pristine Seas UVS sites. Divers swim along fixed transects and record invertebrate observations within defined belt widths, using two complementary methods:
+
+- **Standard invertebrate survey** — All motile invertebrates within 1 meter of one side of the transect are counted and identified to the lowest possible taxonomic level.
+- **Large-scale invertebrate survey** — Culturally and fishery important species are measured for size within a wider 4-meter belt on the opposite side of the transect.
+
+This dual protocol captures both fine-scale community composition and large-bodied target species for management applications. 
+
+Invertebrate data are organized into three interlinked tables:
+
+- `uvs.inverts_stations` — Metadata and ecological summaries for each invertebrate transect station
+- `uvs.inverts_counts` — Raw counts and size measurements of individual invertebrate taxa
+- `uvs.inverts_summary_by_taxa` — Station-level summaries by species, including density and average size
+
+All records are linked by `ps_station_id`, and species are standardized using `accepted_aphia_id` from `taxonomy.inverts`.
+
+------------------------------------------------------------------------
+
+#### Tables 
+
+------------------------------------------------------------------------
+
+##### Stations (`uvs.inverts_stations`)
+
+This table contains metadata and summary statistics for each invertebrate survey station. Each row corresponds to a single 50 m transect at a UVS site and includes spatial context, survey effort, and ecological indicators such as species richness and density of target taxa.
+
+::: {.callout-note title="Transect structure"}
+- **Standard inverts**: 50 m × 1 m belt on one side of the transect
+- **Large-scale inverts**: 50 m × 4 m belt on the opposite side
+:::
+
+```{r eval = T, include = T}
+#| label: tbl-inverts-stations-schema
+#| tbl-cap: "Schema for `uvs.inverts_stations`: metadata and summary metrics for motile invertebrate survey stations"
+
+inverts_stations_fields <- tribble(
+  ~field,             ~type,     ~required, ~description,
+
+  # Identifiers
+  "ps_station_id",   "STRING",  TRUE,     "Unique station ID (`ps_site_id_depth`).",
+  "ps_site_id",      "STRING",  TRUE,     "Foreign key to `uvs.sites`.",
+  "exp_id",          "STRING",  TRUE,     "Expedition ID (`ISO3_YEAR`).",
+  "method",          "STRING",  TRUE,     "Survey method (`uvs`).",
+  "protocol",        "STRING",  TRUE,     "Survey protocol (`inverts_motile`).",
+  "divers",          "STRING",  TRUE,     "Divers who conducted the invertebrate survey.",
+
+  # Spatial
+  "region",          "STRING",  TRUE,     "Region name.",
+  "subregion",       "STRING",  TRUE,     "Subregion name.",
+  "locality",        "STRING",  FALSE,    "Optional local feature (e.g., reef, bay).",
+  "latitude",        "FLOAT",   TRUE,     "Latitude of station (decimal degrees).",
+  "longitude",       "FLOAT",   TRUE,     "Longitude of station (decimal degrees).",
+  "date",            "DATE",    TRUE,     "Date of invertebrate survey.",
+  "time",            "TIME",    TRUE,     "Start time of the survey.",
+
+  # Environment
+  "depth_m",         "FLOAT",   TRUE,     "Average station depth (m).",
+  "depth_strata",    "STRING",  TRUE,     "Depth bin: `supershallow`, `shallow`, `deep`.",
+  "habitat",         "STRING",  TRUE,     "Habitat type.",
+  "exposure",        "STRING",  TRUE,     "Exposure type.",
+
+  # Effort and summaries
+  "transect_length",   "FLOAT",  TRUE,     "Length of transect surveyed (typically 50 m).",
+  "survey_area_m2",    "FLOAT",  TRUE,     "Total area surveyed (transect_length x belt_width).",
+  "total_richness",    "INTEGER", FALSE,   "Total number of unique invertebrate taxa observed at the station (on-transect only).",
+  "total_count",       "INTEGER", FALSE,   "Total number of invertebrates recorded.",
+  "count_m2",        "FLOAT",  FALSE,    "Mean density (individuals/m²).",
+
+  # Notes
+  "notes",           "STRING",  FALSE,    "Optional QA or field notes."
+)
+
+gt(inverts_stations_fields) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+---
+
+##### Observations (`uvs.inverts_observations`)
+
+This table stores raw observations of invertebrates recorded during the surveys. Each row represents a single species recorded on a given transect, and includes taxonomic identity, count, and where applicable, size estimates for large-bodied species.
+
+- Species are identified using `accepted_name` and `accepted_aphia_id`
+- All individuals are counted in the 1 m belt
+- Selected species are measured in the 4 m belt (e.g., giant clams, pearl oysters, conchs, sea cucumbers)
+
+```{r eval = T, include = T}
+#| label: tbl-inverts-observations-schema
+#| tbl-cap: "Schema for `uvs.inverts_observations`: raw counts and measurements of motile invertebrates per transect"
+
+inverts_observations_fields <- tribble(
+  ~field,              ~type,     ~required, ~description,
+
+  # Identification and traceability
+  "obs_id",            "STRING",  TRUE,      "Unique observation ID (e.g., `FJI_2025_inv_JSD_0001`).",
+  "ps_station_id",     "STRING",  TRUE,      "Foreign key to `uvs.inverts_stations`.",
+  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
+
+  # Spatial context
+  "station_label",     "STRING",  TRUE,      "Field-assigned stratum label (e.g., `shallow`, `deep`).",
+  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
+  "in_transect",       "BOOLEAN", TRUE,      "TRUE if observation was made within the standard 1-m or 4-m survey band; FALSE if incidental or off-transect.",
+
+  # Taxonomic identity
+  "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`) of the observed taxon.",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
+  "functional_group",  "STRING",  TRUE,      "Functional or cultural group (e.g., `sea cucumber`, `clam`, `urchin`). Assigned post-survey.",
+
+  # Observation details
+  "count",             "INTEGER", TRUE,      "Number of individuals observed for this species.",
+  "length_cm",         "FLOAT",   FALSE,     "Measured length (cm), if applicable for the taxon.",
+  "measurement_type",  "STRING",  FALSE,     "Type of length measured (e.g., `shell width`, `total length`). Use standardized vocabulary.",
+  "survey_band_m",     "FLOAT",   TRUE,      "Width of the transect band (m) — typically 1 for general surveys, 4 for large-scale surveys.",
+
+  # Derived metrics
+  "count_m2",          "FLOAT",   FALSE,     "Density (individuals/m²), standardized by transect area.",
+
+  # Notes
+  "notes",             "STRING",  FALSE,     "Optional comments or QA annotations."
+)
+
+gt(inverts_observations_fields) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+---
+
+##### Summary by taxa
+
+This table summarizes invertebrate density and size metrics by species at each station. It is the primary analysis-ready table for evaluating community structure and assessing the presence of key indicator species.
+
+Each row is a unique combination of `ps_station_id` and species, with fields such as:
+
+- `density_m2` — mean individuals per square meter
+- `avg_size_cm`, `min_size_cm`, `max_size_cm` — summary of measured size data
+
+```{r eval = T, include = T}
+inverts_by_taxa_fields <- tribble(
+  ~field,                ~type,     ~required, ~description,
+
+  # Identifiers
+  "ps_station_id",       "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth`).",
+  "accepted_name",       "STRING",  TRUE,      "Scientific name (`Genus species`) of the observed invertebrate.",
+  "accepted_aphia_id",   "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
+
+  # Taxonomic traits
+  "functional_group",    "STRING",  TRUE,      "Functional or cultural grouping (e.g., `sea cucumber`, `clam`, `urchin`).",
+
+  # Spatial context
+  "depth_m",             "FLOAT",   TRUE,      "Average depth (m) of the station.",
+  "depth_strata",        "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`.",
+  "region",              "STRING",  TRUE,      "Region name.",
+  "subregion",           "STRING",  TRUE,      "Subregion name.",
+  "locality",            "STRING",  FALSE,     "Optional local feature (e.g., reef, bay, cove).",
+  "habitat",             "STRING",  TRUE,      "Habitat type at the station.",
+  "exposure",            "STRING",  TRUE,      "Exposure type (e.g., windward, leeward, lagoon).",
+
+  # Aggregated metrics
+  "total_count",         "INTEGER", FALSE,     "Total number of individuals observed at the station.",
+  "total_count_m2",        "FLOAT",   FALSE,  "Mean density (individuals/m²), standardized by band width and transect length.",
+  "avg_length_cm",       "FLOAT",   FALSE,     "Weighted mean length (cm), if applicable.",
+  "min_length_cm",       "FLOAT",   FALSE,     "Minimum length (cm) observed at the station.",
+  "max_length_cm",       "FLOAT",   FALSE,     "Maximum length (cm) observed at the station."
+)
+
+gt(inverts_by_taxa_fields) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+

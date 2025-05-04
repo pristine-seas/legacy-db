@@ -42,15 +42,18 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `seabirds/` dataset contains ....
+#### Overview
+
+
+#### Tables 
+------------------------------------------------------------------------
+
+##### Stations (`uvs.birds_stations`)
 
 ---
 
-## Dataset Structure
 
-Each table is documented in its own section below.
+##### Observations (`uvs.birds_observations`)
 
-## Tables 
-
-### `birds.sites`
+---
 
