@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -44,15 +43,184 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
 
 #### Overview
 
+The Pelagic Baited Remote Underwater Video (pBRUV) protocol is used to sample large, mobile fishes and predators in open water environments. Each deployment consists of a string of five baited stereo-camera rigs, connected and deployed simultaneously as a single sampling unit.
 
-#### Tables 
+Data are stored in two linked tables:
+
+- `pbruv.stations` — Metadata for each deployment (e.g., location, depth, bait, camera models)
+- `pbruv.maxn_by_taxa` — Summary of fish observations by station and species, including MaxN and ecological traits
+
+Each record in `pbruv.stations` represents one deployment (i.e., one string of five rigs), and all observations are linked via `ps_station_id`. Fish identities are standardized using `accepted_aphia_id`, enabling linkage to `taxonomy.fish`.
+
 ------------------------------------------------------------------------
 
-##### Stations (`uvs.pbruv_stations`)
+#### Tables 
+
+------------------------------------------------------------------------
+
+##### Stations (`pbruv.stations`)
+
+This table contains metadata for each pelagic BRUVS (pBRUVS) deployment. Each row represents a single deployment event (“string”) composed of a fixed array of ~5 baited camera rigs, suspended in the water column and deployed simultaneously. Unlike SBRUVS, which rest on the seafloor, pelagic BRUVS are midwater deployments designed to sample open-ocean and upper reef-associated fish assemblages. Each rig in a string operates independently but is deployed as part of a coordinated set at a common location and time.
+
+The station is the unit of deployment and spatial reference. Rig-level data (e.g., camera, bait, depth) are recorded in `pbruv.rigs`, and fish observations are stored in `pbruv.maxn_by_rig`.
+
+```{r eval = T, include = T}
+#| label: tbl-pbruv-stations-schema
+#| tbl-cap: "Schema for `pbruv.stations`: metadata for each pelagic BRUVS deployment string (site)"
+#| 
+pbruv_stations_fields <- tribble(
+  ~field,            ~type,     ~required, ~description,
+
+  # Identifiers
+  "ps_station_id",   "STRING",  TRUE,      "Unique station ID (e.g., `COL_2023_pbruv_001`).",
+  "exp_id",          "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`).",
+  "method",          "STRING",  TRUE,      "Field method used (`pbruv`).",
+  "uwa_string_id",   "STRING",  FALSE,     "External site ID used by the University of Western Australia (if applicable).",
+
+  # Spatial metadata
+  "region",          "STRING",  TRUE,      "Region name (e.g., Chocó, Tuamotu).",
+  "subregion",       "STRING",  TRUE,      "Subregion (e.g., gulf, reef complex).",
+  "locality",        "STRING",  FALSE,     "Local named feature (e.g., bay, island).",
+  "latitude",        "FLOAT",   TRUE,      "Latitude of string centroid (decimal degrees).",
+  "longitude",       "FLOAT",   TRUE,      "Longitude of string centroid (decimal degrees).",
+
+  # Temporal
+  "date",            "DATE",    TRUE,      "Date of deployment (ISO 8601 format).",
+  "time",            "TIME",    TRUE,      "Local time of deployment (24-hour format).",
+
+  # Deployment context
+  "n_rigs",          "INTEGER", TRUE,      "Number of rigs deployed in the string (typically 5).",
+  "drift_m",         "FLOAT",   FALSE,     "Mean horizontal drift distance (m) across rigs.",
+  "drift_hrs",       "FLOAT",   FALSE,     "Mean soak time (hours).",
+  "bait_type",       "STRING",  TRUE,      "Bait type used across rigs (e.g., `sardines`, `mackerel`).",
+  "lead",            "STRING",  TRUE,      "Name of the lead scientist or team lead.",
+  "notes",           "STRING",  FALSE,     "Optional comments or deployment notes."
+)
+
+ gt(pbruv_stations_fields) |> 
+cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
 
 ---
 
+##### Rigs (`pbruv.rigs`)
 
-##### Observations (`uvs.pbruv_observations`)
+This table contains rig-level metadata for pelagic BRUV deployments. Each row corresponds to a single camera rig within a five-rig string. It captures the spatial position, video details, soak time, and rig-specific conditions. This granularity supports rig-level analysis while enabling later aggregation at the station level (ps_station_id).
+
+Each rig is uniquely identified by ps_rig_id and linked to its parent station via `ps_station_id`.
+
+```{r eval = T, include = T}
+#| label: tbl-pbruv-rigs-schema
+#| tbl-cap: "Schema for `pbruv.rigs`: metadata for individual camera rigs within each string"
+#| 
+pbruv_rigs_fields <- tribble(
+  ~field,            ~type,     ~required, ~description,
+  
+  # Identifiers
+  "ps_rig_id",       "STRING",  TRUE,      "Unique rig ID (e.g., `COL_2023_pbruv_001_r1`).",
+  "ps_station_id",   "STRING",  TRUE,      "Foreign key to `pbruv.stations`.",
+  "rig_number",      "INTEGER", TRUE,      "Rig number in the string (1–5).",
+
+  # Spatial-temporal deployment
+  "lat_deploy",      "FLOAT",   TRUE,      "Latitude at deployment (decimal degrees).",
+  "lon_deploy",      "FLOAT",   TRUE,      "Longitude at deployment (decimal degrees).",
+  "lat_recover",     "FLOAT",   TRUE,      "Latitude at recovery (decimal degrees).",
+  "lon_recover",     "FLOAT",   TRUE,      "Longitude at recovery (decimal degrees).",
+  "time_deploy",     "DATETIME", TRUE,     "Timestamp of rig deployment (ISO 8601).",
+  "time_recover",    "DATETIME", TRUE,     "Timestamp of rig recovery (ISO 8601).",
+  "depth_m",         "FLOAT",   TRUE,      "Deployment depth (m).",
+
+  # Video and camera metadata
+  "left_cam",        "STRING",  TRUE,      "Left camera model or ID.",
+  "right_cam",       "STRING",  TRUE,      "Right camera model or ID.",
+
+  # Notes
+  "notes",           "STRING",  FALSE,     "Optional comments or QA notes for this rig."
+)
+
+gt(pbruv_rigs_fields) |> 
+cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
 
 ---
+
+##### MaxN (`pbruv.maxn_by_taxa`)
+
+The `pbruv.maxn_by_taxa` table stores rig-level summaries of fish observations from pelagic BRUVS deployments. Each row represents the maximum number of individuals (maxn) observed for a given taxon on a single rig. When available, length estimates are included as optional fields to support size-based analysis of pelagic fish communities.
+
+Species identities are standardized via accepted_aphia_id, with traits such as family and trophic_group joined from the central species reference (`taxonomy.fish`).
+
+```{r eval = T, include = T}
+#| label: tbl-pbruv-maxn-schema
+#| tbl-cap: "Schema for `pbruv.maxn_by_taxa`: rig-level summaries of MaxN and ecological traits"
+
+pbruv_maxn_by_taxa_fields <- tribble(
+  ~field,              ~type,     ~required, ~description,
+
+  # Identifiers
+  "ps_station_id",     "STRING",  TRUE,      "Unique station ID (`exp_id_method_###`).",
+  "rig_id",            "STRING",  TRUE,      "Identifier for the rig within the string (e.g., `r101`, `r102`).",
+
+  # Taxonomic identity
+  "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`) of the observed taxon.",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.fish`.",
+  "family",            "STRING",  TRUE,      "Family of the taxon.",
+  "trophic_group",     "STRING",  TRUE,      "Trophic group classification (e.g., `planktivore`, `top-predator`).",
+
+  # Observation
+  "maxn",              "INTEGER", TRUE,      "Maximum number of individuals observed simultaneously on video (MaxN).",
+  "avg_length_cm",     "FLOAT",   FALSE,     "Mean estimated total length (cm), if length data are available.",
+  "min_length_cm",     "FLOAT",   FALSE,     "Minimum observed length (cm).",
+  "max_length_cm",     "FLOAT",   FALSE,     "Maximum observed length (cm).",
+
+  # Notes
+  "notes",             "STRING",  FALSE,     "Optional comments or QA notes."
+)
+
+gt(pbruv_maxn_by_taxa_fields) |> 
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+

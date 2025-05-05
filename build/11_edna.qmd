@@ -44,47 +44,54 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
 
 #### Overview
 
+The environmental DNA (eDNA) dataset includes records from water samples collected across Pristine Seas expeditions to detect and characterize marine biodiversity using molecular techniques. eDNA captures genetic material shed by organisms into the environment (e.g., via skin, scales, gametes, or excretions), enabling the detection of species that are otherwise difficult to observe using traditional survey methods.
+
+------------------------------------------------------------------------
 
 #### Tables 
+
+------------------------------------------------------------------------
 
 ##### Sites (`edna.sites`)
 
 The `edna.sites` table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time and serves as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples (replicates) may be collected across different depth strata, recorded in the corresponding `edna.stations` table.
 
-In addition to the **core site fields**, the `edna.sites` table includes method-specific metadata (@tbl-edna-site-schema), such as:
-
-  - **`exposure`** – Same controlled vocabulary as in `uvs_sites`  
-  - **`habitat`** – Same as `uvs_sites`, with the following additional categories:
-    - **_open water_** – Offshore or pelagic environments
-    - **_bay_** – Semi-enclosed coastal embayments
-    - **_estuary_** – Transitional area between river and marine systems
-    - **_mangrove_** – Shallow, intertidal forested coastal habitat
-    
+This table captures spatial metadata, sampling platform, habitat descriptors, and effort summaries. It supports integration with other methods (e.g., UVS, BRUVs) through common spatial fields and an optional pairing field (paired_ps_site_id).
     
 ```{r edna_fields, eval = T, include = T}
-#| label: tbl-edna-site-schema
-#| tbl-cap: "Additional fields to the core site fields in the `edna_sites` table"
+#| label: tbl-edna.sites-schema
+#| tbl-cap: "Additional fields in the `edna.sites` table (eDNA-specific site metadata)"
 
-edna_site_fields <- tibble::tibble(Method = "edna",
-                                   Field = c("habitat", "exposure", "paired_ps_site_id", "n_stations", "n_samples", "site_photos"),
-                                   Type = c("STRING", "STRING","STRING","INTEGER", "INTEGER", "STRING"),
-                                   Required = c(TRUE, TRUE, FALSE, TRUE, TRUE, FALSE),
-                                   Description = c("Dominant habitat type. Allowed values: *fore reef*, *back reef*, *fringing reef*, *patch reef*, *reef flat*, *channel*, *seagrass*, *rocky reef*, *open water*, *bay*, *estuary*, *mangrove*, *other*.",
-                                                   "Wind and wave exposure at the site. Allowed values: *windward*, *leeward*, *lagoon*, *other*.",
-                                                   "`ps_site_id` of a paired site (e.g., a `uvs` or `pbruvs` site), if applicable",
-                                                   "Number of unique stations (i.e., depth strata) sampled at the site",
-                                                   "Total number of water samples (replicates) collected at the site",
-                                                   "path to associated site photos, if available (e.g.,  eDNA/site_photos/COL-2022-edna-001)"))
+edna_sites_fields <- tribble(
+  ~field,               ~type,     ~required, ~description,
+  "habitat",            "STRING",  TRUE,      "Dominant habitat type. Allowed values: *fore reef*, *back reef*, *fringing reef*, *patch reef*, *reef flat*, *channel*, *seagrass*, *rocky reef*, *open water*, *bay*, *estuary*, *mangrove*, *other*.",
+  "exposure",           "STRING",  TRUE,      "Wind and wave exposure. Allowed values: *windward*, *leeward*, *lagoon*, *other*.",
+  "paired_ps_site_id",  "STRING",  FALSE,     "Foreign key to a related site (e.g., from `uvs` or `pbruvs`), if applicable.",
+  "n_stations",         "INTEGER", TRUE,      "Number of depth-stratified eDNA stations at this site.",
+  "n_samples",          "INTEGER", TRUE,      "Total number of water samples (replicates) collected at the site.",
+  "site_photos",        "STRING",  FALSE,     "Path to site photo folder, if available (e.g., `eDNA/site_photos/COL-2022-edna-001`)."
+)
 
-edna_site_fields |>
-  gt::gt(groupname_col = "Method") |> 
-  tab_options(row_group.as_column = T) |> 
-  tab_stubhead(label = "Table") |> 
-  tab_options(table.font.size = 13,
-              table.border.top.style = "solid",
-              table.border.top.width = px(2),
-              table.border.top.color = "black",
-              heading.align = "center",
-              column_labels.font.weight = "bold")
+gt(edna_sites_fields) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
 ```
+
+##### Stations (`edna.stations`)
+
+
+##### Samples (`edna.stations`)
 

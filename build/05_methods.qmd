@@ -23,7 +23,7 @@ All method datasets follow a common pattern of internal tables — typically inc
 
 Despite methodological differences, each dataset is aligned with shared **spatial**, **taxonomic**, and **vocabulary** references. This allows for standardized integration, analysis, and reporting across methods and expeditions.
 
-## Structure and Purpose
+#### Structure and Purpose
 
 Each method dataset:
 
@@ -32,7 +32,7 @@ Each method dataset:
 - Joins seamlessly to the core spatial (`expeditions.sites`), taxonomic (`taxonomy.fish`, etc.), and controlled vocabulary (`lookup/`) tables  
 - Enables **cross-method integration** through common keys and shared architecture
 
-## Currently Documented Methods
+#### Currently Documented Methods
 
 This section of the documentation focuses on the following datasets:
 

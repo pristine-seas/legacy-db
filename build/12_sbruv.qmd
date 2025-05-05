@@ -44,15 +44,141 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
 
 #### Overview
 
+The Seabed Baited Remote Underwater Video (SBRUV) protocol is used to survey fish communities across a wide range of reef-associated and coastal habitats. It is especially effective for detecting large, cryptic, or disturbance-sensitive species — including reef sharks and carnivores — that may be underrepresented in diver-based methods.
 
-#### Tables 
+Each SBRUV station consists of a stereo-video rig deployed on the seafloor for a fixed soak time (typically 60 minutes). Only the first hour of footage is analyzed. Bait is used to attract fishes into view, and species are identified using standardized video protocols.
+
+SBRUV data are organized into two interlinked tables:
+
+- sbruv.stations — Deployment metadata, including spatial context, rig setup, bait, and video info
+- sbruv.maxn_by_taxa — Species-level summaries per station, based on MaxN and linked traits
+
+Species are standardized using accepted_aphia_id, enabling integration with taxonomy.fish.
+
 ------------------------------------------------------------------------
 
-##### Stations (`uvs.sbruv_stations`)
+#### Tables 
+
+------------------------------------------------------------------------
+
+##### Stations (`sbruv.stations`)
+
+This table contains one row per Seabed BRUVS (SBRUV) deployment. Each record represents a unique baited camera drop and includes spatial coordinates, depth, time, and key deployment metadata (e.g., bait type, stereo camera models, rig ID).
+
+This table serves as the spatial and sampling reference for associated fish observations stored in `sbruv.maxn_by_taxa`.
+
+```{r sbruvs_fields, eval = T, include = T}
+#| label: tbl-sbruvs-site-schema
+#| tbl-cap: "Additional fields to the core site fields in the `sbruvs_sites` table"
+
+sbruv_stations_fields <- tribble(
+  ~field,          ~type,    ~required, ~description,
+
+  # Core site fields
+  "ps_site_id",    "STRING",  TRUE,     "Unique site ID (`exp_id_method_###`), e.g., `FJI_2025_sbruv_001`.",
+  "exp_id",        "STRING",  TRUE,     "Expedition ID (`ISO3_YEAR`).",
+  "method",        "STRING",  TRUE,     "Survey method (`sbruv`).",
+  "region",        "STRING",  TRUE,     "Region name.",
+  "subregion",     "STRING",  TRUE,     "Subregion name.",
+  "locality",      "STRING",  FALSE,    "Optional local feature (e.g., bay, channel, reef).",
+  "date",          "DATE",    TRUE,     "Date of SBRUV deployment (`YYYY-MM-DD`).",
+  "time",          "TIME",    TRUE,     "Start time of video recording (`HH:MM:SS`).",
+  "latitude",      "FLOAT",   TRUE,     "Latitude (decimal degrees, WGS84).",
+  "longitude",     "FLOAT",   TRUE,     "Longitude (decimal degrees, WGS84).",
+  "lead",          "STRING",  TRUE,     "Name of the field lead or technician.",
+  
+  # Deployment-specific
+  "time_out",      "TIME",    FALSE,    "End time of the deployment (optional; used to calculate soak time).",
+  "depth_m",       "FLOAT",   TRUE,     "Depth (m) of the camera on deployment.",
+  "habitat",       "STRING",  TRUE,     "Dominant habitat type (e.g., fore reef, mangrove, channel).",
+  "exposure",      "STRING",  TRUE,     "Exposure type (`windward`, `leeward`, `lagoon`, etc.).",
+  "bottom_type",   "STRING",  FALSE,    "Description of substrate or bottom type at deployment site.",
+  "rig_id",        "STRING",  TRUE,     "ID of the camera rig used (e.g., `RIG01`).",
+  "left_cam",      "STRING",  TRUE,     "Model or serial number of the left camera.",
+  "right_cam",     "STRING",  TRUE,     "Model or serial number of the right camera.",
+  "bait_type",     "STRING",  TRUE,     "Type of bait used (e.g., `sardines`, `skipjack`, `local fish`).",
+  "highlights",    "STRING",  FALSE,    "Notable events or field notes (e.g., large predator presence, gear issue).",
+  
+  # Notes
+  "notes",         "STRING",  FALSE,    "Additional comments or QA annotations."
+)
+
+sbruv_stations_fields |>
+  gt() |> 
+cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
 
 ---
 
+##### MaxN by Taxa (`sbruv.maxn_by_taxa`)
 
-##### Observations (`uvs.sbruv_observations`)
+This table contains station-level summaries of fish detections from Seabed BRUV deployments. Each row represents a unique combination of `ps_site_id` and species, with associated metrics derived from standardized video analysis.
+
+The primary metric is **maxN**, defined as the maximum number of individuals of a species observed simultaneously in a single video frame during the first hour of footage. This conservative estimate is widely used in BRUV analysis to avoid double-counting individuals.
+
+All taxonomic fields are standardized via `accepted_aphia_id`, enabling linkage to taxonomy.fish. Additional traits (family, trophic group, etc.) are included to support community structure and trophic composition analysis.
+
+
+```{r eval = T, include = T}
+#| label: tbl-sbruv-maxn-schema
+#| tbl-cap: "Schema for `sbruv.maxn_by_taxa`: station-level fish detections and MaxN metrics"
+
+sbruv_maxn_by_taxa_fields <- tribble(
+  ~field,                ~type,     ~required, ~description,
+
+  # Identifiers
+  "ps_site_id",          "STRING",  TRUE,      "Unique site ID for the SBRUV deployment.",
+  "accepted_name",       "STRING",  TRUE,      "Scientific name of the detected species (`Genus species`).",
+  "accepted_aphia_id",   "INTEGER", TRUE,      "WoRMS AphiaID; links to `taxonomy.fish`.",
+
+  # Taxonomic traits
+  "family",              "STRING",  TRUE,      "Family of the taxon.",
+  "trophic_group",       "STRING",  TRUE,      "Trophic group classification (e.g., `top-predator`, `herbivore/detritivore`).",
+
+  # Detection metrics
+  "maxn",                "INTEGER", TRUE,      "Maximum number of individuals observed simultaneously (MaxN).",
+  "maxn_per_min",        "FLOAT",   FALSE,     "MaxN standardized by soak time in minutes (optional, if soak time varies).",
+
+  # Optional length estimates
+  "mean_length_cm",      "FLOAT",   FALSE,     "Estimated mean length (cm) of individuals, if measured.",
+  "min_length_cm",       "FLOAT",   FALSE,     "Minimum estimated length (cm), if available.",
+  "max_length_cm",       "FLOAT",   FALSE,     "Maximum estimated length (cm), if available.",
+
+  # Notes
+  "notes",               "STRING",  FALSE,     "Optional annotations or QA comments for the record."
+)
+
+sbruv_maxn_by_taxa_fields |>
+  gt() |> 
+cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
 
 ---

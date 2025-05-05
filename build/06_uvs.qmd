@@ -1,5 +1,5 @@
 ---
-title: "Underwater Visual Surveys Dataset"
+title: "Underwater Visual Surveys"
 format: 
   html:
     theme: lux
@@ -41,7 +41,7 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-### Overview
+#### Dataset Overview
 
 The `uvs/` dataset contains all data collected using Pristine Seas’ SCUBA-based underwater visual survey (UVS) protocols. These methods assess reef fish, benthic cover, mobile invertebrates, and coral recruits at spatially co-located sites using a standardized, depth-stratified design.
 
@@ -72,7 +72,11 @@ uvs/
 
 ------------------------------------------------------------------------
 
-### uvs.sites
+#### Tables 
+
+------------------------------------------------------------------------
+
+##### Sites (`uvs.sites`)
 
 This table stores site-level metadata for all UVS dives. Each row represents a unique SCUBA deployment where one or more survey protocols (e.g., fish, benthic, invertebrates) were conducted.
 

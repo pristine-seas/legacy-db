@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -42,15 +41,145 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `rov`/` dataset contains ....
+The ROV (Remotely Operated Vehicle) dataset documents deep and shallow reef surveys conducted using ROV platforms. Each deployment is structured into a hierarchical format consistent with other Pristine Seas methods:
 
----
+- A site represents a full ROV dive (deployment).
+- One or more stations represent discrete horizontal transects or observation segments within the dive.
 
-## Dataset Structure
+This separation supports flexible integration of spatial, temporal, and ecological data while aligning with the standardized schema used across methods like UVS and submersible surveys.
 
-Each table is documented in its own section below.
+------------------------------------------------------------------------
 
-## Tables 
+#### Tables 
 
-### `rov.sites`
+------------------------------------------------------------------------
+
+##### Sites (`rov.sites``)
+
+Each row in this table corresponds to a single ROV deployment. It contains core spatial and temporal metadata aligned with the standard core_site_fields, as well as ROV-specific fields including:
+	•	Deployment and recovery coordinates and time (lat_deploy, lon_deploy, time_deploy, time_recover)
+	•	Maximum depth, total duration, and dive type
+	•	Highlights — field notes or notable events during the dive
+
+The fields latitude, longitude, and time in the core schema are populated using the deployment position and time, ensuring consistency across methods.
+
+```{r}
+#| label: tbl-rov-sites-schema
+#| tbl-cap: "Schema for `rov.sites`: metadata for each ROV deployment site"
+
+rov_sites_fields <- tribble(
+  ~field,             ~type,     ~required, ~description,
+
+  # Identifiers
+  "ps_site_id",       "STRING",  TRUE,      "Unique site ID (`exp_id_method_###`), e.g., `FJI_2025_rov_001`.",
+  "exp_id",           "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`).",
+  "method",           "STRING",  TRUE,      "Survey method (`rov`).",
+
+  # Spatial and temporal (deployment)
+  "region",           "STRING",  TRUE,      "Region name.",
+  "subregion",        "STRING",  TRUE,      "Subregion (e.g., island, gulf, reef complex).",
+  "locality",         "STRING",  FALSE,     "Optional local feature (e.g., reef, bay, cove).",
+  "date",             "DATE",    TRUE,      "Date of ROV deployment.",
+  "lat_deploy",       "FLOAT",   TRUE,      "Latitude of deployment (decimal degrees, WGS84).",
+  "lon_deploy",       "FLOAT",   TRUE,      "Longitude of deployment (decimal degrees, WGS84).",
+  "time_deploy",      "TIME",    TRUE,      "Time of deployment (24-hour format).",
+
+  # Spatial and temporal (recovery)
+  "lat_recover",      "FLOAT",   TRUE,      "Latitude of recovery (decimal degrees, WGS84).",
+  "lon_recover",      "FLOAT",   TRUE,      "Longitude of recovery (decimal degrees, WGS84).",
+  "time_recover",     "TIME",    TRUE,      "Time of recovery (24-hour format).",
+
+  # Environmental and platform
+  "depth_max_m",      "FLOAT",   TRUE,      "Maximum depth reached during the deployment (m).",
+  "duration_min",     "FLOAT",   TRUE,      "Total deployment duration (minutes).",
+  "dive_type",        "STRING",  TRUE,      "Deployment type (e.g., `exploratory`, `transect`, `targeted`).",
+
+  # Team
+  "lead_scientist",   "STRING",  TRUE,      "Name of the scientist responsible for the dive.",
+  "rov_pilot",        "STRING",  TRUE,      "Primary operator of the ROV during deployment.",
+
+  # Notes
+  "highlights",       "STRING",  FALSE,     "Optional field notes or highlights from the dive.",
+  "notes",            "STRING",  FALSE,     "Optional comments or QA notes."
+)
+
+gt(rov_sites_fields) |> 
+cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+-----
+
+##### Stations (`rov.stations``)
+
+This table contains one row per ROV transect conducted during a dive. Each station represents a horizontal segment or observation window along the dive path — the primary unit of sampling effort for ROV-based analyses.
+
+Records include start and end coordinates, depth range, start and end time, habitat description, personnel, and optional video metadata such as file path and highlights. All stations are linked to their parent deployment via ps_site_id.
+
+
+```{r}
+#| label: tbl-rov-stations-schema
+#| tbl-cap: "Schema for `rov.stations`: transect-level units within each ROV dive"
+
+rov_stations_fields <- tribble(
+  ~field,           ~type,     ~required, ~description,
+
+  # Identifiers
+  "ps_station_id",  "STRING",  TRUE,      "Unique transect-level station ID (e.g., `FJI_2025_rov_001_t01`).",
+  "ps_site_id",     "STRING",  TRUE,      "Foreign key to `rov.sites`; identifies the parent ROV dive.",
+  "exp_id",         "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`).",
+
+  # Spatial structure
+  "start_lat",      "FLOAT",   TRUE,      "Latitude at transect start (decimal degrees, WGS84).",
+  "start_lon",      "FLOAT",   TRUE,      "Longitude at transect start (decimal degrees, WGS84).",
+  "end_lat",        "FLOAT",   TRUE,      "Latitude at transect end.",
+  "end_lon",        "FLOAT",   TRUE,      "Longitude at transect end.",
+
+  # Temporal extent
+  "start_time",     "TIME",    TRUE,      "Local time when the transect segment started (`HH:MM:SS`).",
+  "end_time",       "TIME",    TRUE,      "Local time when the transect segment ended.",
+
+  # Depth and environment
+  "min_depth_m",    "FLOAT",   TRUE,      "Minimum depth recorded during the transect (m).",
+  "max_depth_m",    "FLOAT",   TRUE,      "Maximum depth recorded during the transect (m).",
+  "habitat",        "STRING",  TRUE,      "Dominant habitat observed (e.g., `reef slope`, `deep wall`, `mud plain`).",
+  "habitat_notes",  "STRING",  FALSE,     "Optional description of benthic features or structure observed.",
+
+  # Personnel and metadata
+  "lead_sci",       "STRING",  TRUE,      "Name of the lead scientist for the transect.",
+  "pilot",          "STRING",  TRUE,      "Name of the ROV pilot.",
+  "video_clip",     "STRING",  FALSE,     "Relative filepath to associated video segment (if archived).",
+  "highlights",     "STRING",  FALSE,     "Optional notes describing events or noteworthy observations."
+)
+
+gt(rov_stations_fields) |> 
+cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
 

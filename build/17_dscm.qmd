@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -42,15 +41,33 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `dscm/` dataset contains ....
+The Deep-Sea Camera (DSCM) protocol is used to survey mesophotic and deep benthic ecosystems, particularly in environments beyond safe diving limits. Cameras are deployed on the seafloor and left to record for a fixed duration (typically one hour), often using bait to attract mobile fauna.
 
----
+Each DSCM deployment is represented by a single station, which serves as both the spatial and observational unit. This method follows the Pristine Seas convention for passive, unreplicated deployments in which no separate sites table is used.
 
-## Dataset Structure
+Deep-sea camera data are stored in two interlinked tables:
 
-Each table is documented in its own section below.
+- dscm.stations — One row per camera deployment, including spatial, environmental, and technical metadata
+- dscm.maxn_by_taxa — Summary table of fish observations per station, including MaxN and species traits
 
-## Tables 
+Species identities are standardized using accepted_aphia_id, ensuring consistency with taxonomy.fish and supporting integration with other fish survey methods.
 
-### `dscm.sites`
+
+------------------------------------------------------------------------
+
+#### Tables 
+
+------------------------------------------------------------------------
+
+### Stations (`dscm.stations`)
+
+This table contains one row per deep-sea camera deployment. Each record includes the spatial coordinates, deployment time, environmental descriptors, and technical specifications of the camera unit. Because DSCM deployments are unreplicated and spatially discrete, no separate sites table is used — the station is the primary unit of observation and analysis.
+
+Key fields include deployment and recovery times and positions, bottom depth and temperature, camera settings, and a general habitat description. These metadata support standardization across deployments and enable linkage to derived metrics such as MaxN.
+
+### MaxN (`dscm.maxN`)
+
+This table stores per-station summaries of fish observations recorded from deep-sea camera footage. Each row corresponds to a unique combination of ps_station_id and taxon, reporting MaxN (the maximum number of individuals observed simultaneously) as a conservative estimate of relative abundance.
+
+Taxonomic identity is standardized via accepted_aphia_id, with supporting fields such as family and trophic_group joined from the centralized fish taxonomy table. This structure enables integration with other fish survey methods and supports analyses of deep-sea community structure and trophic composition.
 

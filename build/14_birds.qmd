@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -44,16 +43,91 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
 
 #### Overview
 
+The birds dataset contains seabird observations recorded during vessel- and land-based transects conducted as part of Pristine Seas expeditions. Surveys span a wide range of coastal, pelagic, and terrestrial habitats, and are designed to assess seabird diversity, abundance, and distribution patterns.
 
-#### Tables 
+Each seabird transect is represented by a single station, identified by a unique `ps_site_id`. Observations are recorded continuously along the transect, and the starting location serves as the spatial reference point for the entire survey.
+
+Bird survey data are stored in two interlinked tables:
+
+- `birds.stations` — One row per seabird transect, including metadata on location, habitat, platform, and survey effort
+- `birds.observations` — One row per species observation, with counts and optional group size or behavior annotations
+
+All records are linked via `ps_site_id`, and species identities are standardized using `accepted_aphia_id`, enabling cross-dataset integration through the `taxonomy.birds` reference table.
+
 ------------------------------------------------------------------------
 
-##### Stations (`uvs.birds_stations`)
+#### Tables 
+
+------------------------------------------------------------------------
+
+##### Stations (`birds.stations`)
+
+This table contains one row per seabird transect, with the starting point used as the spatial anchor. Each transect represents a distinct bird observation effort from either a vessel or land platform. The schema includes standard spatial and temporal fields as well as survey-specific metadata like platform type, timing, and paired references to other concurrent sampling efforts (e.g., BRUVS strings).
+
+```{r eval = T, include = T}
+#| label: tbl-birds-stations
+#| tbl-cap: "Schema for `birds.stations`: metadata for seabird transects"
+
+birds_stations_fields <- tribble(
+  ~field,                  ~type,     ~required, ~description,
+
+  # Identifiers
+  "ps_site_id",            "STRING",  TRUE,      "Unique site ID (`exp_id_method_###`), e.g., `KIR_2024_birds_001`.",
+  "exp_id",                "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`).",
+
+  # Spatial metadata
+  "region",                "STRING",  TRUE,      "Region name.",
+  "subregion",             "STRING",  TRUE,      "Subregion name.",
+  "locality",              "STRING",  FALSE,     "Local feature (e.g., island, reef, bay).",
+  "latitude",              "FLOAT",   TRUE,      "Latitude of transect start point (decimal degrees, WGS84).",
+  "longitude",             "FLOAT",   TRUE,      "Longitude of transect start point (decimal degrees, WGS84).",
+  "start_latitude",        "FLOAT",   TRUE,      "Start point latitude (decimal degrees).",
+  "start_longitude",       "FLOAT",   TRUE,      "Start point longitude (decimal degrees).",
+  "stop_latitude",         "FLOAT",   TRUE,      "Stop point latitude (decimal degrees).",
+  "stop_longitude",        "FLOAT",   TRUE,      "Stop point longitude (decimal degrees).",
+
+  # Temporal metadata
+  "date",                 "DATE",    TRUE,       "Date of survey (`YYYY-MM-DD`).",
+  "start_time",           "TIME",    TRUE,       "Start time of transect (24-hour format).",
+  "stop_time",            "TIME",    TRUE,       "End time of transect (24-hour format).",
+  "duration_mins",        "INTEGER", TRUE,       "Total survey duration (minutes).",
+
+  # Survey context
+  "platform",             "STRING",  TRUE,       "Observation platform: `vessel` or `land`.",
+  "habitat",              "STRING",  TRUE,       "Broad habitat type (e.g., `open ocean`, `coastal`, `island`, etc.).",
+  "distance_km",          "FLOAT",   FALSE,      "Estimated transect distance traveled (km), if known.",
+  "paired_string_id",     "STRING",  FALSE,      "ID of a concurrently sampled BRUVS string, if paired.",
+  "paired_string_timing", "STRING",  FALSE,      "Timing relationship to paired string (`before`, `during`, `after`).",
+
+  # Personnel and notes
+  "team_lead",            "STRING",  TRUE,       "Team lead or principal observer for the transect.",
+  "notes",                "STRING",  FALSE,      "Optional notes or field comments."
+)
+
+gt(birds_stations_fields) |> 
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
 
 ---
 
+##### Observations (`birds.observations`)
 
-##### Observations (`uvs.birds_observations`)
+This table contains individual seabird sightings recorded during transect-based surveys. Each row represents a unique observation of one or more birds, annotated with taxonomic identity, behavior, location, and count.
 
+All entries are linked to a parent transect via ps_site_id. Spatial context includes the time and coordinates of each observation, allowing detailed analysis of bird distribution along transects. Species names are standardized using accepted_name and accepted_aphia_id, with optional fields for common name, age class, and behavior.
 ---
 

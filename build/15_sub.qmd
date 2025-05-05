@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -42,15 +41,141 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `sub/` dataset contains ....
+The submersible survey dataset includes data collected during dives using manned submersibles to explore mesophotic and deep reef habitats. Each dive is treated as a site, and each transect or visual segment within that dive is recorded as a station. This structure enables integration with the broader Pristine Seas schema while preserving method-specific granularity.
 
----
+Submersibles allow access to depths beyond safe diving limits, providing high-resolution video and visual observations in habitats that are otherwise difficult to survey. These data are particularly important for understanding community structure and species distributions in mesophotic zones, deep slopes, and hard-to-access reef environments.
 
-## Dataset Structure
+The dataset consists of two interlinked tables:
 
-Each table is documented in its own section below.
+ - sub.sites — Deployment-level metadata, including operational context and submersible details
+ - sub.stations — Segment-level records capturing each horizontal transect or visual survey segment
 
-## Tables 
+Each record is linked by ps_site_id, and species observations (when available) are stored separately in protocol-specific data tables.
 
-### `sub.sites`
+------------------------------------------------------------------------
 
+#### Tables 
+
+------------------------------------------------------------------------
+
+### Sites (`sub.sites`)
+
+Each row represents a submersible deployment (i.e., one complete dive). This table includes spatial coordinates, dive timing, and method-specific metadata such as the submersible name, dive type (e.g., science, media), maximum depth reached, pilot name, and primary scientific observer.
+	•	The start of descent provides the standard time, latitude, and longitude values for integration with the expedition-wide schema.
+	•	The primary observer is recorded in the lead field, consistent with other methods.
+	•	Additional fields track operational highlights and submersible metadata.
+	
+```{r}
+#| label: tbl-sub-site-schema
+#| tbl-cap: "Schema for `sub.sites`: deployment-level metadata for submersible dives"
+
+sub_sites_fields <- tribble(
+  ~field,             ~type,     ~required, ~description,
+
+  # Core identifiers
+  "ps_site_id",       "STRING",  TRUE,      "Unique site ID (`exp_id_method_###`), e.g., `FJI_2025_sub_001`.",
+  "exp_id",           "STRING",  TRUE,      "Foreign key to `expeditions.info` (`ISO3_YEAR`).",
+  "method",           "STRING",  TRUE,      "Survey method (`sub`).",
+  "region",           "STRING",  TRUE,      "Region name.",
+  "subregion",        "STRING",  TRUE,      "Subregion name (e.g., island, atoll, reef complex).",
+  "locality",         "STRING",  FALSE,     "Optional local feature (e.g., bay, reef, cove).",
+  "date",             "DATE",    TRUE,      "Date of the submersible dive.",
+  "time",             "TIME",    TRUE,      "Time of descent; mapped from `time_descent`.",
+  "latitude",         "FLOAT",   TRUE,      "Latitude of descent (decimal degrees, WGS84).",
+  "longitude",        "FLOAT",   TRUE,      "Longitude of descent (decimal degrees, WGS84).",
+  "lead",             "STRING",  TRUE,      "Primary scientific observer; mapped from `observer_1`.",
+  "notes",            "STRING",  FALSE,     "Optional comments, highlights, or annotations.",
+
+  # Submersible metadata
+  "sub_name",         "STRING",  TRUE,      "Name of the submersible (e.g., `Argonauta`, `DeepSee`).",
+  "dive_number",      "STRING",  FALSE,     "Submersible dive number.",
+  "dive_type",        "STRING",  FALSE,     "Purpose of dive (`science`, `media`, `policy`, `training`).",
+  "pilot",            "STRING",  TRUE,      "Submersible pilot.",
+  "observer_2",       "STRING",  FALSE,     "Secondary observer, if present.",
+  "depth_max_m",      "FLOAT",   TRUE,      "Maximum depth reached (m).",
+  "duration",         "TIME",    TRUE,      "Total duration of the dive (`HH:MM:SS`).",
+  "temp_max_depth_c", "FLOAT",   FALSE,     "Temperature at maximum depth (°C).",
+  "collection",       "BOOLEAN", FALSE,     "TRUE if biological collections occurred.",
+  "transect",         "BOOLEAN", FALSE,     "TRUE if standardized transects were conducted.",
+  "edna",             "BOOLEAN", FALSE,     "TRUE if eDNA samples were collected during the dive.",
+
+  # Dive waypoints
+  "time_descent",     "TIME",    TRUE,      "Time when descent began.",
+  "lat_descent",      "FLOAT",   TRUE,      "Latitude at descent.",
+  "lon_descent",      "FLOAT",   TRUE,      "Longitude at descent.",
+  "time_on_bottom",   "TIME",    FALSE,     "Time of first bottom contact.",
+  "lat_on_bottom",    "FLOAT",   FALSE,     "Latitude at bottom contact.",
+  "lon_on_bottom",    "FLOAT",   FALSE,     "Longitude at bottom contact.",
+  "time_off_bottom",  "TIME",    FALSE,     "Time of lift-off from bottom.",
+  "lat_off_bottom",   "FLOAT",   FALSE,     "Latitude at lift-off.",
+  "lon_off_bottom",   "FLOAT",   FALSE,     "Longitude at lift-off.",
+  "time_surface",     "TIME",    FALSE,     "Time of surface recovery.",
+  "lat_surface",      "FLOAT",   FALSE,     "Latitude at surface recovery.",
+  "lon_surface",      "FLOAT",   FALSE,     "Longitude at surface recovery."
+)
+
+gt(sub_sites_fields) |> 
+cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+### Stations (`sub.stations`)
+
+Each row corresponds to a visual survey segment or transect conducted during a submersible dive. These records capture the spatial and environmental context of each observation unit, including start and end times, depth range, habitat descriptors, and optional video annotations.
+
+Stations allow for detailed stratification of observations within a dive and support both quantitative and qualitative analyses of submersible data. Each record is linked to its parent site via ps_site_id.
+
+```{r}
+#| label: tbl-sub-station-schema
+#| tbl-cap: "Schema for `sub.stations`: transect-level metadata for submersible dives"
+
+sub_stations_fields <- tribble(
+  ~field,              ~type,     ~required, ~description,
+
+  # Identifiers
+  "ps_station_id",     "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth` or `_seg#` if applicable).",
+  "ps_site_id",        "STRING",  TRUE,      "Foreign key to `sub.sites`.",
+
+  # Transect boundaries
+  "start_time",        "TIME",    TRUE,      "Start time of transect segment.",
+  "end_time",          "TIME",    TRUE,      "End time of transect segment.",
+  "start_depth_m",     "FLOAT",   TRUE,      "Depth at start of transect (m).",
+  "end_depth_m",       "FLOAT",   TRUE,      "Depth at end of transect (m).",
+
+  # Spatial metadata
+  "start_lat",         "FLOAT",   TRUE,      "Latitude at start of transect (decimal degrees, WGS84).",
+  "start_lon",         "FLOAT",   TRUE,      "Longitude at start of transect.",
+  "end_lat",           "FLOAT",   TRUE,      "Latitude at end of transect.",
+  "end_lon",           "FLOAT",   TRUE,      "Longitude at end of transect.",
+
+  # Environmental descriptors
+  "habitat",           "STRING",  TRUE,      "Habitat type (e.g., reef slope, wall, soft sediment).",
+  "substrate",         "STRING",  TRUE,      "Dominant substrate (e.g., rock, rubble, sand, mud).",
+  "relief",            "STRING",  FALSE,     "Topographic relief (e.g., high, moderate, flat).",
+
+  # Media and annotations
+  "video_clip",        "STRING",  FALSE,     "Path to video clip corresponding to this transect (if available).",
+  "highlights",        "STRING",  FALSE,     "Notable observations, annotations, or highlights.",
+
+  # Notes
+  "notes",             "STRING",  FALSE,     "Additional comments or QA notes."
+)
+```
+
+
+### Observations (`sub.observations`)
+
+This table is reserved for future integration of species-level observations or annotations linked to submersible transects. Each row will represent a biological observation, including taxonomic identity, size (if measurable), behavior, and context (e.g., associated substrate or depth). All records will be linked to a ps_station_id.
