@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -42,14 +41,43 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `lookup`/` dataset contains ....
+#### Overview
+
+The `lookup/` dataset contains controlled vocabularies and standardized crosswalks used across the Pristine Seas Science Database. These tables ensure consistency in traits, classification, and code mappings across survey methods and spatial units.
+
+Each table is documented in the section where it is used. This page provides a centralized index of all lookup tables.
 
 ---
 
-## Dataset Structure
+#### Table Index
 
-Each table is documented in its own section below.
+```{r eval = T, include = T}
+library(gt)
 
-## Tables 
+lookup_index <- tribble(
+  ~Table,                      ~Description,                                                                        ~Used_in,
+  "`lookup.functional_groups`", "Classifies benthic taxa into functional groups (e.g., coral, CCA, turf).",         "[`uvs.lpi_cover_by_taxa`](lpi.qmd)",
+  "`lookup.depth_strata`",     "Binning rules for assigning stations to standardized depth categories.",            "All `uvs.*_stations` tables",
+  "`lookup.habitat_types`",    "Standardized vocabulary for reef habitat types (e.g., fore reef, patch reef).",     "`uvs.sites`, `uvs.stations`",
+  "`lookup.exposure_types`",   "Controlled values for exposure conditions (e.g., windward, leeward, lagoon).",      "`uvs.sites`, `uvs.stations`",
+  "`lookup.benthic_codes`",    "Maps field morphotaxa to standardized taxonomic names and functional groups.",      "`uvs.lpi_counts`",
+  "`lookup.fisheries_use`",    "Fishery importance classifications from FishBase and expert sources.",              "`taxonomy.fish`"
+)
 
+gt(lookup_index) |>
+  cols_label(
+    Table = md("**Table**"),
+    Description = md("**Description**"),
+    Used_in = md("**Used In**")
+  ) |>
+  cols_width(
+    Table ~ px(200),
+    Description ~ px(400),
+    Used_in ~ px(250)
+  ) |>
+  tab_options(table.font.size = px(13)) |>
+  fmt_markdown(columns = everything()) |>
+  gt_theme_nytimes()
+```
 
+> See each protocol section for details and schema examples.

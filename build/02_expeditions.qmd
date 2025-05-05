@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -46,9 +45,9 @@ The `expeditions/` dataset provides the spatial and operational backbone of the 
 
 All other datasets link back to this spatial framework, enabling consistent integration, filtering, and analysis across expeditions, regions, and methods.
 
-## Tables
+#### Tables
 
-### `expeditions.info`
+##### Metadata (`expeditions.info`)
 
 This table contains metadata for every scientific expedition conducted by the Pristine Seas team. Each row defines a unique field campaign—its country, region, vessel, leadership, dates, and collaborators.
 
@@ -196,7 +195,7 @@ bq_table_upload(bq_table("pristine-seas", "expeditions", "info"),
                 write_disposition = "WRITE_APPEND")
 ```
 
-### `expeditions.sites`
+##### Sites (`expeditions.sites`)
 
 This table defines the primary spatial unit for fieldwork. A site represents a distinct instance where a survey method (e.g., UVS, pBRUV, eDNA) was applied at a specific location and time during an expedition.
 
