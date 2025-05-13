@@ -14,4 +14,4 @@ RnwWeave: Sweave
 LaTeX: pdfLaTeX
 
 BuildType: Website
-WebsitePath: build
+WebsitePath: docs

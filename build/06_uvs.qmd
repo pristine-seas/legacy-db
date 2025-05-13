@@ -172,10 +172,10 @@ if (!bq_dataset_exists(bq_dataset("pristine-seas", "uvs"))) {
 uvs_sites_all_fields <- bind_rows(core_site_fields, uvs.sites_fields) |>
   mutate(group = case_when(
     field %in% c("ps_site_id", "exp_id", "method")               ~ "Identifiers",
-    field %in% c("region", "subregion", "locality", "site_name", "in_mpa") ~ "Spatial",
+    field %in% c("region", "subregion", "locality") ~ "Spatial",
     field %in% c("date", "time")                                 ~ "Temporal",
     field %in% c("latitude", "longitude")                        ~ "Geolocation",
-    field %in% c("habitat", "exposure", "protected")             ~ "Environmental",
+    field %in% c("habitat", "exposure", "in_mpa", "site_name")   ~ "Environmental",
     field %in% c("blt", "lpi", "inverts", "recruits", "ysi", "photomosaic", "edna") ~ "Survey Protocols",
     field == "lead"                                              ~ "Metadata",
     field == "notes"                                             ~ "Notes",

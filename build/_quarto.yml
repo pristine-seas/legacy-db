@@ -56,9 +56,9 @@ website:
               - text: "Field codes"
                 file: 03_taxonomy_fish_codes.qmd
           - text: "Benthos"
-            file: 03_taxonomy_benthos.qmds
+            file: 03_taxonomy_benthos.qmd
           - text: "Inverts"
-            file: 03_taxonomy_inverts.qmds    
+            file: 03_taxonomy_inverts.qmd   
       - text: "Lookup Tables"
         file: 04_lookup.qmd
           
@@ -70,12 +70,26 @@ website:
 
 format:
   html:
-    theme: lux
+    theme: cosmo
+    css: assets/css/updated_ps_style.css
     toc: true
     toc-depth: 3
-    number-sections: true
-    code-fold: true
-    code-tools: true
-    smooth-scroll: true
+    toc-location: right
+    code-fold: false
+    code-tools: false
+    highlight-style: github
+    anchor-sections: true
+    fig-cap-location: bottom
+    link-external-icon: true
     link-external-newwindow: true
-    self-contained: true
+    grid:
+      sidebar-width: 280px
+      body-width: 1000px
+      margin-width: 200px
+      gutter-width: 1.5rem
+
+execute:
+  freeze: auto
+  echo: true
+  warning: false
+  message: false

@@ -1,0 +1,472 @@
+/* Pristine Seas CSS - Clean, Elegant, Nautical Theme */
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Source+Sans+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
+
+:root {
+  /* Life Aquatic-inspired color palette */
+  --deep-sea-blue: #004165;
+  --medium-blue: #006C9B;
+  --light-blue: #62B4E5;
+  --coral-red: #E63946;
+  --sea-yellow: #F7B32B;
+  --off-white: #F8F9FB;
+  --dark-slate: #1D3557;
+  --light-gray: #E5E5E5;
+  --slate-gray: #748692;
+
+  /* Functional colors */
+  --primary: var(--deep-sea-blue);
+  --secondary: var(--medium-blue);
+  --accent: var(--light-blue);
+  --highlight: var(--sea-yellow);
+  --warning: var(--coral-red);
+  --background: var(--off-white);
+  --text: var(--dark-slate);
+  --light-text: var(--slate-gray);
+  --border: var(--light-gray);
+}
+
+/* Base Typography */
+body {
+  font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text);
+  background-color: var(--background);
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 300;
+  color: var(--primary);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: 2.5rem;
+  text-align: center;
+  margin: 1.5rem 0 2rem 0;
+  color: var(--text);
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: var(--text);
+  border-bottom: none;
+}
+
+h3 {
+  font-size: 1.4rem;
+  font-weight: 500;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--dark-slate);
+}
+
+h4 {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+p {
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+a {
+  color: var(--secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* Sections and Spacing */
+hr {
+  margin: 2rem 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+/* Lists */
+ul, ol {
+  margin-bottom: 1rem;
+  padding-left: 2rem;
+}
+
+li {
+  margin-bottom: 0.5rem;
+}
+
+/* Code */
+code {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+  font-size: 0.9em;
+  background-color: #f6f8fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  color: var(--text);
+}
+
+pre {
+  background-color: #f8f9fa;
+  border-left: 4px solid var(--secondary);
+  border-radius: 4px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  margin: 1.5rem 0;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+thead {
+  background-color: var(--primary);
+  color: white;
+}
+
+th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+tbody tr:hover {
+  background-color: rgba(0,65,101,0.03);
+}
+
+/* Callouts */
+.callout {
+  border-radius: 4px;
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+  border-left: 4px solid;
+}
+
+.callout-note {
+  background-color: #f0f7fc;
+  border-left-color: var(--secondary);
+}
+
+.callout-tip {
+  background-color: #f9fdf6;
+  border-left-color: var(--accent);
+}
+
+.callout-warning {
+  background-color: #fef9f8;
+  border-left-color: var(--warning);
+}
+
+.callout-important {
+  background-color: #fef9f8;
+  border-left-color: var(--coral-red);
+}
+
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: inherit;
+}
+
+/* Emphasis */
+strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+em {
+  font-style: italic;
+}
+
+/* Blockquotes */
+blockquote {
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+  border-left: 4px solid var(--secondary);
+  color: var(--light-text);
+  font-style: italic;
+}
+
+/* Navigation Bar */
+.navbar {
+  background-color: var(--primary) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 0.75rem 1rem;
+}
+
+.navbar-brand {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.navbar-brand img {
+  height: 40px;
+  width: auto;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+  color: rgba(255,255,255,0.9);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+  color: white;
+  background-color: rgba(255,255,255,0.1);
+  border-radius: 4px;
+}
+
+/* Sidebar */
+.sidebar {
+  background-color: var(--off-white);
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.sidebar-item {
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.sidebar-item:hover {
+  background-color: rgba(0,65,101,0.05);
+}
+
+.sidebar-item-container .active {
+  background-color: rgba(0,65,101,0.1);
+  border-left: 3px solid var(--primary);
+}
+
+/* Figures */
+figure {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+figcaption {
+  font-style: italic;
+  color: var(--light-text);
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* Footer */
+.footer {
+  background-color: var(--off-white);
+  border-top: 1px solid var(--border);
+  padding: 2rem 0;
+  margin-top: 3rem;
+  color: var(--light-text);
+}
+
+/* Columns Layout */
+.columns {
+  display: flex;
+  gap: 2rem;
+  margin: 1.5rem 0;
+}
+
+.column {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Custom Index Page Elements */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 4px;
+  border-left: 4px solid var(--primary);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.feature-card h3 {
+  margin-top: 0;
+  color: var(--primary);
+}
+
+/* Special Classes for Key Elements */
+.key-icon {
+  font-size: 1.5rem;
+  color: var(--secondary);
+  margin-right: 0.5rem;
+}
+
+/* Responsive Design */
+@media (max-width: 991.98px) {
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+  }
+
+  .columns {
+    flex-direction: column;
+  }
+
+  .column {
+    width: 100% !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  body {
+    font-size: 12pt;
+  }
+
+  pre, code {
+    font-size: 10pt;
+  }
+
+  .navbar, .sidebar, .toc {
+    display: none;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+
+  img {
+    max-width: 100% !important;
+  }
+}
+
+/* Custom Pristine Seas Elements */
+.method-card {
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-left: 5px solid var(--primary);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.method-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.checklist {
+  background-color: var(--off-white);
+  border-radius: 4px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.checklist ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.checklist li {
+  margin-bottom: 0.5rem;
+  padding-left: 2rem;
+  position: relative;
+}
+
+.checklist li::before {
+  content: "✓";
+  color: var(--secondary);
+  position: absolute;
+  left: 0;
+  font-weight: bold;
+}
+
+/* Spatial Hierarchy Visualization */
+.spatial-hierarchy {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+
+.indent-1 { margin-left: 1.5rem; }
+.indent-2 { margin-left: 3rem; }
+.indent-3 { margin-left: 4.5rem; }
+.indent-4 { margin-left: 6rem; }
+.indent-5 { margin-left: 7.5rem; }
+
+/* Clean accents for important elements */
+.important-note {
+  color: var(--coral-red);
+  font-weight: 600;
+}
+
+/* Minimal hover effects */
+a, button, .clickable {
+  transition: all 0.2s ease;
+}
+
+/* Clean focus states */
+a:focus, button:focus, input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+}
+
+/* Remove unnecessary decoration */
+.no-decoration {
+  text-decoration: none !important;
+  list-style: none !important;
+}

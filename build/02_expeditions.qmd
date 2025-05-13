@@ -2,7 +2,6 @@
 title: "Expeditions Dataset"
 format: 
   html:
-    theme: lux
     self-contained: true
     code-fold: true
     toc: true 
@@ -41,36 +40,43 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `expeditions/` dataset provides the spatial and operational backbone of the Pristine Seas Science Database. It registers each expedition and the associated fieldwork—tracking where, when, and how different survey methods were used across the globe.
+## Overview
 
-All other datasets link back to this spatial framework, enabling consistent integration, filtering, and analysis across expeditions, regions, and methods.
+The `expeditions` dataset serves as the spatial and operational backbone of the Pristine Seas Science Database. It maintains the registry of all scientific campaigns and provides the hierarchical framework that enables data integration across survey methods.
 
-#### Tables
+This dataset provides:
 
-##### Metadata (`expeditions.info`)
+- **Expedition metadata**: Who, what, when, and where for each expedition
+- **Cross-method integration**: A master site registry linking all survey types
+
+---
+
+## Tables
+
+### Info (`expeditions.info`)
 
 This table contains metadata for every scientific expedition conducted by the Pristine Seas team. Each row defines a unique field campaign—its country, region, vessel, leadership, dates, and collaborators.
-
 
 ```{r eval = T, include = T}
 #| label: tbl-exp.info
 #| tbl-cap: "expeditions.info Table Schema"
 
 exp.info_fields <- tribble(
-  ~field,          ~type,     ~required,  ~description,
-  "exp_id",        "STRING",  TRUE,       "Unique expedition identifier in the format ISO3_YEAR (e.g., FJI_2025)",
-  "number",        "INTEGER", TRUE,       "Sequential expedition number (e.g., 43)",
-  "name",          "STRING",  TRUE,       "Official or working expedition name",
-  "country",       "STRING",  TRUE,       "Primary country or jurisdiction visited",
-  "start_date",    "DATE",    TRUE,       "Expedition start date in ISO 8601 format (YYYY-MM-DD)",
-  "end_date",      "DATE",    TRUE,       "Expedition end date in ISO 8601 format (YYYY-MM-DD)",
-  "lead",          "STRING",  TRUE,       "Overall expedition lead",
-  "science_lead",  "STRING",  TRUE,       "Lead scientist for the research campaign",
-  "vessel",        "STRING",  FALSE,      "Name of the vessel or platform used",
-  "ship_track",    "STRING",  FALSE,      "`WKT LINESTRING` representing the ship's route (optional)",
-  "partners",      "STRING",  FALSE,      "Institutional collaborators (optional)",
-  "description",   "STRING",  FALSE,      "Brief description of expedition goals and scope",
-  "notes",         "STRING",  FALSE,      "Optional free-text notes or admin metadata"
+  ~field,                ~type,       ~required,  ~description,
+  "exp_id",              "STRING",    TRUE,       "Unique expedition identifier in the format ISO3_YEAR (e.g., FJI_2025)",
+  "exp_number",          "INTEGER",   TRUE,       "Sequential expedition number (e.g., 43)",
+  "exp_name",            "STRING",    TRUE,       "Official or working expedition name",
+  "country",             "STRING",    TRUE,       "Primary country or jurisdiction visited (used for exp_id)",
+  "start_date",          "DATE",      TRUE,       "Expedition start date in ISO 8601 format (YYYY-MM-DD)",
+  "end_date",            "DATE",      TRUE,       "Expedition end date in ISO 8601 format (YYYY-MM-DD)",
+  "days_at_sea",         "INTEGER",   FALSE,      "Number of operational days at sea",
+  "expedition_lead",     "STRING",    TRUE,       "Overall expedition leader",
+  "science_lead",        "STRING",    TRUE,       "Lead scientist for the research campaign",
+  "vessel_name",         "STRING",    FALSE,      "Primary research vessel name",
+  "methods_used",        "STRING",    FALSE,      "Survey methods deployed, pipe-delimited (e.g., `uvs|bruvs|edna`)",
+  "partners",            "STRING",    FALSE,      "All institutional collaborators, pipe-delimited",
+  "ship_track",          "STRING",    FALSE,      "Vessel route as WKT LINESTRING",
+  "notes",               "STRING",    FALSE,      "Internal notes and additional metadata"
 )
 
 exp.info_fields |>
@@ -101,20 +107,23 @@ expeditions_data <- googlesheets4::read_sheet(exp_info_url)
 expeditions_clean <- expeditions_data %>%
   janitor::clean_names() %>%
   separate(date, into = c("start_date", "end_date"), sep = " - ") %>%
-  rename(exp_id        = expedition_id,
-         number        = expedition_number,
-         name          = expedition_name,
-         lead          = expedition_leader,
-         science_lead  = science_lead,
-         country       = country,
-         vessel        = ship_name,
-         partners      = partners) %>%
+  rename(exp_id          = expedition_id,
+         exp_number      = expedition_number,
+         exp_name        = expedition_name,
+         expedition_lead = expedition_leader,
+         science_lead    = science_lead,
+         country         = country,
+         vessel_name     = ship_name,
+         partners        = partners) %>%
   mutate(start_date   = ymd(start_date),
          end_date     = ymd(end_date),
+         days_at_sea  = as.integer(end_date - start_date),  # Calculate days at sea
+         methods_used = NA_character_,  # Would need to be populated from sites data
          ship_track   = NA_character_,
-         description  = NA_character_,
          notes        = NA_character_) %>%
-  select(exp_id, number, name, country, start_date, end_date, lead, science_lead, vessel, ship_track, partners, description, notes)
+  select(exp_id, exp_number, exp_name, country, start_date, end_date, 
+         days_at_sea, expedition_lead, science_lead, vessel_name, 
+         methods_used, partners, ship_track, notes)
 ```
 
 Since 2009, Pristine Seas has conducted `r nrow(expeditions_clean)` expeditions across `r length(unique(expeditions_clean$country))` countries and territories, spanning tropical reefs, polar seas, deep trenches, and remote archipelagos.
@@ -132,7 +141,7 @@ expeditions_timeline <- expeditions_clean %>%
   arrange(year) %>%
   group_by(year) %>%
   summarise(n = n(),
-            expedition_list = paste(name, collapse = "<br>"),
+            expedition_list = paste(exp_name, collapse = "<br>"),
             .groups = "drop") %>%
   mutate(cumulative = cumsum(n))
 
@@ -187,7 +196,8 @@ exp.info_schema <- exp.info_fields |>
   })
 
 bq_table_create(bq_table(project_id, "expeditions", "info"),
-                fields = exp.info_schema)
+                fields = exp.info_schema,
+                description = "Registry of all Pristine Seas scientific expeditions. Contains campaign metadata including dates, leadership, vessel information, and survey methods used. This table serves as the primary reference for expedition-level information across the database")
 
 bq_table_upload(bq_table("pristine-seas", "expeditions", "info"),
                 values = expeditions_clean,
@@ -195,29 +205,11 @@ bq_table_upload(bq_table("pristine-seas", "expeditions", "info"),
                 write_disposition = "WRITE_APPEND")
 ```
 
-##### Sites (`expeditions.sites`)
+### Sites (`expeditions.sites`)
 
 This table defines the primary spatial unit for fieldwork. A site represents a distinct instance where a survey method (e.g., UVS, pBRUV, eDNA) was applied at a specific location and time during an expedition.
 
 While method-specific datasets (e.g., uvs.sites, sub.sites) manage their own site records, the shared `expeditions.sites` table acts as the central reference for joining across methods, mapping, and spatial summaries.
-
-::: {.callout-tip title="What is a site?"}
-
-A site is defined by a unique combination of `exp_id`, `method`, and a 3-digit site number  
-_(e.g., `FJI_2025_uvs_001`)_
-
-- Represents one field survey event using a given method.  
-- May contain multiple stations representing depth strata or replicates
-
-**Examples**:
-
- - A **UVS site** may include fish and benthic surveys across several depth zones
- - A **pBRUV** site consists of a 5-rig open-ocean camera deployment
- - A **submersible** site corresponds to a single dive with multiple transects
-
-Sites are the **parent unit** of stations and serve as the core spatial key for integration across methods.
-
-:::
 
 ```{r eval = T, include = T}
 #| label: tbl-exp.sites
@@ -235,7 +227,7 @@ exp.sites_fields <- tribble(
   "time",         "TIME",    TRUE,      "Local time of the deployment in 24-hour format (`HH:MM:SS`)",
   "latitude",     "FLOAT",   TRUE,      "Approximate latitude (decimal degrees, WGS84)",
   "longitude",    "FLOAT",   TRUE,      "Approximate longitude (decimal degrees, WGS84)",
-  "lead",         "STRING",  TRUE,      "Name of the lead scientist or survey team lead",
+  "team_lead",         "STRING",  TRUE,      "Name of the lead scientist or survey team lead",
   "notes",        "STRING",  FALSE,     "Optional comments, metadata, or field observations"
 )
 
@@ -271,5 +263,29 @@ exp.sites_schema <- exp.sites_fields |>
   })
 
 bq_table_create(bq_table(project_id, "expeditions", "sites"),
-                fields = exp.sites_schema)
+                fields = exp.sites_schema,
+                description = "Master registry of all survey sites across methods. Provides the spatial backbone for cross-method integration, enabling joins between different survey types conducted at the same location. Each record represents a unique deployment of a survey method at a specific location and time.")
 ```
+
+## Relationships
+
+## Example queries
+
+## Data Management
+
+### QAQC
+
+Site IDs must follow the pattern: exp_id_method_### with 3-digit padding
+Coordinates validated to ensure they fall within reasonable marine boundaries
+Expedition ID must exist in expeditions.info
+Method must be from controlled vocabulary (uvs, sbruv, pbruv, edna, sub, birds, dscm)
+Dates must fall within expedition start/end dates
+No duplicate site IDs allowed
+
+### Update process
+
+Sites are added as each method data pipeline is completed.
+Data is validated against expedition metadata before insertion.
+Method-specific details are added to respective method tables.
+Updates coordinated through central data management team
+

@@ -2,31 +2,77 @@
 title: "Database Architecture"
 format: 
   html:
-    theme: lux
     mermaid:
-      theme: default  # or 'dark', 'neutral'
+      theme: default
     self-contained: true
-    code-fold: true
+    code-fold: false
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 The **Pristine Seas Science Database** is a modular, analysis-ready system for organizing ecological data collected across more than 40 expeditions worldwide. Its design balances flexibility — to accommodate diverse survey methods — and consistency — to support clean integration, querying, and long-term analysis.
-
-At its core, the system is organized around two major dataset groups:
-
-- **Method Datasets**: One for each survey technique (e.g., UVS, BRUVS, eDNA), with standardized tables for sites, stations, observations, and summaries
-- **Reference Datasets**: Shared taxonomic, spatial, and lookup tables that provide a unified backbone across all methods
 
 ---
 
 ## Core Structure
 
-All data are hosted in **Google BigQuery** under the project `pristine-seas`, organized into top-level datasets grouped by function.
+All data are hosted in **Google BigQuery** under the project `pristine-seas`, organized into two major dataset groups:
 
+- **Method Datasets**: One for each survey technique (e.g., UVS, BRUVS, eDNA), with standardized tables for sites, stations, observations, and summaries
+- **Reference Datasets**: Shared taxonomic, spatial, and lookup tables that provide a unified backbone across all methods
+
+```{mermaid}
+%%| fig-cap: "High-level database organization"
+%%| echo: false
+graph TB
+    A[pristine-seas] --> B[Method Datasets]
+    A --> C[Reference Datasets]
+    
+    B --> D[uvs]
+    B --> E[sbruv]
+    B --> F[pbruv]
+    B --> G[edna]
+    B --> H[sub]
+    B --> I[...]
+    
+    C --> J[expeditions]
+    C --> K[taxonomy]
+    C --> L[lookup]
+    
+    style A fill:#004165,stroke:#fff,color:#fff
+    style C fill:#006C9B,stroke:#fff,color:#fff
+    style B fill:#006C9B,stroke:#fff,color:#fff
+```
+
+---
+
+### Reference Datasets
+
+These datasets provide a shared scaffold for spatial joins, species trait integration, QA/QC, and consistent metadata across all methods:
+
+<div class="database-tree">
+<div class="tree-section">
+
+**📂 expeditions/** — *Spatial backbone & metadata for all field campaigns*
+
+- 📄 `info` — Expedition registry: dates, vessels, teams, partners
+- 📄 `sites` — Master site registry across all survey methods
+
+**📂 taxonomy/** — *Standardized species reference data*
+
+- 📄 `fish` — Fish taxonomy, traits, and life history
+- 📄 `benthos` — Benthic organisms: corals, algae, sponges
+- 📄 `inverts` — Mobile and sessile invertebrates
+
+**📂 lookup/** — *Controlled vocabularies & reference tables*
+
+- 📄 `habitat_types` — Standardized habitat classifications
+- 📄 `exposure_types` — Wave exposure categories  
+
+</div>
+</div>
 
 ### Method Datasets
 
@@ -37,44 +83,125 @@ Each method has its own dataset (e.g., `uvs`, `pbruv`, `sub`, `edna`) that store
 - `observations` — Primary ecological or environmental records
 - `summaries` — Aggregated station-level metrics
 
-### Reference Datasets
+<div class="database-tree">
+<div class="tree-section">
 
-These datasets provide a shared scaffold for spatial joins, species trait integration, QA/QC, and consistent metadata across all methods:
+**📂 uvs/** — *Underwater Visual Survey (SCUBA-based)*
 
-- **`expeditions/`** — Registry of expeditions, sites, and regional hierarchy
-- **`taxonomy/`** — Harmonized species lists and trait metadata
-- **`lookup/`** — Controlled vocabularies, flags, and contributor metadata
+- 📄 `sites` — Dive site metadata: location, conditions, protocols used
+- 📄 `stations` — Depth-stratified sampling units within each site
+- **Fish Belt Transects**
 
-### Layout
+  - 📄 `blt_stations` — Fish belt transect metadata: divers, effort, conditions
+  - 📄 `blt_observations` — Raw fish counts by species, size, and transect
+  - 📄 `blt_biomass_by_taxa` — Station-level fish biomass summaries
+- **Benthic Surveys**
 
-```text
-pristine-seas/
-├── expeditions/
-│   ├── info
-│   ├── sites
-├── uvs/
-│   ├── sites
-│   ├── stations
-│   ├── blt_stations
-│   ├── blt_observations
-│   ├── blt_biomass_by_taxa
-│   ├── lpi_stations
-│   ├── lpi_counts
-│   ├── lpi_cover_by_taxa
-│   ├── inverts_stations
-│   ├── inverts_counts
-│   ├── recruits_stations
-│   ├── recruits_counts
-├── sbruv/    ├── pbruv/    ├── edna/    ├── sub/    ├── dscm/    ├── birds/
-│   ├── ...     ├── ...       ├── ...      ├── ...      ├── ...      ├── ...
-├── taxonomy/
-│   ├── fish
-│   ├── benthos
-│   └── inverts
-├── lookup/
-│   ├── contributors
-│   └── vocabularies
-```
+  - 📄 `lpi_stations` — Benthic line-point intercept transect metadata
+  - 📄 `lpi_counts` — Raw benthic point data by morphotaxon
+  - 📄 `lpi_cover_by_taxa` — Station-level benthic percent cover
+- **Other Protocols**
+
+  - 📄 `inverts_stations` — Mobile invertebrate transect metadata
+  - 📄 `inverts_counts` — Raw invertebrate observations and sizes
+  - 📄 `recruits_stations` — Coral recruitment quadrat metadata
+  - 📄 `recruits_counts` — Juvenile coral counts by genus
+
+**📂 sbruv/** — *Seabed Baited Remote Underwater Video*
+
+- 📄 `stations` — Camera deployment metadata: location, depth, bait
+- 📄 `maxn_by_taxa` — Fish MaxN summaries by species
+
+**📂 pbruv/** — *Pelagic BRUVS (mid-water camera arrays)*
+
+- 📄 `stations` — String deployment metadata
+- 📄 `rigs` — Individual rig positions and drift
+- 📄 `maxn_by_taxa` — Fish MaxN by species and rig
+
+**📂 edna/** — *Environmental DNA sampling*
+
+- 📄 `sites` — Collection location metadata
+- 📄 `stations` — Depth-stratified water samples
+- 📄 `detections` — Species detections and read counts
+
+**📂 sub/** — *Submersible surveys*
+
+- 📄 `sites` — Dive metadata: pilot, observers, conditions
+- 📄 `stations` — Transect segments within dives
+- 📄 `observations` — Species observations along transects
+
+**📂 dscm/** — *Deep Sea Camera deployments*
+
+- 📄 `stations` — Camera drop metadata: depth, duration
+- 📄 `maxn_by_taxa` — Fish MaxN summaries
+
+**📂 birds/** — *Seabird transect surveys*
+
+- 📄 `stations` — Transect metadata: vessel vs land-based
+- 📄 `observations` — Bird sightings with counts and behavior
+</div>
+</div>
+
+<style>
+.database-tree {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  line-height: 1.6;
+  margin: 2rem 0;
+}
+
+.tree-section {
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.tree-header {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #004165;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #004165;
+}
+
+.database-tree strong {
+  color: #006C9B;
+  font-weight: 600;
+  display: block;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.database-tree em {
+  color: #748692;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.95em;
+}
+
+.database-tree ul {
+  list-style: none;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.database-tree li {
+  margin: 0.25rem 0;
+  position: relative;
+}
+
+.database-tree code {
+  background: #f6f8fa;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-weight: 500;
+  color: #1D3557;
+}
+</style>
+
 ---
 
 ## Data Model
@@ -82,7 +209,7 @@ pristine-seas/
 All data in the Pristine Seas Science Database are structured around a shared, hierarchical spatial model. This enables standardized grouping, filtering, and integration across methods, expeditions, and geographies.
 
 - **Expedition**  
-  A defined field campaign
+  A defined field campaign  
   _e.g., `COL_2024`_
 
   - **Region**  
@@ -90,69 +217,117 @@ All data in the Pristine Seas Science Database are structured around a shared, h
     _e.g., Murat, Chocó, Temotu_
 
     - **Subregion**  
-      Intermediate unit like an island such as a single island, atoll, gulf, or reef complex  
+      Intermediate unit like an island, atoll, gulf, or reef complex  
       _e.g.,  Navigator bank, Mussau, Golfo de Tribugá, Utupua_
 
-      - **Locality**
-        Local named feature such as a community, village, islet.  
+      - **Locality**  
+        Local named feature such as a community, village, islet  
         _e.g.,  Lolieng, Tasitel_
 
         - **Site**  
-          A specific location within the subregion where a survey method (e.g., UVS, BRUVS, eDNA) was used.
+          A specific location within the subregion where a survey method (e.g., UVS, BRUVS, eDNA) was used  
           _e.g., `COL_2024_uvs_001`_
 
           - **Station**  
-            A discrete sampling unit within a site, corresponding to a specific depth, or replicate.
+            A discrete sampling unit within a site, corresponding to a specific depth or replicate  
             _e.g., `COL_2024_uvs_001_10m`_
 
-##### Naming Conventions
+::: {.callout-important title="Standard Identifiers" appearance=simple}
 
-::: {.callout-tip title="Naming Conventions"}
+To ensure consistency, traceability, and joinability across all datasets, Pristine Seas uses structured identifiers for sites and stations.
 
-To ensure consistency, traceability, and joinability across all datasets, Pristine Seas uses machine-readable, structured identifiers for sites and stations.
+#### **Expedition (`exp_id`)**: `ISO3_YEAR`  
+- Examples: `FJI_2025`, `COL_2022`, 
 
-- **`exp_id`**: `ISO3_YEAR`  
-  &nbsp;&nbsp;→ Example: `FJI_2025`
+#### **Site (`ps_site_id`)**: `exp_id_method_###`  
+Always use **3-digit padding** for site numbers.
 
-- **`ps_site_id`**: `exp_id_method_###`  
-  &nbsp;&nbsp;→ Always use **3-digit padding** for site numbers (e.g., `001`, `045`, `112`)  
-  &nbsp;&nbsp;→ Examples:  
-  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_uvs_001`  
-  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_pbruv_003`  
-  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_sub_014`
+  - Examples: `FJI_2025_uvs_001`, `FJI_2025_pbruv_003`, `FJI_2025_sub_014`
 
-- **`ps_station_id`**: `ps_site_id_depth` or `ps_site_id_replicate`  
-  &nbsp;&nbsp;→ Depth and replicate suffixes use fixed formats (e.g., `10m`, `r101`)  
-  &nbsp;&nbsp;→ Examples:  
-  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_uvs_001_10m` – Underwater visual survey at 10m depth  
-  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_pbruv_003_r102` – rig 102 of pelagic BRUV deployment 3  
-  &nbsp;&nbsp;&nbsp;&nbsp;`FJI_2025_dscm_006_300m` – deep sea camera at 300m
+#### **Station (`ps_station_id`)**: `ps_site_id_suffix`  
+  Depth and replicate suffixes use fixed formats.
 
-These identifiers are used throughout the database as primary keys in `spatial/`, and foreign keys in all method datasets.
+  - Examples:  
+    - `FJI_2025_uvs_001_10m` – Underwater visual survey at 10m depth  
+    - `FJI_2025_pbruv_003_r102` – rig 102 of pelagic BRUV deployment 3  
+    - `FJI_2025_dscm_006_300m` – deep sea camera at 300m
+
 :::
+
+---
 
 ## Style & Conventions
 
-::: {.callout-note title="Database Style Guide"}
+### Naming Standards
 
-**Naming**
+All database objects follow consistent patterns:
 
-- Table and field names use **`snake_case`**
-- All names are lowercase, except for proper nouns like scientific names or geographic locations. 
-- **No spaces or special characters** 
-- Names are concise, descriptive, and consistently formatted
+**Tables & Fields**  
+`snake_case` throughout • lowercase except proper nouns • no spaces or special characters  
+*Examples:* `blt_observations`, `depth_m`, `accepted_name`
 
-**Units and Standards**
+**Identifiers**  
+Self-documenting structure • sortable • joinable  
+*Examples:* `FJI_2025_uvs_001_10m`, `ps_station_id`
 
-- **Metric system (SI)** for  all measurements ( _e.g., `depth_m`, `biomass_gm2`, `temperature_c`_ )
-- Dates (**ISO 8601**): `YYYY-MM-DD`  
-- Times (**24-hour format**): `HH:MM:SS`
+### Data Standards
 
-**Structure**
+**Units**  
+Metric (SI) with suffix • `depth_m` • `weight_g` • `temperature_c` • `biomass_gm2`
 
-- Tables follow a **long format** — one row per observation or measurement
-- `ps_site_id` and `ps_station_id` are universal spatial keys
-- Controlled vocabularies (e.g., habitat, exposure) live in `lookup/`
-- Each dataset is modular, documented, and reproducible
+**Formats**  
+Dates: `YYYY-MM-DD` • Times: `HH:MM:SS` • Coordinates: decimal degrees, WGS84
 
-:::
+**Types**  
+Booleans: `TRUE/FALSE` • Missing: `NULL`
+
+### Structure Principles
+
+**Long Format**  
+One observation per row • One variable per column
+
+**Keys & References**  
+Primary: `ps_site_id`, `ps_station_id` • Foreign keys explicit • Natural hierarchy
+
+**Modularity**  
+Method-specific structure • Shared references • Clear boundaries
+
+
+<style>
+h3 {
+  color: #004165;
+  border-bottom: 2px solid #004165;
+  padding-bottom: 0.5rem;
+  margin-top: 2rem;
+}
+
+h3 + p {
+  margin-top: 1rem;
+}
+
+hr {
+  border: 0;
+  height: 1px;
+  background: #e9ecef;
+  margin: 1.5rem 0;
+}
+
+strong {
+  color: #006C9B;
+  font-weight: 600;
+}
+
+em {
+  color: #748692;
+  font-style: normal;
+  font-size: 0.95em;
+}
+
+code {
+  background: #f6f8fa;
+  padding: 0.15rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.9em;
+  color: #1D3557;
+}
+</style>

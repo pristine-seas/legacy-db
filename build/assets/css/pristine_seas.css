@@ -1,0 +1,757 @@
+/* Pristine Seas CSS - Inspired by Claude typography, Life Aquatic, nbdev and ALA Labs */
+
+/* ----- TYPOGRAPHY ----- */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Source+Sans+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
+
+:root {
+  /* Life Aquatic color palette */
+  --deep-sea-blue: #004165;
+  --medium-blue: #006C9B;
+  --light-blue: #62B4E5;
+  --coral-red: #E63946;
+  --sea-yellow: #F7B32B;
+  --off-white: #F8F9FB;
+  --dark-slate: #1D3557;
+  --light-gray: #E5E5E5;
+  --slate-gray: #748692;
+
+  /* Functional colors */
+  --primary: var(--deep-sea-blue);
+  --secondary: var(--medium-blue);
+  --accent: var(--sea-yellow);
+  --highlight: var(--light-blue);
+  --warning: var(--coral-red);
+  --background: var(--off-white);
+  --text: var(--dark-slate);
+  --light-text: var(--slate-gray);
+  --border: var(--light-gray);
+}
+
+body {
+  font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--text);
+  background-color: var(--background);
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  color: var(--primary);
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+h2 {
+  font-size: 1.75rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+h3 {
+  font-size: 1.4rem;
+  color: var(--secondary);
+}
+
+a {
+  color: var(--secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* ----- NAVBAR ----- */
+.navbar {
+  background-color: var(--primary) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 0.75rem 1rem;
+}
+
+.navbar-brand {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+}
+
+/* Logo size customization */
+.navbar-brand img {
+  height: 40px; /* Increase from default size */
+  width: auto;
+  transition: transform 0.3s ease;
+}
+
+/* Optional hover effect */
+.navbar-brand:hover img {
+  transform: scale(1.05);
+}
+
+.navbar-dark .navbar-nav .nav-link {
+  color: rgba(255,255,255,0.9);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.navbar-dark .navbar-nav .nav-link:hover,
+.navbar-dark .navbar-nav .nav-link:focus {
+  color: white;
+  background-color: rgba(255,255,255,0.1);
+  border-radius: 4px;
+}
+
+.navbar-dark .navbar-nav .active > .nav-link {
+  background-color: rgba(255,255,255,0.15);
+  border-radius: 4px;
+}
+
+/* ----- SIDEBAR ----- */
+.sidebar-navigation {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.sidebar-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.sidebar-item {
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.sidebar-item-container .active {
+  background-color: rgba(0,65,101,0.1);
+  border-left: 3px solid var(--primary);
+}
+
+.sidebar-item:hover {
+  background-color: rgba(0,65,101,0.05);
+}
+
+/* ----- TITLE BANNER ----- */
+.quarto-title-banner {
+  background-color: var(--primary);
+  padding: 3rem 0;
+}
+
+.quarto-title-banner .quarto-title {
+  color: white;
+}
+
+.quarto-title-banner .description {
+  color: rgba(255,255,255,0.9);
+}
+
+/* ----- METHOD CARDS ----- */
+.method-card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-left: 5px solid var(--primary);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.method-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.method-card h3 {
+  margin-top: 0;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.method-card.method-benthic {
+  border-left-color: var(--primary);
+}
+
+.method-card.method-fish {
+  border-left-color: var(--secondary);
+}
+
+.method-card.method-edna {
+  border-left-color: var(--accent);
+}
+
+.method-card.method-media {
+  border-left-color: var(--coral-red);
+}
+
+/* ----- CHECKLIST ----- */
+.checklist {
+  background-color: var(--off-white);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.checklist h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.checklist ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.checklist li {
+  margin-bottom: 0.5rem;
+  padding-left: 2rem;
+  position: relative;
+}
+
+.checklist li::before {
+  content: "✓";
+  color: var(--secondary);
+  position: absolute;
+  left: 0;
+  font-weight: bold;
+}
+
+/* ----- PRINCIPLE CARDS ----- */
+.principle-card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.principle-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.principle-card h3 {
+  margin-top: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--primary);
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.principle-card ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin-bottom: 0;
+}
+
+.principle-card li {
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+.principle-card li::before {
+  content: "•";
+  color: var(--secondary);
+  position: absolute;
+  left: 0;
+  font-weight: bold;
+}
+
+.principle-card.principle-excellence {
+  border-top: 4px solid var(--primary);
+}
+
+.principle-card.principle-open {
+  border-top: 4px solid var(--secondary);
+}
+
+.principle-card.principle-collab {
+  border-top: 4px solid var(--accent);
+}
+
+/* ----- COLLABORATIVE APPROACH CARDS ----- */
+.collab-card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.collab-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.collab-card h3 {
+  margin-top: 0;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.collab-card h3 img {
+  margin-right: 0.25rem;
+}
+
+/* ----- CODE BLOCKS ----- */
+pre {
+  background-color: #f8f9fa;
+  border-left: 4px solid var(--secondary);
+  border-radius: 4px;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+code {
+  color: var(--secondary);
+  font-size: 0.9em;
+}
+
+/* ----- TABLES ----- */
+table {
+  width: 100%;
+  margin-bottom: 1.5rem;
+  border-collapse: collapse;
+}
+
+thead {
+  background-color: var(--primary);
+  color: white;
+}
+
+th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+tbody tr:hover {
+  background-color: rgba(0,65,101,0.05);
+}
+
+/* ----- CALLOUTS ----- */
+.callout {
+  border-radius: 8px;
+  margin: 1.5rem 0;
+}
+
+.callout-note {
+  border-left: 5px solid var(--secondary);
+}
+
+.callout-tip {
+  border-left: 5px solid var(--sea-yellow);
+}
+
+.callout-warning {
+  border-left: 5px solid var(--coral-red);
+}
+
+.callout-important {
+  border-left: 5px solid var(--coral-red);
+}
+
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+/* ----- TABLE OF CONTENTS ----- */
+.toc-active {
+  color: var(--secondary) !important;
+  font-weight: 600;
+}
+
+.toc-actions .bi {
+  color: var(--secondary);
+}
+
+/* ----- FIGURES ----- */
+figure {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+figcaption {
+  font-style: italic;
+  color: var(--light-text);
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* ----- FOOTER ----- */
+.footer {
+  background-color: var(--off-white);
+  border-top: 1px solid var(--border);
+  padding: 2rem 0;
+  margin-top: 3rem;
+}
+
+.footer a {
+  color: var(--secondary);
+}
+
+.footer a:hover {
+  color: var(--primary);
+}
+
+/* ----- COLUMNS LAYOUT ----- */
+.columns {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.column {
+  min-width: 0; /* Ensures proper sizing in flex context */
+}
+
+/* ----- RESPONSIVE ADJUSTMENTS ----- */
+@media (max-width: 991.98px) {
+  .navbar {
+    padding: 0.5rem 1rem;
+  }
+
+  .method-card {
+    padding: 1rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.2rem;
+  }
+
+  .columns {
+    flex-direction: column;
+  }
+
+  .column {
+    width: 100% !important;
+  }
+}
+
+/* ----- PRINT STYLES ----- */
+@media print {
+  body {
+    font-size: 12pt;
+  }
+
+  pre, code {
+    font-size: 10pt;
+  }
+
+  .navbar, .sidebar, .toc {
+    display: none;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+
+  img {
+    max-width: 100% !important;
+  }
+
+  .method-card {
+    break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid #dee2e6;
+  }
+}
+
+.spatial-hierarchy {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-left: 4px solid #004165;
+}
+
+.indent-1 { margin-left: 1.5rem; }
+.indent-2 { margin-left: 3rem; }
+.indent-3 { margin-left: 4.5rem; }
+.indent-4 { margin-left: 6rem; }
+.indent-5 { margin-left: 7.5rem; }
+.indent-6 { margin-left: 9rem; }
+
+
+.dive-team-container {
+  display: flex;
+  gap: 2rem;
+  margin: 1rem 0;
+}
+
+.dive-team-role {
+  padding: 1rem;
+  border-radius: 5px;
+  flex: 1;
+}
+
+.primary-role {
+  background-color: #e3f2fd;
+  border-left: 4px solid #2196F3;
+}
+
+.secondary-role {
+  background-color: #e8f5e9;
+  border-left: 4px solid #4CAF50;
+}
+
+.dive-team-role h4 {
+  margin-top: 0;
+  color: #444;
+}
+
+.team-note {
+  font-style: italic;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+}
+
+.metrics-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  box-shadow: 0 2px 3px rgba(0,0,0,0.1);
+}
+
+.metrics-table th {
+  background-color: #004165;
+  color: white;
+  padding: 12px 15px;
+  text-align: left;
+}
+
+.metrics-table td {
+  padding: 10px 15px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.metrics-table tr:nth-child(even) {
+  background-color: #f5f9fc;
+}
+
+.metrics-table tr:hover {
+  background-color: #eaf5ff;
+}
+
+.important-note {
+  color: #DD2D4A ;
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+
+/* Google Drive folder styles */
+.drive-folder {
+  text-align: center;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 5px;
+  border: 1px solid #e9ecef;
+  margin-bottom: 10px;
+  transition: all 0.2s ease;
+}
+
+.drive-folder:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.drive-folder i {
+  font-size: 24px;
+  margin-bottom: 5px;
+  color: #4285F4;
+}
+
+/* Permission grid styles */
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.permission-item {
+  padding: 1rem;
+  border-radius: 5px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+}
+
+.permission-icon {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.permission-level {
+  grid-column: 2;
+  grid-row: 1;
+  font-weight: bold;
+}
+
+.permission-desc {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: 0.9rem;
+}
+
+/* Integration card styles */
+.integration-card {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 1rem;
+  height: 100%;
+  border: 1px solid #e9ecef;
+  transition: all 0.2s ease;
+}
+
+.integration-card:hover {
+  border-color: #4285F4;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.integration-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.integration-header h3 {
+  margin: 0;
+  color: #004165;
+}
+
+.integration-card hr {
+  border: 0;
+  height: 1px;
+  background-color: #e9ecef;
+  margin: 0.75rem 0;
+}
+
+.integration-card ul {
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Add font-awesome as well if not already included */
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
+/* Code block styles for R integration examples */
+pre.r {
+  background-color: #f5f5f5;
+  border-left: 4px solid #4285F4;
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Tables styling for permission and reference tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+}
+
+table th {
+  background-color: #004165;
+  color: white;
+  text-align: left;
+  padding: 0.75rem;
+}
+
+table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+table tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+/* Quick reference cards */
+.reference-card {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-left: 5px solid #004165;
+}
+
+.reference-card h4 {
+  margin-top: 0;
+  color: #004165;
+}
+
+/* Additional styles for the callouts */
+.callout-note.appearance-minimal {
+  background-color: #f8f9fa;
+  border-left: 5px solid #004165;
+  padding: 1rem;
+  margin: 1.5rem 0;
+}
+
+.callout-important.appearance-simple {
+  background-color: #fff3cd;
+  border-left: 5px solid #ffc107;
+  padding: 1rem;
+  margin: 1.5rem 0;
+}
+
+.callout-tip {
+  background-color: #d4edda;
+  border-left: 5px solid #28a745;
+  padding: 1rem;
+  margin: 1.5rem 0;
+}
