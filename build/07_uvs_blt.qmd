@@ -47,9 +47,9 @@ The fish belt transect (BLT) protocol is the primary method used to quantify ree
 
 Fish BLT data are organized across three interlinked tables:
 
-- `uvs.blt_stations` - Metadata for each station, including depth, diver, transect area, and summary metrics
-- `uvs.blt_observations` - Raw fish counts by species, size class, and transect replicate
-- `uvs.blt_biomass_by_taxa` - Derived biomass by station and taxon, calculated using standard length–weight relationships
+- `uvs.blt_stations` -  Station metadata and summary metrics
+- `uvs.blt_observations` -  Raw fish observations
+- `uvs.blt_biomass_by_taxa` - Aggregated biomass by species per station
 
 All records are linked by `ps_station_id`, and species are standardized via `accepted_aphia_id` (foreign key to `taxonomy.fish`).
 
@@ -57,84 +57,69 @@ All records are linked by `ps_station_id`, and species are standardized via `acc
 
 #### Tables 
 
-------------------------------------------------------------------------
+##### `uvs.blt_stations` — Survey Station Metadata
 
-##### Stations (`uvs.blt_stations`)
-
-This table contains one record per depth-stratified fish survey conducted at a UVS site. Each row includes core spatial and survey metadata — such as depth, date, divers, and number of transects — along with ecological summaries (e.g., species richness, fish abundance, biomass).
+This table contains one record per depth-stratified fish survey station. Each row represents a discrete sampling unit where belt transects were conducted, including survey conditions and summary metrics.
 
 Stations are linked to `uvs.sites` via `ps_site_id`, and uniquely identified using a depth-binned `ps_station_id`. This table provides the context and summary metrics for interpreting observation-level data.
 
-
 ::: {.callout-note title="Standard UVS depth strata"}
-
-To ensure consistency across regions and survey protocols, all UVS stations are binned into standardized depth strata based on fixed thresholds. These depth bins are appended to the `ps_site_id` to generate the full `ps_station_id`.
-
-**Depth strata and suffixes:**
+All UVS stations are binned into standardized depth strata:
 
 - **Supershallow (`<= 6 m`)** → `05m`  
 - **Shallow (`7–14 m`)** → `10m`  
 - **Deep (`>= 15 m`)**  → `20m`
 
-**Examples:**
-
-- A survey at 5.8 m → `FJI_2025_uvs_001_05m`
-- A survey at 14.7 m → `FJI_2025_uvs_001_10m`
-
-This scheme ensures consistent stratification across all analyses, even with natural variation in survey depth.
-
+Example: A survey at 5.8 m → `FJI_2025_uvs_001_05m`
 :::
 
 ```{r eval = T, include = T}
 #| label: tbl-uvs.blt_stations
-#| tbl-cap: "Fields in the `uvs.blt_stations` table"
+#| tbl-cap: "uvs.blt_stations Table Schema"
 
 blt_stations_fields <- tribble(
-  ~field,            ~type,     ~required,  ~description,
-
-  # Identifiers
-  "ps_station_id",   "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth`), e.g., `CHL_2024_uvs_001_20m`.",
-  "ps_site_id",      "STRING",  TRUE,      "◂ Foreign key to `uvs.sites` table.",
-  "exp_id",          "STRING",  TRUE,      "◂ Expedition ID (`ISO3_YEAR`).",
-  "method",          "STRING",  TRUE,      "◂ Survey method (`uvs`).",
-  "protocol",        "STRING",  TRUE,      "Survey protocol (`fish_blt`).",
-  "divers",          "STRING",  TRUE,      "Comma-separated names of divers who conducted the transects.",
-
-  # Spatial and temporal (from sites table)
-  "region",          "STRING",  TRUE,      "◂ Region name.",
-  "subregion",       "STRING",  TRUE,      "◂ Subregion name.",
-  "locality",        "STRING",  FALSE,     "◂ Optional local feature (e.g., reef, bay, cove).",
-  "latitude",        "FLOAT",   TRUE,      "◂ Latitude of site (decimal degrees, WGS84).",
-  "longitude",       "FLOAT",   TRUE,      "◂ Longitude of site (decimal degrees, WGS84).",
-  "date",            "DATE",    TRUE,      "◂ Survey date (`YYYY-MM-DD`).",
-  "time",            "TIME",    TRUE,      "◂ Start time of survey (24-hour format).",
-
-  # Environmental context
-  "depth_m",         "FLOAT",   TRUE,      "Average depth of the station (m).",
-  "depth_strata",    "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`.",
-  "habitat",         "STRING",  TRUE,      "◂ Habitat type (see controlled vocabulary).",
-  "exposure",        "STRING",  TRUE,      "◂ Exposure type (see controlled vocabulary).",
-  "in_mpa",          "BOOLEAN", FALSE,     "TRUE if the station is located within a marine protected area (MPA).",
+  ~field,              ~type,     ~required,  ~description,
+  
+  # Core identifiers
+  "ps_station_id",     "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth`), e.g., `COL_2024_uvs_001_20m`",
+  "ps_site_id",        "STRING",  TRUE,      "Foreign key to `uvs.sites`",
+  "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
+  
+  # Spatial context (denormalized for common queries)
+  "region",            "STRING",  TRUE,      "Region name - from uvs.sites",
+  "subregion",         "STRING",  TRUE,      "Subregion name - from uvs.sites",
+  "locality",          "STRING",  FALSE,     "Locality name - from uvs.sites",
+  "habitat",           "STRING",  TRUE,      "Habitat type - from uvs.sites",
+  "exposure",          "STRING",  TRUE,      "Exposure type - from uvs.sites",
+  
+  # Survey metadata
+  "divers",            "STRING",  TRUE,      "Divers who conducted transects (pipe-delimited)",
+  "date",              "DATE",    TRUE,      "Survey date",
+  "time",              "TIME",    TRUE,      "Survey start time (local, 24-hour)",
+  
+  # Environmental conditions
+  "depth_m",           "FLOAT",   TRUE,      "Average station depth (meters)",
+  "depth_strata",      "STRING",  TRUE,      "Depth category: `supershallow`, `shallow`, or `deep`",
   
   # Survey effort
-  "n_transects",     "INTEGER", TRUE,      "Number of belt transects completed at the station.",
-  "survey_area_m2",  "FLOAT",   TRUE,      "Total area surveyed across all transects (m²).",
+  "n_transects",       "INTEGER", TRUE,      "Number of transects completed",
+  "survey_area_m2",    "FLOAT",   TRUE,      "Total area surveyed (m²)",
   
-  # Summary metrics (transect-level averages)
-  "total_taxa",       "INTEGER", FALSE,    "Total number of unique fish taxa recorded.",
-  "avg_taxa",         "FLOAT",   FALSE,    "Mean taxa richness per transect.",
-  "total_count",      "INTEGER", FALSE,    "Total number of individuals recorded.",
-  "avg_count",        "FLOAT",   FALSE,    "Mean number of individuals per transect.",
-  "density_m2",       "FLOAT",   FALSE,    "Mean fish density (individuals/m²).",
-  "biomass_gm2",      "FLOAT",   FALSE,    "Mean biomass (g/m²).",
-  "pct_shark",        "FLOAT", FALSE, "Average % of total biomass contributed by sharks.",
-  "pct_top_pred",     "FLOAT", FALSE, "Average % of total biomass contributed by top predators.",
-  "pct_lower_carni",  "FLOAT", FALSE, "Average % of total biomass contributed by lower carnivores",
-  "pct_herbi_detri",  "FLOAT", FALSE, "Average % of total biomass contributed by herbivores/detritivores",
-  "pct_plankti",      "FLOAT", FALSE, "Average % of total biomass contributed by planktivores",
+  # Summary metrics
+  "total_taxa",        "INTEGER", FALSE,     "Total unique fish taxa observed",
+  "avg_taxa",          "FLOAT",   FALSE,     "Mean taxa richness per transect.",
+  "total_count",       "INTEGER", FALSE,     "Total number of individuals recorded.",
+  "avg_count",         "FLOAT",   FALSE,     "Mean number of individuals per transect.",
+  "density_m2",        "FLOAT",   FALSE,     "Mean fish density (individuals/m²).",
+  "biomass_gm2",       "FLOAT",   FALSE,     "Mean biomass (g/m²).",
+  "pct_top_predator",  "FLOAT",   FALSE,     "Percentage biomass from top predators",
+  "pct_shark",         "FLOAT",   FALSE,     "Average % of total biomass contributed by sharks.",
+  "pct_lower_carni",   "FLOAT",   FALSE,     "Average % of total biomass contributed by lower carnivores",
+  "pct_herbi_detri",   "FLOAT",   FALSE,     "Average % of total biomass contributed by herbivores/detritivores",
+  "pct_plankti",       "FLOAT",   FALSE,     "Average % of total biomass contributed by planktivores",
   
   # Notes
-  "notes",           "STRING",  FALSE,     "Optional comments or QA notes."
+  "notes",             "STRING",  FALSE,     "Field notes or QA comments"
 )
 
 gt(blt_stations_fields) |>
@@ -155,6 +140,7 @@ gt(blt_stations_fields) |>
   gt_theme_nytimes()
 ```
 
+
 ```{r}
 # Define table schema
 blt_stations_schema <- blt_stations_fields |>
@@ -168,17 +154,17 @@ blt_stations_schema <- blt_stations_fields |>
   })
 
 bq_table_create(bq_table(project_id, "uvs", "blt_stations"),
-                fields = blt_stations_schema)
+                fields = blt_stations_schema,
+                description = "This table contains one record per depth-stratified fish survey station. Each row represents a discrete sampling unit where belt transects were conducted, including survey conditions and summary metrics.")
 ```
-
 
 ---
 
-##### Observations (`uvs.blt_observations`)
+##### `uvs.blt_observations` — Raw Fish Observations
 
-This table stores raw fish observations recorded during individual belt transects. Each row captures a unique combination of species, estimated total length (cm), and count, representing a single diver observation within a defined transect area.
+This table stores individual fish observations from belt transects. Each row represents a single species-size combination observed by a diver on a specific transect.
 
-In addition to raw counts, it includes derived metrics such as biomass (`biomass_g`) and biomass density (`biomass_gm2`), calculated using species-specific length–weight parameters from `taxonomy.fish`. Observations are linked to their parent station via `ps_station_id`, and taxonomic identity is standardized using `accepted_aphia_id`.
+In addition to raw counts, it includes derived metrics such as biomass (`biomass_g`) and biomass per unit area (`biomass_gm2`), calculated using species-specific length–weight parameters from `taxonomy.fish`. Observations are linked to their parent station via `ps_station_id`, and taxonomic identity is standardized using `accepted_aphia_id`.
 
 ::: {.callout-note title="Standard transect dimensions"}
 - Fish **≥ 20 cm** are recorded along a 25 m × 4 m belt (100 m²)
@@ -187,19 +173,20 @@ In addition to raw counts, it includes derived metrics such as biomass (`biomass
 
 ```{r eval = T, include = T}
 #| label: tbl-fish-obs-schema
-#| tbl-cap: "`fish.observations` Table Schema"
+#| tbl-cap: "uvs.blt_observations Table Schema"
 
 blt_obs_fields <- tribble(
   ~field,              ~type,     ~required, ~description,
 
-  # Identification and traceability
+  # Identifiers
   "obs_id",            "STRING",  TRUE,      "Unique observation ID (e.g., `CHL_2024_blt_AMF_0001`).",
   "ps_station_id",     "STRING",  TRUE,      "Foreign key linking to `uvs.blt_stations`.",
-  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
+  "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
 
-  # Spatial context
-  "station_label",     "STRING",  TRUE,      "Field-assigned relative stratum label (e.g., `shallow`, `deep`).",
+ # Survey context
+  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
   "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
+  "station_label",     "STRING",  TRUE,      "Field-assigned relative stratum label (e.g., `shallow`, `deep`).",
   "transect",          "STRING",  TRUE,      "Transect label: `A`, `B`, or `C`; `OFF` for observations outside standard transects.",
 
   # Taxonomic identity
@@ -215,9 +202,9 @@ blt_obs_fields <- tribble(
   "terminal_phase",    "BOOLEAN", FALSE,     "TRUE if the individual was identified as terminal phase (e.g., parrotfishes).",
 
   # Derived metrics
-    "biomass_g",         "FLOAT",   FALSE,     "Total biomass (g), calculated using length–weight relationship.",
-    "density_m2",        "FLOAT",   FALSE,   "Fish density (individuals/m²), based on size-specific belt area.",
-    "biomass_gm2",       "FLOAT",   FALSE,     "Biomass per square meter (g/m²), standardized by belt area.",
+  "biomass_g",         "FLOAT",   FALSE,     "Total biomass (g), calculated using length–weight relationship.",
+  "density_m2",        "FLOAT",   FALSE,   "Fish density (individuals/m²), based on size-specific belt area.",
+  "biomass_gm2",       "FLOAT",   FALSE,     "Biomass per square meter (g/m²), standardized by belt area.",
 
   # Notes
   "notes",             "STRING",  FALSE,     "Optional comments or QA annotations."
@@ -259,67 +246,35 @@ blt_obs_schema <- blt_obs_fields |>
   })
 
 bq_table_create(bq_table(project_id, "uvs", "blt_observations"),
-                fields = blt_obs_schema)
+                fields = blt_obs_schema,
+                description = "This table stores individual fish observations from belt transects. Each row represents a single species-size combination observed by a diver on a specific transect.")
 ```
 
 ---
 
-##### Biomass by taxa (`uvs.blt_biomass_by_taxa`)
+##### `uvs.blt_biomass_by_taxa` — Aggregated Biomass by Species
 
-This table contains station-level summaries of reef fish abundance and biomass by species, derived from raw BLT transect observations. It serves as the primary analysis-ready table for assessing community structure, trophic composition, and biomass patterns.
-
-Each row represents a unique combination of `ps_station_id` and species. Metrics are expressed as **mean values across all transects** at the station, with **zeros imputed for transects where the species was not observed**. This approach ensures unbiased station-level estimates of:
-
-- count_m2 - average density (individuals/m²)
-- biomass_gm2 - average biomass (g/m²)
-
-Species identity is standardized via `accepted_aphia_id`, with taxonomic and ecological traits (e.g., family, trophic group) joined from `taxonomy.fish`. These fields support flexible aggregation by trophic or functional guild.
-
-```{r}
-  # Identifiers
-  "ps_station_id",   "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth`), e.g., `CHL_2024_uvs_001_20m`.",
-  "ps_site_id",      "STRING",  TRUE,      "◂ Foreign key to `uvs.sites` table.",
-  "exp_id",          "STRING",  TRUE,      "◂ Expedition ID (`ISO3_YEAR`).",
-  "method",          "STRING",  TRUE,      "◂ Survey method (`uvs`).",
-  "protocol",        "STRING",  TRUE,      "Survey protocol (`fish_blt`).",
-  "divers",          "STRING",  TRUE,      "Comma-separated names of divers who conducted the transects.",
-
-  # Spatial and temporal
-  "region",          "STRING",  TRUE,      "◂ Region name.",
-  "subregion",       "STRING",  TRUE,      "◂ Subregion name.",
-  "locality",        "STRING",  FALSE,     "◂ Optional local feature (e.g., reef, bay, cove).",
-  "latitude",        "FLOAT",   TRUE,      "◂ Latitude of site (decimal degrees, WGS84).",
-  "longitude",       "FLOAT",   TRUE,      "◂ Longitude of site (decimal degrees, WGS84).",
-  "date",            "DATE",    TRUE,      "◂ Survey date (`YYYY-MM-DD`).",
-  "time",            "TIME",    TRUE,      "◂ Start time of survey (24-hour format).",
-
-  # Environmental context
-  "depth_m",         "FLOAT",   TRUE,      "Average depth of the station (m).",
-  "depth_strata",    "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`.",
-  "habitat",         "STRING",  TRUE,      "◂ Habitat type (see controlled vocabulary).",
-  "exposure",        "STRING",  TRUE,      "◂ Exposure type (see controlled vocabulary).",
-  "in_mpa",          "BOOLEAN", FALSE,     "TRUE if the station is located within a marine protected area (MPA).",
-```
+This table contains station-level summaries of fish abundance and biomass by species. It is the primary analysis-ready table for community structure assessments. Key spatial and taxonomic fields are denormalized here for query performance.
 
 ```{r eval = T, include = T}
 #| label: tbl-blt-biomass-schema
-#| tbl-cap: "Schema for station-level summaries of reef fish biomass and abundance by species"
+#| tbl-cap: "uvs.blt_biomass_by_taxa Table Schema"
 
 blt_biomass_by_taxa_fields <- tribble(
   ~field,                ~type,     ~required, ~description,
   
-  # Primary Keys and Links
-  "ps_station_id",          "STRING",   TRUE,  "Primary key. Format: `ISO3_YEAR_METHOD_SITE_DEPTH`",
-  "ps_site_id",            "STRING",   TRUE,   "Foreign key to `uvs.sites` table.",
-  "exp_id",                "STRING",   TRUE,   "Expedition ID (`ISO3_YEAR`).",
+  # Keys
+  "ps_station_id",     "STRING",  TRUE,      "Station identifier (foreign key)",
+  "ps_site_id",        "STRING",  TRUE,      "Site identifier - denormalized for performance",
+  "exp_id",            "STRING",  TRUE,      "Expedition ID - denormalized for performance",
+
+  # Spatial context (denormalized for common queries)
   
-  # Site Characteristics
   "region",              "STRING",  TRUE,      "◂ Region name.",
   "subregion",           "STRING",  TRUE,      "◂ Subregion name.",
   "habitat",             "STRING",  TRUE,      "◂ Habitat type (see controlled vocabulary).",
   "exposure",            "STRING",  TRUE,      "◂ Exposure type (see controlled vocabulary).",
-  "in_mpa",              "BOOLEAN", FALSE,     "TRUE if the station is located within a marine protected area (MPA).",
-  
+
   # Station Characteristics
   
   "diver",               "STRING",  TRUE,      "Comma-separated names of divers who conducted the transects.",
@@ -336,8 +291,8 @@ blt_biomass_by_taxa_fields <- tribble(
   
   # Abundance Metrics
   "total_count",         "INTEGER", FALSE,     "Total number of individuals observed across all transects.",
-  "avg_count",           "FLOAT",   FALSE,     "Mean number of individuals per transect (including zeros).",
-  "density_m2",        "FLOAT",    FALSE,      "Mean density (individuals/m²).",
+  "avg_count",           "FLOAT",   FALSE,     "Mean number of individuals per transect.",
+  "density_m2",          "FLOAT",    FALSE,    "Mean density (individuals/m²).",
   
   # Size Metrics
   
@@ -381,6 +336,7 @@ blt_biomass_schema <- blt_biomass_by_taxa_fields |>
   })
 
 bq_table_create(bq_table(project_id, "uvs", "blt_biomass_by_taxa"),
-                fields = blt_biomass_schema)
+                fields = blt_biomass_schema,
+                description = "This table contains station-level summaries of fish abundance and biomass by species. It is the primary analysis-ready table for community structure assessments")
 ```
 

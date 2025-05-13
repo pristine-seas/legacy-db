@@ -29,7 +29,7 @@ Spanning all major ocean basins across **40+ expeditions**, it brings together s
 
 ------------------------------------------------------------------------
 
-## 🗄️ Key Features
+##  Key Features
 
 ### Modular by Method
 Each survey protocol — from reef fish and benthic cover to eDNA, BRUVS, and submersibles — maintains its own standardized schema while integrating seamlessly with the whole.

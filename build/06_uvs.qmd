@@ -99,7 +99,7 @@ core_site_fields <- tribble(
   "time",         "TIME",    TRUE,      "Local time of the deployment in 24-hour format (`HH:MM:SS`)",
   "latitude",     "FLOAT",   TRUE,      "Approximate latitude (decimal degrees, WGS84)",
   "longitude",    "FLOAT",   TRUE,      "Approximate longitude (decimal degrees, WGS84)",
-  "lead",         "STRING",  TRUE,      "Name of the lead scientist or survey team lead",
+  "team_lead",    "STRING",  TRUE,      "Name of the lead scientist or survey team lead",
   "notes",        "STRING",  FALSE,     "Optional comments, metadata, or field observations")
 
 
@@ -199,6 +199,7 @@ uvs.sites_schema <- uvs_sites_all_fields |>
   })
 
 bq_table_create(bq_table(project_id, "uvs", "sites"),
-                fields = uvs.sites_schema)
+                fields = uvs.sites_schema,
+                description = "Site-level metadata for underwater visual surveys (UVS). Each row represents a unique SCUBA survey site where one or more survey protocols (e.g., fish, benthic, invertebrates) were conducted.")
 ```
 
