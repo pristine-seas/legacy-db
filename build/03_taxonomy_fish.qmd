@@ -128,9 +128,7 @@ core_taxonomy_schema |>
 ```
 
 ```{r taxonomy}
-fish_taxa <- read_csv(file.path(prj_path, "data/processed/taxonomy/taxonomy.uvs_fish_codes.csv"))
-
-plan(multicore)
+fish_taxa <- read_csv(file.path(prj_path, "data/output/taxonomy.uvs_fish_codes.csv"))
 
 get_taxonomic_ranks <- function(id) {
   tryCatch(
@@ -287,7 +285,10 @@ extra_troph_info <- bind_rows(read_csv(file.path(prj_path, "data/raw/taxonomy/fi
                                 filter(!is.na(trophic_group)),
                               read_trophic_csv("data/raw/taxonomy/fish/trophic_info_missing_trophic_AMF.csv"),
                               read_trophic_csv("data/raw/taxonomy/fish/trophic_info_missing_trophic_info_AMF.csv"),
-                              read_trophic_csv("data/raw/taxonomy/fish/trophic_info_SLI_missing.csv")) |> 
+                              read_trophic_csv("data/raw/taxonomy/fish/trophic_info_SLI_missing.csv"),
+                              read_csv(file.path(prj_path, "data/raw/taxonomy/fish/trophic_info_filled_missing_PNG_JEC.csv")) |> 
+                                select(accepted_name, trophic_group)
+                              ) |> 
   distinct() |> 
   mutate(trophic_group = case_when(accepted_name == "Amphiprion biaculeatus"                          ~ "Lower-carnivore",
                                    trophic_group %in% c("Lower-carnivores", "Lower-carnivore")        ~ "Lower-carnivore",
@@ -340,6 +341,16 @@ fish_taxa <- fish_taxa |>
               distinct(fb_spec_code, trophic_lvl, trophic_lvl_se, feeding_path),
             by = "fb_spec_code") |> 
   left_join(fb_ecology, by = "fb_spec_code")
+```
+
+```{r}
+fish_taxa <- fish_taxa |> 
+  mutate(trophic_group = case_when(is.na(trophic_group) & feeding_type == "grazing on aquatic plants" ~ "herbivore/detritivore",
+                                   is.na(trophic_group) & feeding_type %in% c("selective plankton feeding", "filtering plankton") ~ "planktivore",
+                                   family == "Carcharhinidae"  ~ "shark",
+                                   TRUE ~ trophic_group),
+         trophic_group = str_to_lower(trophic_group) |> 
+           str_replace_all("-", "_")) 
 ```
 
 ### Morphometrics
@@ -515,7 +526,7 @@ iucn_priority <- c("CR", "EN", "VU", "NT", "LC", "DD", "NE")
 
 iucn_clean <- iucn_db |> 
   rename(accepted_name = taxon_valid_name) |> 
-  filter(accepted_name %in% final_taxa$accepted_name) |> 
+  filter(accepted_name %in% fish_taxa$accepted_name) |> 
   distinct(accepted_name, iucn_redlist_cat, iucn_taxon_id) |> 
   mutate(iucn_redlist_cat = case_when(str_detect(iucn_redlist_cat, "Critically Endangered") ~ "CR",
                                       str_detect(iucn_redlist_cat, "Endangered") ~ "EN",
@@ -569,7 +580,8 @@ fish_taxa_fields <- pmap(final_schema, function(field, type, description, requir
 # Create table
 bq_table_create(
   bq_table("pristine-seas", "taxonomy", "fish"),
-  fields = fish_taxa_fields
+  fields = fish_taxa_fields,
+  description = "Taxonomic and trait information for fish species in the Pristine Seas database."
 )
 
 bq_table_upload(bq_table("pristine-seas", "taxonomy", "fish"),
@@ -579,13 +591,13 @@ bq_table_upload(bq_table("pristine-seas", "taxonomy", "fish"),
 
 fish_taxa |> 
   arrange(family, accepted_name, genus) |> 
-  write_csv(file.path(prj_path, "data/processed/taxonomy/taxonomy.fish.csv"))
+  write_csv(file.path(prj_path, "data/output/taxonomy.fish.csv"))
 ```
 
 ## Summary
 
 ```{r include = T, eval = T}
-fish_taxa <-  read_csv(file.path(prj_path, "data/processed/taxonomy/taxonomy.fish.csv"))
+fish_taxa <-  read_csv(file.path(prj_path, "data/output/taxonomy.fish.csv"))
 ```
 
 Overall, the `taxonomy.fish` table contains `r nrow(fish_taxa)` entries, representing `r length(unique(fish_taxa$accepted_name))` unique taxa across `r length(unique(fish_taxa$family))` families (@fig-richness-treemap). The majority of records are teleost fishes, with `r length(unique(fish_taxa$accepted_name[fish_taxa$class == "Teleostei"]))` taxa, while elasmobranchs account for `r length(unique(fish_taxa$accepted_name[fish_taxa$class != "Teleostei"]))` taxa.
@@ -596,7 +608,9 @@ Overall, the `taxonomy.fish` table contains `r nrow(fish_taxa)` entries, represe
 #| fig-width: 10
 #| fig-height: 7
 
-visdat::vis_miss(fish_taxa)
+fish_taxa |> 
+  arrange(family) |> 
+  visdat::vis_miss()
 ```
 
 Our database has excellent coverage for all core identity fields, including taxonomy and length-weight parameters. However, we still have work to do to fill gaps in trophic traits, habitat associations, and fisheries importance (@fig-missingness)
@@ -664,16 +678,16 @@ Most species in the dataset are classified as Lower-carnivores, with `r length(u
 #| fig-width: 10
 #| fig-height: 8
 #| 
-trophic_levels <- rev(c("Herbivore/Detritivore", "Planktivore", "Lower-carnivore", "Top-predator", "Shark"))
+trophic_levels <- rev(c("herbivore/detritivore", "planktivore", "lower_carnivore", "top_predator", "shark"))
 
 taxonomy.fish <- fish_taxa |>
   mutate(trophic_group = factor(trophic_group, levels = trophic_levels, ordered = TRUE))
 
-trophic_palette <- c("Herbivore/Detritivore" = "#7BD389", 
-                     "Planktivore"            = "#C6C8EE",
-                     "Lower-carnivore"        = "#33658A",
-                     "Top-predator"           = "#EA8C55",
-                     "Shark"                  = "#960200" )
+trophic_palette <- c("herbivore/detritivore" = "#7BD389", 
+                     "planktivore"            = "#C6C8EE",
+                     "lower_carnivore"        = "#33658A",
+                     "top_predator"           = "#EA8C55",
+                     "shark"                  = "#960200" )
 
 taxonomy.fish |> 
   filter(rank == "species") |> 

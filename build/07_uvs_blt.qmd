@@ -85,19 +85,15 @@ blt_stations_fields <- tribble(
   "ps_site_id",        "STRING",  TRUE,      "Foreign key to `uvs.sites`",
   "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
   
-  # Spatial context (denormalized for common queries)
+  # Site context (denormalized for common queries)
   "region",            "STRING",  TRUE,      "Region name - from uvs.sites",
   "subregion",         "STRING",  TRUE,      "Subregion name - from uvs.sites",
   "locality",          "STRING",  FALSE,     "Locality name - from uvs.sites",
   "habitat",           "STRING",  TRUE,      "Habitat type - from uvs.sites",
   "exposure",          "STRING",  TRUE,      "Exposure type - from uvs.sites",
   
-  # Survey metadata
+  # Station info
   "divers",            "STRING",  TRUE,      "Divers who conducted transects (pipe-delimited)",
-  "date",              "DATE",    TRUE,      "Survey date",
-  "time",              "TIME",    TRUE,      "Survey start time (local, 24-hour)",
-  
-  # Environmental conditions
   "depth_m",           "FLOAT",   TRUE,      "Average station depth (meters)",
   "depth_strata",      "STRING",  TRUE,      "Depth category: `supershallow`, `shallow`, or `deep`",
   
@@ -190,15 +186,15 @@ blt_obs_fields <- tribble(
   "transect",          "STRING",  TRUE,      "Transect label: `A`, `B`, or `C`; `OFF` for observations outside standard transects.",
 
   # Taxonomic identity
-  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.fish`.",
   "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`) of the observed taxon.",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.fish`.",
   "rank",              "STRING",  TRUE,      "Taxonomic rank of the record (`species`, `genus`, or `family`).",
   "family",            "STRING",  TRUE,      "Family of the observed taxon (from `taxonomy.fish`).",
   "trophic_group",     "STRING",  TRUE,      "Trophic group classification (e.g., `herbivore/detritivore`, `top-predator`).",
 
   # Observation details
-  "length_cm",         "FLOAT",   TRUE,      "Estimated total length (cm) of the individual.",
   "count",             "INTEGER", TRUE,      "Number of individuals observed in this size class.",
+  "length_cm",         "FLOAT",   TRUE,      "Estimated total length (cm) of the individual.",
   "terminal_phase",    "BOOLEAN", FALSE,     "TRUE if the individual was identified as terminal phase (e.g., parrotfishes).",
 
   # Derived metrics
@@ -277,31 +273,29 @@ blt_biomass_by_taxa_fields <- tribble(
 
   # Station Characteristics
   
-  "diver",               "STRING",  TRUE,      "Comma-separated names of divers who conducted the transects.",
+  "divers",               "STRING",  TRUE,      "Comma-separated names of divers who conducted the transects.",
   "depth_strata",        "STRING",  TRUE,      "Depth bin label: `supershallow`, `shallow`, or `deep`.",
   "depth_m",             "FLOAT",   TRUE,      "Mean depth (m) of the station.",
   
   # Taxa info
-  
-  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.fish`.",
   "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`) of the observed taxon.",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.fish`.",
   "rank",              "STRING",  TRUE,      "Taxonomic rank of the record (`species`, `genus`, or `family`).",
   "family",            "STRING",  TRUE,      "Family of the observed taxon (from `taxonomy.fish`).",
   "trophic_group",     "STRING",  TRUE,      "Trophic group classification (e.g., `herbivore/detritivore`, `top-predator`).",
   
-  # Abundance Metrics
+  # Counts
   "total_count",         "INTEGER", FALSE,     "Total number of individuals observed across all transects.",
   "avg_count",           "FLOAT",   FALSE,     "Mean number of individuals per transect.",
-  "density_m2",          "FLOAT",    FALSE,    "Mean density (individuals/m²).",
   
   # Size Metrics
   
-  "mean_length_cm",     "FLOAT",   FALSE,     "Weighted mean total length (cm); weights based on individual counts.",
+  "avg_length_cm",     "FLOAT",   FALSE,     "Weighted mean total length (cm); weights based on individual counts.",
   "min_length_cm",       "FLOAT",   FALSE,     "Minimum total length (cm) observed at the station.",
   "max_length_cm",       "FLOAT",   FALSE,     "Maximum total length (cm) observed at the station.",
   
-  # Biomass
-  
+  # Density and Biomass
+  "density_m2",          "FLOAT",    FALSE,    "Mean density (individuals/m²).",
   "biomass_gm2",     "FLOAT",   FALSE,     "Mean biomass (g/m²), with zeros imputed for missing transects."
 )
 

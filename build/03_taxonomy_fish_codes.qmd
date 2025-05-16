@@ -59,7 +59,7 @@ This table captures both the field-level identity (what divers recorded) and the
 ```{r eval = T, include = T}
 #| label: tbl-fish-codes
 #| tbl-cap: "Schema for taxonomy.uvs_fish_codes — Mapping Field Codes to Accepted Taxonomy"
-#| 
+
 uvs_fish_codes_fields <- tribble(
   ~field,               ~type,     ~required, ~description,
   "taxon_code",         "STRING",  TRUE,      "Short code used in field datasheets (e.g., `CH.ATR`)",
@@ -95,7 +95,6 @@ uvs_fish_codes_fields |>
 #### How are codes generated?
 
 `taxon_code` is the primary join key across all UVS fish datasets in the Pristine Seas Database. These short, deterministic codes are optimized for diver entry — concise, unambiguous, and easy to write underwater.
-
 
 ::: {.callout-important title="Taxon Code Logic"}
 
@@ -142,7 +141,7 @@ Hybrid taxa use an extended code format: `GEN2.SPxSP`
 - *Paracirrhites arcatus × bicolor* → `PA.ARxBI`  
 :::
 
-```{r}
+```{r tbl_schema}
 # Define table schema
 uvs_fish_codes_schema <- uvs_fish_codes_fields |>
   mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
@@ -155,7 +154,8 @@ uvs_fish_codes_schema <- uvs_fish_codes_fields |>
   })
 
 bq_table_create(bq_table(project_id, "taxonomy", "uvs_fish_codes"),
-                fields = uvs_fish_codes_schema)
+                fields = uvs_fish_codes_schema,
+                description = "Field codes used to enter fish observations from BLT surveys. Includes matching scientific name and AphiaID")
 ```
 
 ```{r taxa_list}
@@ -170,7 +170,7 @@ library(worrms)     # for wm_records_names
 #== 1. Akiona taxa
 
 akiona_taxa <- read_excel(file.path(prj_path, 
-                                    "data/raw/taxonomy/Pacific_LW_parameters_V1_07Apr2025.xlsx.xlsx"),
+                                    "data/raw/taxonomy/fish/Pacific_LW_parameters_V1_07Apr2025.xlsx.xlsx"),
                           sheet = "Length-Weight Parameter Table") |> 
   clean_names() |> 
   mutate(taxon = str_replace_all(taxon, "Plectorhincus", "Plectorhinchus"),
@@ -267,6 +267,10 @@ exp_taxa <- exp_taxa |>
 all_taxa <- bind_rows(akiona_taxa,
                       exp_taxa) |> 
   distinct()
+
+all_taxa <- all_taxa |> 
+  add_row(taxon = "Plectroglyphidodon lacrymatus") |> 
+  add_row(taxon = "Plagiotremus")
 ```
 
 ```{r aphiaIDs}
@@ -368,13 +372,15 @@ final_taxa <- bind_rows(joined1 |> filter(!is.na(fb_spec_code)),
 
 # === 6. Join manually curated FishBase codes ===
 
-fb_manual <- read_csv(file.path(prj_path, "data/raw/taxonomy/fb_missing_taxa.csv")) |> 
+fb_manual <- read_csv(file.path(prj_path, "data/raw/taxonomy/fish/fb_missing_taxa.csv")) |> 
   distinct(accepted_name, fb_spec_code_manual)
 
 final_taxa <- final_taxa |> 
   left_join(fb_manual, by = "accepted_name") |> 
   mutate(fb_spec_code = as.integer(coalesce(fb_spec_code, fb_spec_code_manual))) |> 
   select(-fb_spec_code_manual)
+
+final_taxa$fb_spec_code[final_taxa$taxon == "Pteragogus turdus"] <- 70807
 ```
 
 ```{r ps_codes}
@@ -396,7 +402,7 @@ codes <- final_taxa |>
 # dupe_codes |> 
 #  write_csv(file.path(prj_path, "data/raw/taxonomy/taxon_code_dupes.csv"))
 
-dupes_resolved <- read_csv(file.path(prj_path, "data/raw/taxonomy/taxon_code_dupes.csv"))
+dupes_resolved <- read_csv(file.path(prj_path, "data/raw/taxonomy/fish/taxon_code_dupes.csv"))
 
 codes <- codes |> 
   left_join(dupes_resolved |> 
@@ -410,10 +416,10 @@ final_taxa <- final_taxa |>
   filter(!is.na(taxon_code))
 ```
 
-```{r}
+```{r add_hybrids}
 ## ADD the Hybrids
 hybrids <- read_excel(file.path(prj_path, 
-                                    "data/raw/taxonomy/Pacific_LW_parameters_V1_07Apr2025.xlsx.xlsx"),
+                                    "data/raw/taxonomy/fish/Pacific_LW_parameters_V1_07Apr2025.xlsx.xlsx"),
                           sheet = "Length-Weight Parameter Table") |> 
   clean_names() |> 
   rename(taxon_name = taxon,
@@ -443,7 +449,6 @@ hybrids <- read_excel(file.path(prj_path,
          rank = "species") |> 
   select(taxon_code, taxon_name, aphia_id, status, rank , accepted_name, accepted_aphia_id, fb_spec_code)
 
-
 final_taxa <- final_taxa |>
   rename(taxon_name = taxon,
          status = name_status) |> 
@@ -452,7 +457,7 @@ final_taxa <- final_taxa |>
 ```
 
 ```{r}
-write_csv(final_taxa, file.path(prj_path, "data/processed/taxonomy/uvs_fish_taxa_codes.csv"))
+write_csv(final_taxa, file.path(prj_path, "data/output/taxonomy.uvs_fish_codes.csv"))
 
 bq_table_upload(bq_table("pristine-seas", "taxonomy", "uvs_fish_codes"),
                 values = final_taxa,
