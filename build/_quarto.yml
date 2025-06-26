@@ -52,15 +52,15 @@ website:
         contents:
           - text: "Fish"
             file: 03_taxonomy_fish.qmd
-            contents:
-              - text: "Field codes"
-                file: 03_taxonomy_fish_codes.qmd
           - text: "Benthos"
             file: 03_taxonomy_benthos.qmd
           - text: "Inverts"
             file: 03_taxonomy_inverts.qmd   
       - text: "Lookup Tables"
         file: 04_lookup.qmd
+        contents:
+          - text: "UVS fish codes"
+            file: 04_lookup_fish_codes.qmd
           
   page-footer:
     center: "© 2024 National Geographic Society. All rights reserved."

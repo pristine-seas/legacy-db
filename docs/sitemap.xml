@@ -74,7 +74,7 @@
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/04_lookup.html</loc>
-    <lastmod>2025-05-05T01:02:26.067Z</lastmod>
+    <lastmod>2025-06-25T18:35:20.800Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/01_architecture.html</loc>
@@ -86,7 +86,7 @@
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/09_uvs_inverts.html</loc>
-    <lastmod>2025-05-04T23:42:10.012Z</lastmod>
+    <lastmod>2025-05-22T18:44:22.186Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/03_taxonomy.html</loc>
@@ -118,7 +118,7 @@
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/03_taxonomy_fish.html</loc>
-    <lastmod>2025-05-16T20:51:36.947Z</lastmod>
+    <lastmod>2025-06-25T16:22:14.770Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/03_taxonomy_fish_codes.html</loc>
@@ -131,5 +131,9 @@
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/12_sbruv.html</loc>
     <lastmod>2025-05-05T16:37:42.604Z</lastmod>
+  </url>
+  <url>
+    <loc>https://pristine-seas.github.io/legacy-db/04_lookup_fish_codes.html</loc>
+    <lastmod>2025-06-26T17:25:23.684Z</lastmod>
   </url>
 </urlset>

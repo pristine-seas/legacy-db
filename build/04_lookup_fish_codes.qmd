@@ -153,7 +153,7 @@ uvs_fish_codes_schema <- uvs_fish_codes_fields |>
     list(name = name, type = type, mode = mode, description = description)
   })
 
-bq_table_create(bq_table(project_id, "taxonomy", "uvs_fish_codes"),
+bq_table_create(bq_table(project_id, "lookup", "uvs_fish_codes"),
                 fields = uvs_fish_codes_schema,
                 description = "Field codes used to enter fish observations from BLT surveys. Includes matching scientific name and AphiaID")
 ```
@@ -457,9 +457,9 @@ final_taxa <- final_taxa |>
 ```
 
 ```{r}
-write_csv(final_taxa, file.path(prj_path, "data/output/taxonomy.uvs_fish_codes.csv"))
+write_csv(final_taxa, file.path(prj_path, "data/output/lookup.uvs_fish_codes.csv"))
 
-bq_table_upload(bq_table("pristine-seas", "taxonomy", "uvs_fish_codes"),
+bq_table_upload(bq_table("pristine-seas", "lookup", "uvs_fish_codes"),
                 values = final_taxa,
                 create_disposition = "CREATE_NEVER",
                 write_disposition = "WRITE_APPEND")

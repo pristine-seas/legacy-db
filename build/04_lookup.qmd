@@ -30,18 +30,19 @@ knitr::opts_chunk$set(eval = F, warning = F, message = F, include = F, echo = F)
 ps_paths <- PristineSeasR::get_sci_drive_paths()
 
 prj_path <- file.path(ps_paths$projects, "legacy-db")
-
 ps_data_path <- ps_paths$datasets
-  
+
 bigrquery::bq_auth(email = "marine.data.science@ngs.org")
 
 project_id <- "pristine-seas"
 
-bq_connection <- DBI::dbConnect(bigrquery::bigquery(), 
-                                project = project_id)
+bq_connection <- DBI::dbConnect(
+  bigrquery::bigquery(), 
+  project = project_id
+)
 ```
 
-#### Overview
+## Overview
 
 The `lookup/` dataset contains controlled vocabularies and standardized crosswalks used across the Pristine Seas Science Database. These tables ensure consistency in traits, classification, and code mappings across survey methods and spatial units.
 
@@ -49,35 +50,115 @@ Each table is documented in the section where it is used. This page provides a c
 
 ---
 
-#### Table Index
+## Tables
 
-```{r eval = T, include = T}
-library(gt)
+### Habitats (`lookup.habitat_types`)
 
-lookup_index <- tribble(
-  ~Table,                      ~Description,                                                                        ~Used_in,
-  "`lookup.functional_groups`", "Classifies benthic taxa into functional groups (e.g., coral, CCA, turf).",         "[`uvs.lpi_cover_by_taxa`](lpi.qmd)",
-  "`lookup.depth_strata`",     "Binning rules for assigning stations to standardized depth categories.",            "All `uvs.*_stations` tables",
-  "`lookup.habitat_types`",    "Standardized vocabulary for reef habitat types (e.g., fore reef, patch reef).",     "`uvs.sites`, `uvs.stations`",
-  "`lookup.exposure_types`",   "Controlled values for exposure conditions (e.g., windward, leeward, lagoon).",      "`uvs.sites`, `uvs.stations`",
-  "`lookup.benthic_codes`",    "Maps field morphotaxa to standardized taxonomic names and functional groups.",      "`uvs.lpi_counts`",
-  "`lookup.fisheries_use`",    "Fishery importance classifications from FishBase and expert sources.",              "`taxonomy.fish`"
+This vocabulary defines the set of allowed habitat classifications for UVS (underwater visual survey) data in the Pristine Seas Science Database. These terms standardize field entries, ensure consistency in analyses, and support integration across reef and temperate systems.
+
+The allowed terms are:
+
+- **`fore_reef`** — Seaward-facing outer slope of coral reef  
+- **`back_reef`** — Lagoon-facing side behind the reef crest  
+- **`reef_flat`** — Horizontal shallow zone near the crest  
+- **`patch_reef`** — Isolated reef outcrop within lagoon or sand plain  
+- **`pinnacle_reef`** — Steep-sided, often isolated coral structures  
+- **`rocky_reef`** — Non-coral reef formed from rock, with reef biota  
+- **`reef_pavement`** — Flat, low-relief hard-bottom reef surface  
+- **`channel_pass`** — Channel through reef system with strong flow  
+- **`wall`** — Vertical or steep reef drop-off  
+- **`kelp_forest`** — Dense canopy-forming macroalgae habitat  
+- **`seagrass`** — Dominant seagrass bed habitat  
+
+
+```{r}
+# Define habitat vocabulary
+habitat_vocab <- tribble(
+  ~term,            ~description,
+  "fore_reef",      "Seaward-facing outer slope of coral reef",
+  "back_reef",      "Lagoon-facing side behind the reef crest",
+  "reef_flat",      "Horizontal shallow zone near the crest",
+  "patch_reef",     "Isolated reef outcrop within lagoon or sand plain",
+  "pinnacle_reef",  "Steep-sided, often isolated coral structures",
+  "rocky_reef",     "Non-coral reef formed from rock, with reef biota",
+  "reef_pavement",  "Flat, low-relief hard-bottom reef surface",
+  "channel_pass",   "Channel through reef system with strong flow",
+  "wall",           "Vertical or steep reef drop-off",
+  "kelp_forest",    "Dense canopy-forming macroalgae habitat",
+  "seagrass",       "Dominant seagrass bed habitat"
 )
 
-gt(lookup_index) |>
-  cols_label(
-    Table = md("**Table**"),
-    Description = md("**Description**"),
-    Used_in = md("**Used In**")
-  ) |>
-  cols_width(
-    Table ~ px(200),
-    Description ~ px(400),
-    Used_in ~ px(250)
-  ) |>
-  tab_options(table.font.size = px(13)) |>
-  fmt_markdown(columns = everything()) |>
-  gt_theme_nytimes()
+# Define schema (only two fields, both REQUIRED)
+habitat_schema <- list(
+  list(name = "term", type = "STRING", mode = "REQUIRED"),
+  list(name = "description", type = "STRING", mode = "REQUIRED")
+)
+
+# Create table in BigQuery
+bq_table_create(
+  bq_table(project_id, "lookup", "habitat_types"),
+  fields = habitat_schema,
+  description = "Allowed habitat classifications for UVS stations. Each row defines a unique term and its definition."
+)
+
+# Upload data to BigQuery
+bq_table_upload(
+  bq_table(project_id, "lookup", "habitat_types"),
+  values = habitat_vocab,
+  create_disposition = "CREATE_NEVER",
+  write_disposition = "WRITE_TRUNCATE"
+)
 ```
 
-> See each protocol section for details and schema examples.
+---
+
+### Exposure (`lookup.exposure_types`)
+
+This vocabulary defines the environmental or geomorphic exposure context of UVS stations. These terms help differentiate energy regimes and spatial positions relevant to reef structure and biological communities.
+
+The allowed values are:
+
+- **`windward`** — Exposed to prevailing swell or wind; typically high wave energy and surge  
+- **`leeward`** — Sheltered side of reef or island protected from prevailing swell  
+- **`lagoon`** — Located inside a reef or atoll, generally protected from direct wave action  
+- **`channel`** — Within a reef pass or surge channel; often features strong tidal currents  
+- **`sheltered`** — Protected from wave energy by a bay, spit, islet, or geomorphic feature  
+- **`exposed`** — Generally high energy due to wave or swell exposure; used where windward/leeward doesn’t apply  
+- **`unknown`** — Exposure not determined or insufficient data to classify 
+
+
+```{r}
+# Define exposure vocabulary
+exposure_vocab <- tribble(
+  ~term,         ~description,
+  "windward",    "Exposed to prevailing swell or wind; typically high wave energy and surge.",
+  "leeward",     "Sheltered side of reef or island protected from prevailing swell.",
+  "lagoon",      "Located inside a reef or atoll, generally protected from direct wave action.",
+  "channel",     "Within a reef pass or surge channel; often features strong tidal currents.",
+  "sheltered",   "Protected from wave energy by a bay, spit, islet, or geomorphic feature.",
+  "exposed",     "Generally high energy due to wave or swell exposure; used where windward/leeward doesn’t apply.",
+  "unknown",     "Exposure not determined or insufficient data to classify."
+)
+
+# Define schema (two columns only)
+exposure_schema <- list(
+  list(name = "term", type = "STRING", mode = "REQUIRED"),
+  list(name = "description", type = "STRING", mode = "REQUIRED")
+)
+
+# Create table in BigQuery
+bq_table_create(
+  bq_table(project_id, "lookup", "exposure_types"),
+  fields = exposure_schema,
+  description = "Allowed exposure classifications for UVS stations. Defines site orientation or energy context."
+)
+
+# Upload data to BigQuery
+bq_table_upload(
+  bq_table(project_id, "lookup", "exposure_types"),
+  values = exposure_vocab,
+  create_disposition = "CREATE_NEVER",
+  write_disposition = "WRITE_TRUNCATE"
+)
+```
+

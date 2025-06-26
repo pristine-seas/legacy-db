@@ -191,7 +191,7 @@ fb_species_db <- rfishbase::species()
 
 common_names <- fb_species_db |> 
   distinct(fb_spec_code = SpecCode, 
-         common_name = FBname) |> 
+           common_name = FBname) |> 
   filter(!is.na(common_name)) 
 
 common_fams <- read_csv(file.path(prj_path, "data/raw/taxonomy/fish/fish_common_families.csv")) |> 
@@ -555,7 +555,6 @@ fish_taxa <- fish_taxa |>
 final_schema <-  tribble(
   # Core identification
   ~field,                ~type,   ~required,    ~description,                                                                 
-  "taxon_code",         "STRING",  TRUE,         "Pristine Seas field code (e.g., AC.TRIS); unique, mnemonic identifier.",
   "taxon_name",         "STRING",  TRUE,         "Original name associated with the code in fieldbooks.",                 
   "aphia_id",           "INTEGER", TRUE,         "WoRMS AphiaID corresponding to the input taxon name.",                  
   "rank",               "STRING",  TRUE,         "Taxonomic rank of the record (`species`, `genus`, or `family`).",  
@@ -583,6 +582,9 @@ bq_table_create(
   fields = fish_taxa_fields,
   description = "Taxonomic and trait information for fish species in the Pristine Seas database."
 )
+
+fish_taxa <- fish_taxa |> 
+  select(-taxon_code)
 
 bq_table_upload(bq_table("pristine-seas", "taxonomy", "fish"),
                 values = fish_taxa,

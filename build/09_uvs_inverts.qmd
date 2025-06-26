@@ -54,7 +54,7 @@ Invertebrate data are organized into three interlinked tables:
 
 - `uvs.inverts_stations` — Metadata and ecological summaries for each invertebrate transect station
 - `uvs.inverts_counts` — Raw counts and size measurements of individual invertebrate taxa
-- `uvs.inverts_summary_by_taxa` — Station-level summaries by species, including density and average size
+- `uvs.inverts_density_by_taxa` — Station-level summaries by species, including density and average size
 
 All records are linked by `ps_station_id`, and species are standardized using `accepted_aphia_id` from `taxonomy.inverts`.
 
@@ -68,50 +68,41 @@ All records are linked by `ps_station_id`, and species are standardized using `a
 
 This table contains metadata and summary statistics for each invertebrate survey station. Each row corresponds to a single 50 m transect at a UVS site and includes spatial context, survey effort, and ecological indicators such as species richness and density of target taxa.
 
-::: {.callout-note title="Transect structure"}
-- **Standard inverts**: 50 m × 1 m belt on one side of the transect
-- **Large-scale inverts**: 50 m × 4 m belt on the opposite side
-:::
-
 ```{r eval = T, include = T}
 #| label: tbl-inverts-stations-schema
 #| tbl-cap: "Schema for `uvs.inverts_stations`: metadata and summary metrics for motile invertebrate survey stations"
 
 inverts_stations_fields <- tribble(
-  ~field,             ~type,     ~required, ~description,
-
-  # Identifiers
-  "ps_station_id",   "STRING",  TRUE,     "Unique station ID (`ps_site_id_depth`).",
-  "ps_site_id",      "STRING",  TRUE,     "Foreign key to `uvs.sites`.",
-  "exp_id",          "STRING",  TRUE,     "Expedition ID (`ISO3_YEAR`).",
-  "method",          "STRING",  TRUE,     "Survey method (`uvs`).",
-  "protocol",        "STRING",  TRUE,     "Survey protocol (`inverts_motile`).",
-  "divers",          "STRING",  TRUE,     "Divers who conducted the invertebrate survey.",
-
-  # Spatial
-  "region",          "STRING",  TRUE,     "Region name.",
-  "subregion",       "STRING",  TRUE,     "Subregion name.",
-  "locality",        "STRING",  FALSE,    "Optional local feature (e.g., reef, bay).",
-  "latitude",        "FLOAT",   TRUE,     "Latitude of station (decimal degrees).",
-  "longitude",       "FLOAT",   TRUE,     "Longitude of station (decimal degrees).",
-  "date",            "DATE",    TRUE,     "Date of invertebrate survey.",
-  "time",            "TIME",    TRUE,     "Start time of the survey.",
-
-  # Environment
-  "depth_m",         "FLOAT",   TRUE,     "Average station depth (m).",
-  "depth_strata",    "STRING",  TRUE,     "Depth bin: `supershallow`, `shallow`, `deep`.",
-  "habitat",         "STRING",  TRUE,     "Habitat type.",
-  "exposure",        "STRING",  TRUE,     "Exposure type.",
-
-  # Effort and summaries
-  "transect_length",   "FLOAT",  TRUE,     "Length of transect surveyed (typically 50 m).",
-  "survey_area_m2",    "FLOAT",  TRUE,     "Total area surveyed (transect_length x belt_width).",
-  "total_richness",    "INTEGER", FALSE,   "Total number of unique invertebrate taxa observed at the station (on-transect only).",
+  ~field,              ~type,     ~required,  ~description,
+  
+  # Core identifiers
+  "ps_station_id",     "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth`), e.g., `COL_2024_uvs_001_20m`",
+  "ps_site_id",        "STRING",  TRUE,      "Foreign key to `uvs.sites`",
+  "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
+  
+  # Site context (denormalized for common queries)
+  "region",            "STRING",  TRUE,      "Region name - from uvs.sites",
+  "subregion",         "STRING",  TRUE,      "Subregion name - from uvs.sites",
+  "locality",          "STRING",  FALSE,     "Locality name - from uvs.sites",
+  "habitat",           "STRING",  TRUE,      "Habitat type - from uvs.sites",
+  "exposure",          "STRING",  TRUE,      "Exposure type - from uvs.sites",
+  
+  # Station info
+  "divers",            "STRING",  TRUE,      "Divers who conducted transects (pipe-delimited)",
+  "depth_m",           "FLOAT",   TRUE,      "Average station depth (meters)",
+  "depth_strata",      "STRING",  TRUE,      "Depth category: `supershallow`, `shallow`, or `deep`",
+  
+  # Survey effort
+  "survey_dist_m",     "FLOAT",   TRUE,      "Total distance surveyed (m)",
+  "survey_area_m2",    "FLOAT",  TRUE,       "Total area surveyed (transect_length x belt_width).",
+  
+  # Summary metrics
+  "total_taxa",    "INTEGER", FALSE,   "Total number of unique invertebrate taxa observed at the station (on-transect only).",
   "total_count",       "INTEGER", FALSE,   "Total number of invertebrates recorded.",
-  "count_m2",        "FLOAT",  FALSE,    "Mean density (individuals/m²).",
-
+  "density_m2",        "FLOAT",  FALSE,    "Mean density (individuals/m²).",
+  
   # Notes
-  "notes",           "STRING",  FALSE,    "Optional QA or field notes."
+  "notes",             "STRING",  FALSE,     "Field notes or QA comments"
 )
 
 gt(inverts_stations_fields) |>
