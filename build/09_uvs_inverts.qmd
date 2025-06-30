@@ -150,41 +150,44 @@ This table stores raw observations of invertebrates recorded during the surveys.
 - Selected species are measured in the 4 m belt (e.g., giant clams, pearl oysters, conchs, sea cucumbers)
 
 ```{r eval = T, include = T}
-#| label: tbl-inverts-observations-schema
-#| tbl-cap: "Schema for `uvs.inverts_observations`: raw counts and measurements of motile invertebrates per transect"
+#| label: tbl-lpi-contacts-schema
+#| tbl-cap: "uvs.inverts_counts Table Schema"
 
-inverts_observations_fields <- tribble(
+inverts_obs_fields <- tribble(
   ~field,              ~type,     ~required, ~description,
 
-  # Identification and traceability
-  "obs_id",            "STRING",  TRUE,      "Unique observation ID (e.g., `FJI_2025_inv_JSD_0001`).",
-  "ps_station_id",     "STRING",  TRUE,      "Foreign key to `uvs.inverts_stations`.",
-  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
+  # Identifiers
+  "obs_id",            "STRING",  TRUE,      "Unique observation ID (e.g., `CHL_2024_inverts_AMF_0001`).",
+  "ps_station_id",     "STRING",  TRUE,      "Foreign key linking to `uvs.inverts_stations`.",
+  "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
 
-  # Spatial context
-  "station_label",     "STRING",  TRUE,      "Field-assigned stratum label (e.g., `shallow`, `deep`).",
+  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
+  "station_label",     "STRING",  TRUE,      "Field-assigned station label (A, B).",
   "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
   "in_transect",       "BOOLEAN", TRUE,      "TRUE if observation was made within the standard 1-m or 4-m survey band; FALSE if incidental or off-transect.",
+  "transect_width_m",  "FLOAT",   TRUE,      "Width of the transect band (m) — typically 1 for general surveys, 4 for large-scale surveys.",
 
   # Taxonomic identity
-  "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`) of the observed taxon.",
-  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
-  "functional_group",  "STRING",  TRUE,      "Functional or cultural group (e.g., `sea cucumber`, `clam`, `urchin`). Assigned post-survey.",
+  "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label (e.g., `Unidentified crinoid`, `Conus vexillum`, `Ancylomenes sp.`).",
+  "accepted_name",     "STRING",  FALSE,     "Scientific name (`Genus species`) of the observed morphotaxon",
+  "accepted_aphia_id", "INTEGER", FALSE,     "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
+  "rank",              "STRING",  FALSE,     "Taxonomic rank of the record (`species`, `genus`, or `family`).",
+  "family",            "STRING",  FALSE,     "Family of the observed taxon (from `taxonomy.inverts`).",
+  "common_name",       "STRING",  FALSE,      "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins).",
+  "functional_group",  "STRING",  FALSE,      "Functional group classification",
 
   # Observation details
-  "count",             "INTEGER", TRUE,      "Number of individuals observed for this species.",
-  "length_cm",         "FLOAT",   FALSE,     "Measured length (cm), if applicable for the taxon.",
-  "measurement_type",  "STRING",  FALSE,     "Type of length measured (e.g., `shell width`, `total length`). Use standardized vocabulary.",
-  "survey_band_m",     "FLOAT",   TRUE,      "Width of the transect band (m) — typically 1 for general surveys, 4 for large-scale surveys.",
-
-  # Derived metrics
-  "count_m2",          "FLOAT",   FALSE,     "Density (individuals/m²), standardized by transect area.",
-
+  "count",             "INTEGER", TRUE,      "Number of individuals observed for this taxa",
+  "density_m2",         "FLOAT",  TRUE,     "Density (individuals/m²), standardized by transect area.",
+  "size_cm",           "FLOAT",   FALSE,     "Measured length (cm), if applicable for the taxon.",
+  "size_type",         "STRING",  FALSE,     "Type of length measured (e.g., `shell width`, `total length`). Use standardized vocabulary.",
+  
   # Notes
   "notes",             "STRING",  FALSE,     "Optional comments or QA annotations."
 )
 
-gt(inverts_observations_fields) |>
+
+gt(inverts_obs_fields) |>
   cols_label(field = md("**Field**"),
              type = md("**Type**"),
              required = md("**Required**"),
@@ -202,8 +205,9 @@ gt(inverts_observations_fields) |>
   gt_theme_nytimes()
 ```
 
+
 ```{r}
-inverts_obs_schema <- inverts_observations_fields |>
+inverts_obs_schema <- inverts_obs_fields |>
   mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
   transmute(name = field,
             type = type,
@@ -229,35 +233,48 @@ Each row is a unique combination of `ps_station_id` and species, with fields suc
 - `avg_size_cm`, `min_size_cm`, `max_size_cm` — summary of measured size data
 
 ```{r eval = T, include = T}
-inverts_by_taxa_fields <- tribble(
-  ~field,                ~type,     ~required, ~description,
+#| label: tbl-lpi-cover-schema
+#| tbl-cap: "Schema for `uvs.lpi_cover_by_taxa`: percent cover by taxon at each LPI station"
 
-  # Identifiers
-  "ps_station_id",       "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth`).",
-  "accepted_name",       "STRING",  TRUE,      "Scientific name (`Genus species`) of the observed invertebrate.",
-  "accepted_aphia_id",   "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
+density_by_taxa_fields <- tribble(
+  ~field,             ~type,     ~required, ~description,
+  
+  # Keys
+  "ps_station_id",     "STRING",  TRUE,  "Station identifier (foreign key)",
+  "ps_site_id",        "STRING",  TRUE,  "Site identifier - denormalized for performance",
+  "exp_id",            "STRING",  TRUE,  "Expedition ID - denormalized for performance",
 
-  # Taxonomic traits
-  "functional_group",    "STRING",  TRUE,      "Functional or cultural grouping (e.g., `sea cucumber`, `clam`, `urchin`).",
+  # Spatial context (denormalized for common queries)
+  
+  "region",             "STRING", TRUE,  "◂ Region name.",
+  "subregion",          "STRING", TRUE,  "◂ Subregion name.",
+  "habitat",            "STRING", TRUE,  "◂ Habitat type (see controlled vocabulary).",
+  "exposure",           "STRING", TRUE,  "◂ Exposure type (see controlled vocabulary).",
 
-  # Spatial context
-  "depth_m",             "FLOAT",   TRUE,      "Average depth (m) of the station.",
-  "depth_strata",        "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`.",
-  "region",              "STRING",  TRUE,      "Region name.",
-  "subregion",           "STRING",  TRUE,      "Subregion name.",
-  "locality",            "STRING",  FALSE,     "Optional local feature (e.g., reef, bay, cove).",
-  "habitat",             "STRING",  TRUE,      "Habitat type at the station.",
-  "exposure",            "STRING",  TRUE,      "Exposure type (e.g., windward, leeward, lagoon).",
-
+  # Station Characteristics
+  
+  "divers",             "STRING", TRUE,  "Comma-separated names of divers who conducted the transects.",
+  "depth_strata",       "STRING", TRUE,  "Depth bin label: `supershallow`, `shallow`, or `deep`.",
+  "depth_m",            "FLOAT",  TRUE,  "Mean depth (m) of the station.",
+  
+  # Taxa info
+  "morphotaxon",       "STRING",  TRUE,   "Diver-entered morphotaxon",
+  "accepted_name",     "STRING",  FALSE,  "Scientific name (`Genus species`) of the observed taxon.",
+  "accepted_aphia_id", "INTEGER", FALSE,  "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
+  "rank",              "STRING",  FALSE,  "Taxonomic rank of the record (`species`, `genus`, or `family`).",
+  "family",            "STRING",  FALSE,  "Family of the observed taxon (from `taxonomy.inverts`).",
+  "common_name",       "STRING",  FALSE,      "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins).",
+  "functional_group",  "STRING",  FALSE,   "Functional group classification",
+  
   # Aggregated metrics
-  "total_count",         "INTEGER", FALSE,     "Total number of individuals observed at the station.",
-  "total_count_m2",        "FLOAT",   FALSE,  "Mean density (individuals/m²), standardized by band width and transect length.",
-  "avg_length_cm",       "FLOAT",   FALSE,     "Weighted mean length (cm), if applicable.",
-  "min_length_cm",       "FLOAT",   FALSE,     "Minimum length (cm) observed at the station.",
-  "max_length_cm",       "FLOAT",   FALSE,     "Maximum length (cm) observed at the station."
+  "total_count",       "INTEGER", FALSE,  "Total number of individuals observed at the station.",
+  "density_m2",        "FLOAT",   FALSE,  "Mean density (individuals/m²), standardized by band width and transect length.",
+  "avg_size_cm",       "FLOAT",   FALSE,  "Weighted mean length (cm), if applicable.",
+  "min_size_cm",       "FLOAT",   FALSE,  "Minimum length (cm) observed at the station.",
+  "max_size_cm",       "FLOAT",   FALSE,  "Maximum length (cm) observed at the station."
 )
 
-gt(inverts_by_taxa_fields) |>
+gt(density_by_taxa_fields) |>
   cols_label(field = md("**Field**"),
              type = md("**Type**"),
              required = md("**Required**"),
@@ -275,8 +292,9 @@ gt(inverts_by_taxa_fields) |>
   gt_theme_nytimes()
 ```
 
+
 ```{r}
-inverts_density_schema <- inverts_by_taxa_fields |>
+inverts_density_schema <- density_by_taxa_fields |>
   mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
   transmute(name = field,
             type = type,

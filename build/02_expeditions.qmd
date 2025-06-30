@@ -267,8 +267,6 @@ bq_table_create(bq_table(project_id, "expeditions", "sites"),
                 description = "Master registry of all survey sites across methods. Provides the spatial backbone for cross-method integration, enabling joins between different survey types conducted at the same location. Each record represents a unique deployment of a survey method at a specific location and time.")
 ```
 
-## Relationships
-
 ## Example queries
 
 ## Data Management

@@ -1,0 +1,433 @@
+---
+title: "Invertebrate Taxa"
+format: 
+  html:
+    theme: lux
+    self-contained: true
+    code-fold: true
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+    number-sections: false
+    number-depth: 2
+---
+
+```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
+options(scipen = 999)
+
+library(PristineSeasR)
+library(bigrquery)
+library(gt)
+library(gtExtras)
+library(tibble)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(lubridate)
+library(future)
+library(furrr)
+library(janitor)
+library(worrms)
+library(ggthemr)
+
+ggthemr("fresh", layout = "clear")
+
+knitr::opts_chunk$set(eval = F, warning = F, message = F, include = F, echo = F)
+
+ps_paths <- PristineSeasR::get_sci_drive_paths()
+
+prj_path <- file.path(ps_paths$projects, "legacy-db")
+
+ps_data_path <- ps_paths$datasets
+  
+bigrquery::bq_auth(email = "marine.data.science@ngs.org")
+
+project_id <- "pristine-seas"
+
+bq_connection <- DBI::dbConnect(bigrquery::bigquery(), 
+                                project = project_id)
+```
+
+The `taxonomy.inverts` table provides a standardized reference for all invertebrate taxa observed during Pristine Seas expeditions. It harmonizes scientific names, taxonomic hierarchy, and ecological traits to support robust analysis, reporting, and integration across survey methods.
+
+Each row corresponds to a unique accepted **AphiaID** from the World Register of Marine Species (WoRMS), and includes the scientific name, taxonomic ranks, common names, functional group and others. 
+
+This table supports three core functions:
+
+  - ***Taxonomic resolution*** — reconciles field-recorded names with accepted nomenclature
+  - ***Trait-based analysis*** — enables grouping by functional group, habitat, and ecological traits
+  - ***Cross-dataset integration*** — provides a consistent key (`accepted_aphia_id`) to link observations, field codes, and traits
+
+Taxa originate from underwater visual surveys (UVS), benthic surveys, and regional species checklists compiled from both internal and external sources.
+
+------------------------------------------------------------------------
+
+## Data Sources
+
+The table integrates multiple curated sources to ensure taxonomic consistency and trait completeness:
+
+- **Pristine Seas Field Records**  
+  Derived from diver-entered observations, fieldbooks, and expedition species lists across UVS. These are reconciled with accepted WoRMS entries.
+
+- **Regional Invertebrate Checklists**  
+  Curated datasets from Pacific region, focusing on culturally and commercially important species such as giant clams, sea cucumbers, urchins, and gastropods.
+
+- **World Register of Marine Species (WoRMS)**  
+  Used as the taxonomic backbone. Each taxon is linked to an accepted AphiaID, with full lineage (kingdom to species) and synonym resolution.
+
+- **Literature and Expert Knowledge**  
+  Supplements functional group assignments, and ecological notes from peer-reviewed sources and expert consultation.
+
+Together, these sources provide a robust, reproducible foundation for invertebrate ecological analysis.
+
+------------------------------------------------------------------------
+
+## Structure
+
+### Taxonomy
+
+These fields define the accepted scientific identity and taxonomic lineage of each record (@tbl-inverts-taxonomy-schema). 
+
+All taxa are matched to an accepted **AphiaID** from WoRMS, ensuring global consistency and traceability. These fields enable spatial and ecological grouping, support taxonomic joins, and serve as the foundation for trait integration.
+
+```{r eval = T, include = T}
+#| label: tbl-inverts-taxonomy-schema
+#| tbl-cap: "Taxonomic lineage fields for invertebrate taxa in the Pristine Seas Database."
+
+core_taxonomy_schema <- tribble(
+  ~field,              ~type,     ~required, ~description,
+  "taxon_name",        "STRING",  TRUE,      "Original name associated with field observations.",
+  "aphia_id",          "INTEGER", TRUE,      "WoRMS AphiaID corresponding to the input taxon name.",
+  "rank",              "STRING",  TRUE,      "Taxonomic rank of the record (`species`, `genus`, or `family`).",
+  "status",            "STRING",  TRUE,      "Taxonomic status according to WoRMS.",
+  "accepted_name",     "STRING",  TRUE,      "Valid scientific name (Genus species), standardized using WoRMS.",
+  "accepted_aphia_id", "INTEGER", TRUE,      "Unique WoRMS identifier for the accepted name.",
+  "genus",             "STRING",  FALSE,     "Genus of the accepted name.",
+  "family",            "STRING",  FALSE,     "Family of the accepted name.",
+  "order",             "STRING",  FALSE,     "Order of the accepted name.",
+  "class",             "STRING",  TRUE,      "Class of the accepted name.",
+  "phylum",            "STRING",  TRUE,      "Phylum of the accepted name.",
+  "kingdom",           "STRING",  TRUE,      "Kingdom of the accepted name."
+)
+
+core_taxonomy_schema |> 
+  gt() |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+### Common Names
+
+Each record includes family-level common names to support communication, outreach, and summary reporting.
+
+```{r eval = TRUE, include=TRUE}
+#| label: tbl-inverts-common-names-schema
+#| tbl-cap: "Common names fields for invertebrate taxa in the Pristine Seas Database."
+
+common_name_schema <- tribble(
+  ~field,           ~type,    ~required, ~description,
+  "common_name",  "STRING", FALSE,     "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins)."
+)
+
+common_name_schema |> 
+  gt() |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+### Functional Traits
+
+Functional traits classify each invertebrate taxon based on ecological role and movement capability. These two traits together capture the key ecological functions and spatial dynamics.
+
+The `functional_group` field captures ecological role, while `mobility` describes movement capability - together providing a comprehensive functional characterization.
+
+```{r eval = T, include = T}
+#| label: tbl-inverts-functional-schema
+#| tbl-cap: "Schema for functional traits in `taxonomy.inverts`."
+
+functional_traits_schema <- tribble(
+  ~field,            ~type,    ~required, ~description,
+  "functional_group", "STRING", FALSE,     "Primary ecological role. One of: 'passive_suspension_feeder', 'active_suspension_feeder', 'deposit_feeder', 'grazer', 'predator', 'scavenger', 'filter_feeder', 'bioturbator', 'ecosystem_engineer'.",
+  "mobility",         "STRING", FALSE,    "Movement capability ('sessile', 'motile')."
+)
+
+gt(functional_traits_schema) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+::: {.callout-note title="Functional Groups"}
+- **`passive_suspension_feeder`** — Rely on ambient water flow for particle capture (mussels, oysters, most sponges)
+- **`active_suspension_feeder`** — Create feeding currents to capture particles (barnacles, fan worms, some tunicates)
+- **`deposit_feeder`** — Process sediment organic matter (many polychaetes, sea cucumbers)
+- **`grazer`** — Scrape algae/biofilms from surfaces (gastropods, sea urchins, chitons)
+- **`predator`** — Active hunters (octopus, crabs, lobsters, predatory gastropods)
+- **`scavenger`** — Feed on dead/decaying matter (many crabs, some gastropods)
+- **`filter_feeder`** — Internal filtration systems (sponges, some bivalves with complex filtration)
+- **`bioturbator`** — Mix/rework sediments through burrowing activities (burrowing clams, polychaetes, shrimp)
+- **`ecosystem_engineer`** — Modify habitat structure (corals, oysters, tube-building polychaetes)
+:::
+
+::: {.callout-note title="Mobility Categories"}
+- **`sessile`** — Cannot relocate; permanently attached or fixed in place (corals, sponges, barnacles, oysters)
+- **`motile`** — Actively mobile; can move to new locations (crabs, sea stars, octopus, mobile gastropods)
+:::
+
+
+
+### Human use and importance
+
+This field classifies each species based on its significance to fisheries and cultural practices.
+
+```{r eval = TRUE, include=TRUE}
+#| label: tbl-inverts-importance-schema
+#| tbl-cap: "Schema for human use in `taxonomy.inverts`."
+
+importance_schema <- tribble(
+  ~field,               ~type,    ~required, ~description,
+  "human_use", "STRING", FALSE,     "Economic significance in fisheries ('commercial', 'subsistence', 'cultural', 'industrial', 'none', 'unknown')."
+)
+
+gt(importance_schema) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+::: {.callout-note title="Fishery Importance Categories"}
+- **`commercial`**  — Species with established commercial markets and trade
+- **`subsistence`** — Species primarily used for local consumption by fishing communities  
+- **`cultural`**    — Species with traditional, ceremonial, or cultural significance beyond food use
+- **`industrial`**  — Species used for pharmaceutical, biotechnology, or materials applications
+- **`none`**        — No known economic or cultural use
+- **`unknown`**     — Use status not determined or insufficient data
+:::
+
+```{r}
+# Define complete schema
+inverts_schema <- bind_rows(
+  core_taxonomy_schema,
+  common_name_schema,
+  functional_traits_schema,
+  importance_schema
+)
+
+# Convert to BigQuery fields
+inverts_fields <- pmap(inverts_schema, function(field, type, description, required) {
+  bq_field(name = field, type = type, mode = if (required) "REQUIRED" else "NULLABLE", description = description)
+})
+
+# Create table
+bq_table_create(
+  bq_table("pristine-seas", "taxonomy", "inverts"),
+  fields = inverts_fields,
+  description = "Taxonomic and trait information for invertebrate species in the Pristine Seas database."
+)
+
+```
+
+## Data Processing
+
+```{r core_fields, eval = FALSE}
+
+# Following the same pattern as taxonomy_fish.qmd
+
+spc_list <- read_csv(file.path(prj_path, "data/raw/taxonomy/inverts", "inverts_spc.csv"))|> 
+  clean_names() 
+
+png_list <- read_csv(file.path(prj_path, "data/raw/taxonomy/inverts", "inverts_png.csv"))|> 
+  clean_names() 
+
+slb_list <- read_csv(file.path(prj_path, "data/raw/taxonomy/inverts", "inverts_slb.csv")) |> 
+  clean_names()
+
+inverts_list <- bind_rows(spc_list, png_list, slb_list) 
+
+taxa_list <-inverts_list |> 
+  mutate(taxon = str_squish(scientific_name),
+         taxon = str_remove_all(taxon, regex("\\s*\\b(spp?|sp)\\.?\\s*$", ignore_case = TRUE))) |> 
+  distinct(taxon) 
+
+taxa_list$taxon[taxa_list$taxon == "Parasesarma erythodactyla"] <-  "Parasesarma erythodactylum"
+
+taxa_list_clean <- bdc::bdc_clean_names(taxa_list$taxon) |> 
+  distinct(taxon       = scientificName,
+           taxon_clean = names_clean) |> 
+  mutate(across(everything(), str_squish))
+
+taxa_list_clean$taxon_clean[taxa_list_clean$taxon == "Holothuria coronopertusa"] <-  "Holothuria (Stichothuria) coronopertusa"
+
+# === 2. Prepare names for WoRMS query
+
+clean_names <- taxa_list_clean$taxon_clean |> 
+  unique() |> 
+  na.omit()  # drops NA
+
+batches <- split(clean_names, ceiling(seq_along(clean_names) / 100))
+
+# === 3. Query WoRMS in batches
+
+worms_raw <- purrr::map_dfr(batches, ~worrms::wm_records_names(.x))
+
+# === 4. Extract key fields from WoRMS response
+
+worms_records <- worms_raw |> 
+  select(taxon_clean = scientificname, 
+         rank,
+         aphia_id = AphiaID, 
+         name_status = status, 
+         accepted_name = valid_name, 
+         accepted_aphia_id = valid_AphiaID) 
+
+# === 5. Identify and resolve duplicates
+
+worms_dupes <- worms_records |> 
+  get_dupes(taxon_clean)
+
+# Deduplicate: retain best record per taxon_clean
+resolved_taxa <- worms_dupes |> 
+  group_by(taxon_clean) |> 
+  arrange(taxon_clean,
+          desc(name_status == "accepted" | is.na(name_status)),  # accepted or missing treated as better
+          desc(aphia_id == accepted_aphia_id)                    # prefer accepted == AphiaID
+  ) |> 
+  slice_head(n = 1) |> 
+  ungroup()
+
+# === 6. Combine resolved and unique entries
+
+worms_unique <- worms_records |> 
+  anti_join(worms_dupes, by = "taxon_clean")
+
+worms_final <- bind_rows(worms_unique, resolved_taxa) |> 
+  select(-dupe_count)
+
+final_list <- taxa_list_clean |>
+  left_join(worms_final, by = "taxon_clean") |>
+  mutate(rank = str_to_lower(rank)) |> 
+  select(taxon, aphia_id, rank, name_status, accepted_name, accepted_aphia_id) |>
+  distinct() |>
+  arrange(taxon) 
+
+
+get_taxonomic_ranks <- function(id) {
+  tryCatch(
+    {worrms::wm_classification(id) |>
+        select(rank, scientificname) |>
+        pivot_wider(names_from = rank, values_from = scientificname) |>
+        mutate(accepted_aphia_id = id)},
+    error = function(e) {
+      tibble(accepted_aphia_id = id)
+    })
+  }
+
+taxonomy_ranks <- future_map_dfr(final_list$accepted_aphia_id,
+                                 get_taxonomic_ranks,
+                                 .options = furrr_options(seed = TRUE)) |>
+  clean_names() |>
+  select(accepted_aphia_id, kingdom, phylum, class, order, family, genus)
+
+final_list <- final_list |> 
+  left_join(distinct(taxonomy_ranks), 
+            by = "accepted_aphia_id")
+
+# Remove land crabs
+
+final_list <- final_list |> 
+  filter(!family %in% c("Gecarcinidae", "Grapsidae", "Ocypodidae", "Sesarmidae", "Thalassinidae"))
+
+
+# Add common names
+
+common_fams <- read_csv(file.path(prj_path, "data/raw/taxonomy/inverts/inverts_families_common.csv"))
+
+final_list <- final_list |> 
+  left_join(common_fams) |> 
+  mutate(common_name = case_when(taxon == "Bivalvia" ~ "Bivalves",
+                                 class == "Crinoidea" ~ "Feather stars",
+                                 genus %in% c("Hippopus", "Tridacna") ~ "Giant clams",
+                                 TRUE ~ common_name)) 
+write_csv(final_list, 
+          file.path(prj_path, "data/processed/", "taxonomy_inverts_staging.csv"))
+```
+
+```{r}
+final_list <- read_csv( file.path(prj_path, "data/processed/", "taxonomy_inverts_staging.csv")) |> 
+  rename(taxon_name = taxon,
+                                   status = name_status)
+final_list |> 
+  group_by(common_name, family) |> 
+  summarize(n = n()) |> 
+  arrange(desc(n))
+```
+
+```{r traits}
+
+```
+
+```{r importance}
+
+```
+
+```{r summary, eval = FALSE}
+
+```
+
+```{r bq_upload}
+bq_table_upload(bq_table("pristine-seas", "taxonomy", "inverts"),
+                values = final_list,
+                create_disposition = "CREATE_NEVER",
+                write_disposition = "WRITE_APPEND")
+```

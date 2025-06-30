@@ -128,7 +128,7 @@ core_taxonomy_schema |>
 ```
 
 ```{r taxonomy}
-fish_taxa <- read_csv(file.path(prj_path, "data/output/taxonomy.uvs_fish_codes.csv"))
+fish_taxa <- read_csv(file.path(prj_path, "data/output/lookup.uvs_fish_codes.csv"))
 
 get_taxonomic_ranks <- function(id) {
   tryCatch(
