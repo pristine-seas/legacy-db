@@ -52,10 +52,10 @@ website:
         contents:
           - text: "Fish"
             file: 03_taxonomy_fish.qmd
+          - text: "Inverts"
+            file: 03_taxonomy_inverts.qmd 
           - text: "Benthos"
             file: 03_taxonomy_benthos.qmd
-          - text: "Inverts"
-            file: 03_taxonomy_inverts.qmd   
       - text: "Lookup Tables"
         file: 04_lookup.qmd
         contents:
