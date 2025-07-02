@@ -1,5 +1,5 @@
 ---
-title: "eDNA Dataset"
+title: "Environmental DNA (eDNA)"
 format: 
   html:
     theme: lux
@@ -8,8 +8,7 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -42,37 +41,69 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-#### Overview
+## Dataset Overview
 
-The environmental DNA (eDNA) dataset includes records from water samples collected across Pristine Seas expeditions to detect and characterize marine biodiversity using molecular techniques. eDNA captures genetic material shed by organisms into the environment (e.g., via skin, scales, gametes, or excretions), enabling the detection of species that are otherwise difficult to observe using traditional survey methods.
+The `edna/` dataset contains all environmental DNA (eDNA) data collected during Pristine Seas expeditions. eDNA sampling provides a non-invasive method to assess marine biodiversity by detecting genetic material shed by organisms into the water column.
 
-------------------------------------------------------------------------
+The eDNA protocol involves collecting water samples at standardized depths and locations, filtering them to capture genetic material, and preserving the filters for subsequent laboratory analysis. This approach enables detection of species that may be difficult to observe through traditional visual methods, including cryptic, rare, or elusive taxa.
 
-#### Tables 
+The dataset structure captures the hierarchical nature of eDNA sampling:
 
-------------------------------------------------------------------------
+- **Sites**: Deployment locations where eDNA collection occurred
+- **Stations**: Depth-stratified sampling units within each site  
+- **Samples**: Individual water samples with specific collection and processing metadata
+- **Detections**: Species identifications from laboratory analysis (future implementation)
 
-##### Sites (`edna.sites`)
+```text
+edna/
+├── sites         # Deployment-level metadata for eDNA collection locations
+├── stations      # Depth-stratified sampling metadata 
+├── samples       # Individual water sample collection and processing data
+└── detections    # Species detections from laboratory analysis (future)
+```
 
-The `edna.sites` table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time and serves as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples (replicates) may be collected across different depth strata, recorded in the corresponding `edna.stations` table.
+---
 
-This table captures spatial metadata, sampling platform, habitat descriptors, and effort summaries. It supports integration with other methods (e.g., UVS, BRUVs) through common spatial fields and an optional pairing field (paired_ps_site_id).
-    
-```{r edna_fields, eval = T, include = T}
-#| label: tbl-edna.sites-schema
-#| tbl-cap: "Additional fields in the `edna.sites` table (eDNA-specific site metadata)"
+## Tables
 
-edna_sites_fields <- tribble(
-  ~field,               ~type,     ~required, ~description,
-  "habitat",            "STRING",  TRUE,      "Dominant habitat type. Allowed values: *fore reef*, *back reef*, *fringing reef*, *patch reef*, *reef flat*, *channel*, *seagrass*, *rocky reef*, *open water*, *bay*, *estuary*, *mangrove*, *other*.",
-  "exposure",           "STRING",  TRUE,      "Wind and wave exposure. Allowed values: *windward*, *leeward*, *lagoon*, *other*.",
-  "paired_ps_site_id",  "STRING",  FALSE,     "Foreign key to a related site (e.g., from `uvs` or `pbruvs`), if applicable.",
-  "n_stations",         "INTEGER", TRUE,      "Number of depth-stratified eDNA stations at this site.",
-  "n_samples",          "INTEGER", TRUE,      "Total number of water samples (replicates) collected at the site.",
-  "site_photos",        "STRING",  FALSE,     "Path to site photo folder, if available (e.g., `eDNA/site_photos/COL-2022-edna-001`)."
+### Sites (`edna.sites`)
+
+The `edna.sites` table contains one row per environmental DNA (eDNA) sampling site. Each site represents a distinct point in space and time where eDNA collection was deployed, serving as the primary spatial unit for eDNA fieldwork. Within a site, multiple water samples may be collected across different depth strata, recorded in the corresponding `edna.stations` table.
+
+This table stores site-level metadata for all eDNA collection deployments, typically coordinated with other survey methods like UVS or BRUVS. It follows the core site schema shared across all methods and adds eDNA-specific fields including target taxa, coordination with paired survey methods through `paired_site_id`, and site documentation. The table captures spatial metadata, sampling platform, habitat descriptors, and effort summaries.
+
+```{r eval = T, include = T}
+#| label: tbl-edna.sites
+#| tbl-cap: "Schema for `edna.sites`: eDNA collection site metadata"
+
+core_site_fields <- tribble(
+  ~field,         ~type,     ~required, ~description,
+  "ps_site_id",   "STRING",  TRUE,      "Unique site ID (`exp_id_method_###`), e.g., `PNG_2024_edna_001`",
+  "exp_id",       "STRING",  TRUE,      "Foreign key to `expeditions.info`",
+  "method",       "STRING",  TRUE,      "Field method used: `edna`",
+  "region",       "STRING",  TRUE,      "Broad geographic or administrative unit",
+  "subregion",    "STRING",  TRUE,      "Intermediate feature within the region",
+  "locality",     "STRING",  FALSE,     "Local named feature such as a village, bay, or reef",
+  "date",         "DATE",    TRUE,      "Date of eDNA collection in ISO 8601 format (`YYYY-MM-DD`)",
+  "time",         "TIME",    TRUE,      "Local time of collection start in 24-hour format (`HH:MM:SS`)",
+  "latitude",     "FLOAT",   TRUE,      "Site latitude (decimal degrees, WGS84)",
+  "longitude",    "FLOAT",   TRUE,      "Site longitude (decimal degrees, WGS84)",
+  "team_lead",    "STRING",  TRUE,      "Lead scientist or team leader for the eDNA collection",
+  "notes",        "STRING",  FALSE,     "Optional site-level comments or observations"
 )
 
-gt(edna_sites_fields) |>
+edna_site_fields <- tribble(
+  ~field,           ~type,     ~required, ~description,
+  "habitat",        "STRING",  TRUE,      "Dominant habitat type (e.g., `fore_reef`, `lagoon`)",
+  "target",         "STRING",  FALSE,     "Primary taxonomic target for eDNA analysis (e.g., `fish`, `sharks`, `all_taxa`)",
+  "paired_site_id", "STRING",  FALSE,     "ID of coordinated survey site (e.g., UVS or BRUVS site at same location)",
+  "n_stations",     "INTEGER", TRUE,      "Number of depth-stratified stations sampled at this site",
+  "n_samples",      "INTEGER", TRUE,      "Total number of individual water samples collected",
+  "site_photos",    "BOOLEAN", FALSE,     "TRUE if photo documentation exists for this site"
+)
+
+bind_rows(core_site_fields, edna_site_fields) |>
+  gt() |>
   cols_label(field = md("**Field**"),
              type = md("**Type**"),
              required = md("**Required**"),
@@ -90,8 +121,225 @@ gt(edna_sites_fields) |>
   gt_theme_nytimes()
 ```
 
-##### Stations (`edna.stations`)
+::: {.callout-tip title="eDNA-Specific Fields"}
+
+**`target`** — Indicates the primary taxonomic focus for laboratory analysis:
+- **`fish`** — General fish diversity assessment
+- **`sharks`** — Specialized primers for elasmobranch detection  
+- **`all_taxa`** — Broad taxonomic coverage using universal primers
+- **`specific_taxa`** — Targeted detection of particular species or groups
+
+**`paired_site_id`** — Links eDNA sites to coordinated visual or acoustic surveys for comparative analysis and ground-truthing of detection methods.
+:::
+
+```{r create-dataset, include = FALSE}
+if (!bq_dataset_exists(bq_dataset("pristine-seas", "edna"))) {
+  bq_dataset_create(
+    bq_dataset("pristine-seas", "edna"),
+    description = "Environmental DNA (eDNA) dataset. Includes site metadata, depth-stratified stations, individual water samples, and species detections from laboratory analysis."
+  )
+}
+
+# Combine all site fields
+edna_sites_all_fields <- bind_rows(core_site_fields, edna_site_fields) |>
+  mutate(group = case_when(
+    field %in% c("ps_site_id", "exp_id", "method")               ~ "Identifiers",
+    field %in% c("region", "subregion", "locality")             ~ "Spatial",
+    field %in% c("date", "time")                                 ~ "Temporal", 
+    field %in% c("latitude", "longitude")                        ~ "Geolocation",
+    field %in% c("habitat", "target", "paired_site_id", "site_photos") ~ "eDNA-Specific",
+    field %in% c("n_stations", "n_samples")                     ~ "Summary",
+    field == "team_lead"                                         ~ "Metadata",
+    field == "notes"                                             ~ "Notes",
+    TRUE ~ "Other"
+  )) |>
+  arrange(factor(group, levels = c(
+    "Identifiers", "Spatial", "Temporal", "Geolocation", 
+    "eDNA-Specific", "Summary", "Metadata", "Notes"
+  ))) |>
+  select(-group)
+
+# Define table schema
+edna_sites_schema <- edna_sites_all_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "edna", "sites"),
+                fields = edna_sites_schema,
+                description = "Site-level metadata for environmental DNA (eDNA) collections. Each row represents a unique location where eDNA sampling was conducted, typically coordinated with other survey methods.")
+```
+
+---
+
+### Stations (`edna.stations`)
+
+This table contains metadata for depth-stratified eDNA sampling stations. Each row represents a discrete sampling unit within a site, corresponding to a specific depth stratum where multiple replicate samples were collected.
+
+Stations follow the standard Pristine Seas depth stratification and include summary metrics about collection effort. Key spatial and site metadata are denormalized here to minimize joins for common analyses.
+
+```{r eval = T, include = T}
+#| label: tbl-edna.stations
+#| tbl-cap: "Schema for `edna.stations`: depth-stratified eDNA sampling metadata"
+
+edna_stations_fields <- tribble(
+  ~field,             ~type,     ~required, ~description,
+  
+  # Core identifiers
+  "ps_station_id",    "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth`), e.g., `PNG_2024_edna_001_10m`",
+  "ps_site_id",       "STRING",  TRUE,      "Foreign key to `edna.sites`",
+  "exp_id",           "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
+  
+  # Spatial context (denormalized for common queries)
+  "region",           "STRING",  TRUE,      "Region name - from edna.sites",
+  "subregion",        "STRING",  TRUE,      "Subregion name - from edna.sites", 
+  "locality",         "STRING",  FALSE,     "Locality name - from edna.sites",
+  "habitat",          "STRING",  TRUE,      "Habitat type - from edna.sites",
+  
+  # Station characteristics
+  "paired_site_id",   "STRING",  FALSE,     "ID of coordinated survey site - from edna.sites",
+  "depth_strata",     "STRING",  TRUE,      "Depth category: `surface`,`supershallow`, `shallow`, or `deep`",
+  "depth_m",          "FLOAT",   TRUE,      "Target sampling depth (meters)",
+  
+  # Collection methodology (most common for this station)
+  "filter_type",      "STRING",  TRUE,      "Primary filter type used (e.g., `Sterivex`)",
+  "filter_size_um",   "FLOAT",   TRUE,      "Filter pore size in micrometers",
+  "target",           "STRING",  FALSE,     "Primary target taxonomic group",
+  
+  # Summary metrics
+  "n_replicates",     "INTEGER", TRUE,      "Number of replicate samples collected",
+  "total_water_liters", "FLOAT", TRUE,      "Total volume of water filtered across replicates (L)",
+  "collection_date",  "DATE",    TRUE,      "Date of sample collection - denormalized for queries",
+  
+  # Notes
+  "notes",            "STRING",  FALSE,     "Station-level comments or processing notes"
+)
+
+gt(edna_stations_fields) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
 
 
-##### Samples (`edna.stations`)
+```{r}
+# Define table schema
+edna_stations_schema <- edna_stations_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
 
+bq_table_create(bq_table(project_id, "edna", "stations"),
+                fields = edna_stations_schema,
+                description = "Depth-stratified eDNA sampling station metadata. Each row represents a discrete sampling unit within a site where multiple replicate water samples were collected.")
+```
+
+---
+
+### Samples (`edna.samples`)
+
+This table contains detailed metadata for individual water samples. Each row represents a single replicate sample with specific collection parameters, processing details, and preservation information. Key station and site metadata are denormalized to enable efficient querying without multiple joins.
+
+```{r eval = T, include = T}
+#| label: tbl-edna.samples
+#| tbl-cap: "Schema for `edna.samples`: individual water sample metadata"
+
+edna_samples_fields <- tribble(
+  ~field,             ~type,     ~required, ~description,
+  
+  # Core identifiers
+  "ps_sample_id",     "STRING",  TRUE,      "Unique sample ID (`ps_station_id_r###`), e.g., `PNG_2024_edna_001_10m_r001`",
+  "ps_station_id",    "STRING",  TRUE,      "Foreign key to `edna.stations`", 
+  "ps_site_id",       "STRING",  TRUE,      "Foreign key to `edna.sites` - denormalized for performance",
+  "exp_id",           "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
+  
+  # Spatial context (denormalized for common queries)
+  "region",           "STRING",  TRUE,      "Region name - denormalized from sites",
+  "subregion",        "STRING",  TRUE,      "Subregion name - denormalized from sites",
+  "habitat",          "STRING",  TRUE,      "Habitat type - denormalized from sites",
+  "collection_date",  "DATE",    TRUE,      "Date of sample collection - denormalized for temporal queries",
+  
+  # Sample characteristics
+  "replicate",        "STRING",  TRUE,      "Replicate number within the station (e.g., `001`, `002`)",
+  "depth_strata",     "STRING",  TRUE,      "Depth category - denormalized from station",
+  "depth_m",          "FLOAT",   TRUE,      "Exact sampling depth for this replicate (meters)",
+  
+  # Collection details
+  "water_liters",     "FLOAT",   TRUE,      "Volume of water filtered for this sample (L)",
+  "filter_type",      "STRING",  TRUE,      "Type of filter used for this sample",
+  "filter_size_um",   "FLOAT",   TRUE,      "Filter pore size in micrometers",
+  "preservative",     "STRING",  FALSE,     "Preservation method (e.g., `ethanol`, `frozen`, `RNAlater`)",
+  "filter_date",      "DATE",    TRUE,      "Date when filtration was performed",
+  "filter_time",      "TIME",    FALSE,     "Time when filtration started",
+  "target",           "STRING",  FALSE,     "Target taxonomic group for laboratory analysis",
+  
+  # Notes
+  "notes",            "STRING",  FALSE,     "Sample-specific comments or processing notes"
+)
+
+gt(edna_samples_fields) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+::: {.callout-important title="Sample ID Convention"}
+eDNA sample IDs follow the pattern: `ps_station_id_r###`
+
+- `PNG_2024_edna_001_10m_r001` — First replicate at 10m station
+- `PNG_2024_edna_001_10m_r002` — Second replicate at same station  
+- `PNG_2024_edna_001_20m_r001` — First replicate at deeper station
+
+This ensures traceability from site → station → individual sample for laboratory processing and analysis.
+:::
+
+```{r}
+# Define table schema
+edna_samples_schema <- edna_samples_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "edna", "samples"),
+                fields = edna_samples_schema,
+                description = "Individual eDNA water sample metadata. Each row represents a single replicate sample with specific collection parameters, processing details, and preservation information.")
+```
