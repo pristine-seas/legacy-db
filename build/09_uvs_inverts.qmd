@@ -259,16 +259,16 @@ density_by_taxa_fields <- tribble(
   
   # Taxa info
   "morphotaxon",       "STRING",  TRUE,   "Diver-entered morphotaxon",
-  "accepted_name",     "STRING",  FALSE,  "Scientific name (`Genus species`) of the observed taxon.",
-  "accepted_aphia_id", "INTEGER", FALSE,  "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
-  "rank",              "STRING",  FALSE,  "Taxonomic rank of the record (`species`, `genus`, or `family`).",
-  "family",            "STRING",  FALSE,  "Family of the observed taxon (from `taxonomy.inverts`).",
+  "accepted_name",     "STRING",  TRUE,  "Scientific name (`Genus species`) of the observed taxon.",
+  "accepted_aphia_id", "INTEGER", TRUE,  "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
+  "rank",              "STRING",  TRUE,  "Taxonomic rank of the record (`species`, `genus`, or `family`).",
+  "family",            "STRING",  TRUE,  "Family of the observed taxon (from `taxonomy.inverts`).",
   "common_name",       "STRING",  FALSE,      "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins).",
   "functional_group",  "STRING",  FALSE,   "Functional group classification",
   
   # Aggregated metrics
-  "total_count",       "INTEGER", FALSE,  "Total number of individuals observed at the station.",
-  "density_m2",        "FLOAT",   FALSE,  "Mean density (individuals/m²), standardized by band width and transect length.",
+  "total_count",       "INTEGER", TRUE,  "Total number of individuals observed at the station.",
+  "density_m2",        "FLOAT",   TRUE,  "Mean density (individuals/m²), standardized by band width and transect length.",
   "avg_size_cm",       "FLOAT",   FALSE,  "Weighted mean length (cm), if applicable.",
   "min_size_cm",       "FLOAT",   FALSE,  "Minimum length (cm) observed at the station.",
   "max_size_cm",       "FLOAT",   FALSE,  "Maximum length (cm) observed at the station."
