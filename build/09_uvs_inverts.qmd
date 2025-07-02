@@ -53,7 +53,7 @@ This dual protocol captures both fine-scale community composition and large-bodi
 Invertebrate data are organized into three interlinked tables:
 
 - `uvs.inverts_stations` — Metadata and ecological summaries for each invertebrate transect station
-- `uvs.inverts_counts` — Raw counts and size measurements of individual invertebrate taxa
+- `uvs.inverts_observations` — Raw counts and size measurements of individual invertebrate taxa
 - `uvs.inverts_density_by_taxa` — Station-level summaries by species, including density and average size
 
 All records are linked by `ps_station_id`, and species are standardized using `accepted_aphia_id` from `taxonomy.inverts`.
@@ -150,8 +150,8 @@ This table stores raw observations of invertebrates recorded during the surveys.
 - Selected species are measured in the 4 m belt (e.g., giant clams, pearl oysters, conchs, sea cucumbers)
 
 ```{r eval = T, include = T}
-#| label: tbl-inverts-contacts-schema
-#| tbl-cap: "uvs.inverts_counts Table Schema"
+#| label: tbl-inverts-obs-schema
+#| tbl-cap: "uvs.inverts_observations Table Schema"
 
 inverts_obs_fields <- tribble(
   ~field,              ~type,     ~required, ~description,
@@ -169,10 +169,10 @@ inverts_obs_fields <- tribble(
 
   # Taxonomic identity
   "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label (e.g., `Unidentified crinoid`, `Conus vexillum`, `Ancylomenes sp.`).",
-  "accepted_name",     "STRING",  FALSE,     "Scientific name (`Genus species`) of the observed morphotaxon",
-  "accepted_aphia_id", "INTEGER", FALSE,     "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
-  "rank",              "STRING",  FALSE,     "Taxonomic rank of the record (`species`, `genus`, or `family`).",
-  "family",            "STRING",  FALSE,     "Family of the observed taxon (from `taxonomy.inverts`).",
+  "accepted_name",     "STRING",  TRUE,     "Scientific name (`Genus species`) of the observed morphotaxon",
+  "accepted_aphia_id", "INTEGER", TRUE,     "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
+  "rank",              "STRING",  TRUE,     "Taxonomic rank of the record (`species`, `genus`, or `family`).",
+  "family",            "STRING",  TRUE,     "Family of the observed taxon (from `taxonomy.inverts`).",
   "common_name",       "STRING",  FALSE,      "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins).",
   "functional_group",  "STRING",  FALSE,      "Functional group classification",
 

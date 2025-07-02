@@ -150,7 +150,7 @@ bq_table_create(bq_table(project_id, "uvs", "lpi_stations"),
 
 ---
 
-##### Contacts (`uvs.lpi_counts`)
+##### Contacts (`uvs.lpi_contacts`)
 
 This table stores raw, QAQC, point intercept data from LPI transects. Each row represents the number of points at which a given morphotaxon was recorded within a specific station and transect section.
 
