@@ -41,9 +41,11 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-## Dataset Overview
+## Overview
 
 The `sbruv/` dataset contains all seabed baited remote underwater video (sBRUV) data collected during Pristine Seas expeditions. sBRUVs are stereo camera systems deployed on the seafloor with standardized bait to attract and record fish assemblages in a non-extractive manner.
+
+The sBRUV protocol involves deploying paired cameras on a frame with bait for a standardized soak time (typically 60-90 minutes). This method is particularly effective for detecting mobile predators, sharks, and other fish that may be attracted to bait, providing complementary data to visual survey methods.
 
 Each sBRUV deployment represents a single sampling unit where both cameras record simultaneously, allowing for stereo analysis and accurate fish length measurements. The dataset structure reflects this approach with deployment-level metadata, individual fish observations, and summary abundance metrics.
 
@@ -81,13 +83,13 @@ sbruv_stations_fields <- tribble(
   
   # Temporal
   "date",          "DATE",   TRUE,     "Date of sBRUV deployment (`YYYY-MM-DD`)",
-  "time",          "TIME",   TRUE,     "Start time of video recording (`HH:MM:SS`)",
-  "time_out",      "TIME",   FALSE,    "End time of deployment (used to calculate soak time)",
-  
+  "time",          "TIME",   TRUE,     "Deployment time (`HH:MM:SS`)",
+
   # Spatial
   "latitude",      "FLOAT",  TRUE,     "Deployment latitude (decimal degrees, WGS84)",
   "longitude",     "FLOAT",  TRUE,     "Deployment longitude (decimal degrees, WGS84)",
   "depth_m",       "FLOAT",  TRUE,     "Deployment depth (meters)",
+  "distance_shore_km", "FLOAT", FALSE, "Distance from nearest shore (km) - calculated",
   
   # Environmental context
   "habitat",       "STRING", TRUE,     "Dominant habitat type (e.g., `fore_reef`, `channel`, `bank`)",
@@ -100,12 +102,13 @@ sbruv_stations_fields <- tribble(
   "left_cam",      "STRING", TRUE,     "Model or serial number of the left camera",
   "right_cam",     "STRING", TRUE,     "Model or serial number of the right camera",
   "bait_type",     "STRING", TRUE,     "Type of bait used (e.g., `sardines`, `skipjack`, `local_fish`)",
-  "bait_weight_g", "FLOAT",  FALSE,    "Weight of bait used (grams)",
+  
+  # Partner integration (UWA video annotation)
+  "uwa_opcode",    "STRING", FALSE,    "UWA operation code for this deployment (e.g., `PNGS24_001`)",
   
   # Field observations
-  "highlights",    "STRING", FALSE,    "Notable events during deployment (e.g., large predator presence, equipment issues)",
+  "highlights",    "STRING", FALSE,    "Notable events during deployment (e.g., large predator presence)",
   "video_quality", "STRING", FALSE,    "Assessment of video quality (`excellent`, `good`, `poor`, `unusable`)",
-  "soak_time_min", "FLOAT",  FALSE,    "Actual deployment duration in minutes",
   
   # Notes
   "notes",         "STRING", FALSE,    "Additional comments or QA annotations"
@@ -129,30 +132,6 @@ gt(sbruv_stations_fields) |>
   gt_theme_nytimes()
 ```
 
-::: {.callout-tip title="sBRUV ID Convention"}
-
-**Station ID Structure**: `ps_site_id_depth`
-- `PNG_2024_sbruv_001_25m` — First sBRUV deployment at 25m depth
-- `PNG_2024_sbruv_002_45m` — Second deployment at 45m depth
-
-**Site ID Structure**: `exp_id_method_###`  
-- `PNG_2024_sbruv_001` — Corresponds to deployment site
-- `PNG_2024_sbruv_002` — Second deployment site
-
-Since each sBRUV site has exactly one deployment at one depth, there's a 1:1 relationship between sites and stations. Therefore, only the `stations` table is needed—it contains both site-level and station-level metadata.
-:::
-
-::: {.callout-note title="Controlled Vocabulary"}
-
-**`habitat`** — Follows the same controlled vocabulary as UVS:
-- `fore_reef`, `back_reef`, `patch_reef`, `bank`, `channel_pass`, `wall`, etc.
-
-**`exposure`** — Standard exposure categories:
-- `windward`, `leeward`, `lagoon`, `channel`, `sheltered`, `exposed`
-
-**`bottom_type`** — Substrate categories:
-- `sand`, `coral_rubble`, `rock`, `coral`, `mixed`, `silt`, `hard_bottom`
-:::
 
 ```{r create-dataset, include = FALSE}
 if (!bq_dataset_exists(bq_dataset("pristine-seas", "sbruv"))) {
@@ -209,6 +188,7 @@ sbruv_detections_fields <- tribble(
   "subregion",         "STRING",  TRUE,      "Subregion name - from stations",
   "habitat",           "STRING",  TRUE,      "Habitat type - from stations",
   "depth_m",           "FLOAT",   TRUE,      "Deployment depth - from stations",
+  "distance_shore_km", "FLOAT",   FALSE,     "Distance from shore - from stations",
   "date",              "DATE",    TRUE,      "Deployment date - denormalized for temporal queries",
   
   # Taxonomic information
@@ -216,7 +196,8 @@ sbruv_detections_fields <- tribble(
   "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.fish`",
   "rank",              "STRING",  TRUE,      "Taxonomic rank (`species`, `genus`, or `family`)",
   "family",            "STRING",  TRUE,      "Family of the observed taxon",
-
+  "field_code",        "STRING",  FALSE,     "Original field identification code (if used)",
+  
   # Observation details
   "count",             "INTEGER", TRUE,      "Number of individuals observed at this time point",
   "life_stage",        "STRING",  FALSE,     "Life stage (`adult`, `juvenile`, `unknown`)",
@@ -249,22 +230,34 @@ gt(sbruv_detections_fields) |>
   gt_theme_nytimes()
 ```
 
+::: {.callout-note title="Detection vs MaxN Data"}
+
+**Detections Table**: Contains all individual observations throughout the deployment
+- Multiple records per species as fish appear, leave, and return
+- Enables behavioral and temporal analysis
+- Raw data for calculating MaxN
+
+**MaxN Table**: Contains summary statistics per species per deployment  
+- One record per species showing peak abundance
+- Derived from detections table
+- Standard metric for BRUV abundance comparisons
+:::
 
 ```{r}
-# Define table schema
-sbruv_detections_schema <- sbruv_detections_fields |>
-  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
-  transmute(name = field,
-            type = type,
-            mode = mode,
-            description = description) |>
-  pmap(function(name, type, mode, description) {
-    list(name = name, type = type, mode = mode, description = description)
-  })
-
-bq_table_create(bq_table(project_id, "sbruv", "detections"),
-                fields = sbruv_detections_schema,
-                description = "Individual fish observations from sBRUV deployments with timing, behavioral, and size measurement data. Each row represents a specific observation at a point in time during video analysis.")
+# # Define table schema
+# sbruv_detections_schema <- sbruv_detections_fields |>
+#   mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+#   transmute(name = field,
+#             type = type,
+#             mode = mode,
+#             description = description) |>
+#   pmap(function(name, type, mode, description) {
+#     list(name = name, type = type, mode = mode, description = description)
+#   })
+# 
+# bq_table_create(bq_table(project_id, "sbruv", "detections"),
+#                 fields = sbruv_detections_schema,
+#                 description = "Individual fish observations from sBRUV deployments with timing, behavioral, and size measurement data. Each row represents a specific observation at a point in time during video analysis.")
 ```
 
 ---
@@ -297,7 +290,11 @@ sbruv_maxn_fields <- tribble(
   # Deployment characteristics
   "date",              "DATE",    TRUE,      "Date of deployment - denormalized for temporal queries",
   "depth_m",           "FLOAT",   TRUE,      "Deployment depth (meters) - from stations",
+  "distance_shore_km", "FLOAT",   FALSE,     "Distance from shore - from stations",
   "bait_type",         "STRING",  TRUE,      "Bait type used - from stations",
+  
+  # Partner integration (UWA video annotation)
+  "uwa_opcode",        "STRING",  FALSE,     "UWA operation code - from stations",
   
   # Taxonomic information
   "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`) of observed taxon",
@@ -339,19 +336,20 @@ gt(sbruv_maxn_fields) |>
 ```
 
 
+
 ```{r}
 # Define table schema
-sbruv_maxn_schema <- sbruv_maxn_fields |>
-  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
-  transmute(name = field,
-            type = type,
-            mode = mode,
-            description = description) |>
-  pmap(function(name, type, mode, description) {
-    list(name = name, type = type, mode = mode, description = description)
-  })
-
-bq_table_create(bq_table(project_id, "sbruv", "maxn_by_taxa"),
-                fields = sbruv_maxn_schema,
-                description = "MaxN abundance estimates by species for each sBRUV deployment. Each row represents the maximum number of individuals of a species observed in a single video frame, with taxonomic and deployment metadata.")
+# sbruv_maxn_schema <- sbruv_maxn_fields |>
+#   mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+#   transmute(name = field,
+#             type = type,
+#             mode = mode,
+#             description = description) |>
+#   pmap(function(name, type, mode, description) {
+#     list(name = name, type = type, mode = mode, description = description)
+#   })
+# 
+# bq_table_create(bq_table(project_id, "sbruv", "maxn_by_taxa"),
+#                 fields = sbruv_maxn_schema,
+#                 description = "MaxN abundance estimates by species for each sBRUV deployment. Each row represents the maximum number of individuals of a species observed in a single video frame, with taxonomic and deployment metadata.")
 ```

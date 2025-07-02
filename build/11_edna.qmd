@@ -41,7 +41,7 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-## Dataset Overview
+## Overview
 
 The `edna/` dataset contains all environmental DNA (eDNA) data collected during Pristine Seas expeditions. eDNA sampling provides a non-invasive method to assess marine biodiversity by detecting genetic material shed by organisms into the water column.
 
@@ -124,12 +124,13 @@ bind_rows(core_site_fields, edna_site_fields) |>
 ::: {.callout-tip title="eDNA-Specific Fields"}
 
 **`target`** — Indicates the primary taxonomic focus for laboratory analysis:
+
 - **`fish`** — General fish diversity assessment
 - **`sharks`** — Specialized primers for elasmobranch detection  
 - **`all_taxa`** — Broad taxonomic coverage using universal primers
 - **`specific_taxa`** — Targeted detection of particular species or groups
 
-**`paired_site_id`** — Links eDNA sites to coordinated visual or acoustic surveys for comparative analysis and ground-truthing of detection methods.
+**`paired_site_id`** — Links eDNA sites to paired visual underwater surveys or BRUVS deployments.
 :::
 
 ```{r create-dataset, include = FALSE}
@@ -316,16 +317,6 @@ gt(edna_samples_fields) |>
   fmt_markdown(columns = description) |> 
   gt_theme_nytimes()
 ```
-
-::: {.callout-important title="Sample ID Convention"}
-eDNA sample IDs follow the pattern: `ps_station_id_r###`
-
-- `PNG_2024_edna_001_10m_r001` — First replicate at 10m station
-- `PNG_2024_edna_001_10m_r002` — Second replicate at same station  
-- `PNG_2024_edna_001_20m_r001` — First replicate at deeper station
-
-This ensures traceability from site → station → individual sample for laboratory processing and analysis.
-:::
 
 ```{r}
 # Define table schema
