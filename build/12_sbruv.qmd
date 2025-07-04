@@ -52,7 +52,7 @@ Each sBRUV deployment represents a single sampling unit where both cameras recor
 ```text
 sbruv/
 ├── stations      # Individual sBRUV deployments with metadata
-├── detections    # Individual fish observations with timing and size data
+├── detections    # Individual fish observations with timing and length measurements
 └── maxn_by_taxa  # Maximum number of individuals by species per deployment
 ```
 
@@ -82,36 +82,37 @@ sbruv_stations_fields <- tribble(
   "locality",      "STRING", FALSE,    "Local named feature such as a village, bay, or reef",
   
   # Temporal
-  "date",          "DATE",   TRUE,     "Date of sBRUV deployment (`YYYY-MM-DD`)",
+  "date",          "DATE",   TRUE,     "Date of deployment (`YYYY-MM-DD`)",
   "time",          "TIME",   TRUE,     "Deployment time (`HH:MM:SS`)",
+  "time_out",      "TIME",   FALSE,    "Recovery time (`HH:MM:SS`)",
 
   # Spatial
   "latitude",      "FLOAT",  TRUE,     "Deployment latitude (decimal degrees, WGS84)",
   "longitude",     "FLOAT",  TRUE,     "Deployment longitude (decimal degrees, WGS84)",
   "depth_m",       "FLOAT",  TRUE,     "Deployment depth (meters)",
-  "distance_shore_km", "FLOAT", FALSE, "Distance from nearest shore (km) - calculated",
-  
+
   # Environmental context
-  "habitat",       "STRING", TRUE,     "Dominant habitat type (e.g., `fore_reef`, `channel`, `bank`)",
-  "exposure",      "STRING", TRUE,     "Wave/wind exposure (`windward`, `leeward`, `lagoon`, etc.)",
+  "habitat",       "STRING", FALSE,     "Dominant habitat type (e.g., `fore_reef`, `channel_pass`, `bank`)",
+  "exposure",      "STRING", FALSE,     "Wave/wind exposure (`windward`, `leeward`, `lagoon`, etc.)",
   "bottom_type",   "STRING", FALSE,    "Substrate description at deployment site (e.g., `sand`, `coral_rubble`, `rock`)",
   
   # Equipment and methodology
-  "team_lead",     "STRING", TRUE,     "Name of the field lead or technician responsible for deployment",
+  "bait_type",     "STRING", FALSE,    "Type of bait used (e.g., `sardines`, `skipjack`, `local_fish`)",
   "rig_id",        "STRING", TRUE,     "ID of the camera rig used (e.g., `RIG01`, `SBRUV_A`)",
   "left_cam",      "STRING", TRUE,     "Model or serial number of the left camera",
   "right_cam",     "STRING", TRUE,     "Model or serial number of the right camera",
-  "bait_type",     "STRING", TRUE,     "Type of bait used (e.g., `sardines`, `skipjack`, `local_fish`)",
-  
-  # Partner integration (UWA video annotation)
-  "uwa_opcode",    "STRING", FALSE,    "UWA operation code for this deployment (e.g., `PNGS24_001`)",
+  "team_lead",     "STRING", TRUE,     "Name of the field lead or technician responsible for deployment",
   
   # Field observations
+  "video_quality", "STRING", FALSE,    "Assessment of video quality (`excellent`, `good`, `fair`,`poor`, `unusable`)",
   "highlights",    "STRING", FALSE,    "Notable events during deployment (e.g., large predator presence)",
-  "video_quality", "STRING", FALSE,    "Assessment of video quality (`excellent`, `good`, `poor`, `unusable`)",
+  "field_notes",         "STRING", FALSE,    "Additional comments or QA annotations",
   
-  # Notes
-  "notes",         "STRING", FALSE,    "Additional comments or QA annotations"
+  # Partner integration (UWA video annotation)
+  "annotation_partner",  "STRING", FALSE,  "Name of team who annotated the video (UWA, USP, Sharks Pacific)",
+  "partner_code",        "STRING", FALSE,  "Operation code form our partner for this deployment (e.g., `PNGS24_001`)",
+  "analysis_status",     "STRING", FALSE,  "Status of video analysis (`rejected`, `pending`, `EM`, `PM`, `EM | PM`)",
+  "analysis_notes",     "STRING", FALSE,   "Notes from the partner on the analysis",
 )
 
 gt(sbruv_stations_fields) |>
@@ -159,7 +160,7 @@ bq_table_create(bq_table(project_id, "sbruv", "stations"),
 
 ---
 
-### Detections (`sbruv.detections`)
+### Detections (`sbruv.detections`) - **In progress**
 
 This table contains individual fish observations recorded during sBRUV deployments. Each row represents a specific fish or group of fish observed at a particular time during the video analysis, including behavioral and size measurement data from stereo analysis.
 
@@ -262,7 +263,7 @@ gt(sbruv_detections_fields) |>
 
 ---
 
-### MaxN by Taxa (`sbruv.maxn_by_taxa`)
+### MaxN by Taxa (`sbruv.maxn_by_taxa`) **In progress**
 
 This table contains species-level summaries for each sBRUV deployment using the MaxN metric—the maximum number of individuals of each species observed in a single video frame during the deployment. MaxN is the standard metric for BRUV analysis as it provides a conservative abundance estimate that minimizes double-counting of mobile individuals.
 
@@ -334,8 +335,6 @@ gt(sbruv_maxn_fields) |>
   fmt_markdown(columns = description) |> 
   gt_theme_nytimes()
 ```
-
-
 
 ```{r}
 # Define table schema
