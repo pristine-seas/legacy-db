@@ -139,9 +139,9 @@ Each record includes family-level common names to support communication, outreac
 #| tbl-cap: "Common names fields for invertebrate taxa in the Pristine Seas Database."
 
 common_name_schema <- tribble(
-  ~field,           ~type,    ~required, ~description,
-  "common_name",  "STRING", FALSE,     "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins)."
-)
+  ~field,              ~type,    ~required,  ~description,
+  "common_group_name",  "STRING", FALSE,     "Generalized group name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins).",
+  "common_name",        "STRING", FALSE,     "Common taxa name used for communication and summaries (e.g., Crown of stars, Coconut crab).")
 
 common_name_schema |> 
   gt() |>
@@ -166,7 +166,7 @@ common_name_schema |>
 
 Functional traits classify each invertebrate taxon based on ecological role and movement capability. These two traits together capture the key ecological functions and spatial dynamics.
 
-The `functional_group` field captures ecological role, while `mobility` describes movement capability - together providing a comprehensive functional characterization.
+The `feeding_guild` and `feeding_subguild` field captures ecological role, while `mobility` describes movement capability - together providing a comprehensive functional characterization.
 
 ```{r eval = T, include = T}
 #| label: tbl-inverts-functional-schema
@@ -174,9 +174,9 @@ The `functional_group` field captures ecological role, while `mobility` describe
 
 functional_traits_schema <- tribble(
   ~field,            ~type,    ~required, ~description,
-  "functional_group", "STRING", FALSE,     "Primary ecological role. One of: 'passive_suspension_feeder', 'active_suspension_feeder', 'deposit_feeder', 'grazer', 'predator', 'scavenger', 'filter_feeder', 'bioturbator', 'ecosystem_engineer'.",
-  "mobility",         "STRING", FALSE,    "Movement capability ('sessile', 'motile')."
-)
+  "feeding_guild",    "STRING", FALSE,     "Primary feeding guild ('suspension_feeder', 'carnivore', 'herbivore', 'detritivore', 'omnivore') ",
+  "feeding_subguild", "STRING", FALSE,     "Secondary feeding guild ('active', 'passive', 'facultative', 'coralivore', 'scavenger', 'deposit')",
+  "mobility",         "STRING", FALSE,    "Movement capability ('sessile', 'motile').")
 
 gt(functional_traits_schema) |>
   cols_label(field = md("**Field**"),
@@ -197,23 +197,23 @@ gt(functional_traits_schema) |>
 ```
 
 ::: {.callout-note title="Functional Groups"}
-- **`passive_suspension_feeder`** — Rely on ambient water flow for particle capture (mussels, oysters, most sponges)
-- **`active_suspension_feeder`** — Create feeding currents to capture particles (barnacles, fan worms, some tunicates)
-- **`deposit_feeder`** — Process sediment organic matter (many polychaetes, sea cucumbers)
-- **`grazer`** — Scrape algae/biofilms from surfaces (gastropods, sea urchins, chitons)
-- **`predator`** — Active hunters (octopus, crabs, lobsters, predatory gastropods)
-- **`scavenger`** — Feed on dead/decaying matter (many crabs, some gastropods)
-- **`filter_feeder`** — Internal filtration systems (sponges, some bivalves with complex filtration)
-- **`bioturbator`** — Mix/rework sediments through burrowing activities (burrowing clams, polychaetes, shrimp)
-- **`ecosystem_engineer`** — Modify habitat structure (corals, oysters, tube-building polychaetes)
+- **`Suspension feeders`**: Organisms which capture materials suspended in the water column for sustenance.
+  - `Passive` - Rely on ambient water flow for particle capture (mussels, oysters, most sponges)
+  - `Active`  - Create feeding currents to capture particles (barnacles, fan worms, some tunicates)
+  - `Facultative`:
+- **`Carnivores`**: Predators or grazers of both sessile and motile animals
+  - `Coralivore`: Feeds predominanly on live coral
+- **`Detritivores`**: Organisms which consume dead or decomposed organic matter
+  - `Scavenger`      - Search for and feed on dead/decaying matter (many crabs, some gastropods)
+  - `Deposit feeder` - Process sediment organic matter or mucus on a coral’s surface (many polychaetes, sea cucumbers)
+- **`Herbivores`**: Organisms that consume benthic algae and plant materials.
+- **`Omnivores`**:   
 :::
 
 ::: {.callout-note title="Mobility Categories"}
 - **`sessile`** — Cannot relocate; permanently attached or fixed in place (corals, sponges, barnacles, oysters)
 - **`motile`** — Actively mobile; can move to new locations (crabs, sea stars, octopus, mobile gastropods)
 :::
-
-
 
 ### Human use and importance
 
@@ -281,7 +281,6 @@ bq_table_create(
 ## Data Processing
 
 ```{r core_fields, eval = FALSE}
-
 # Following the same pattern as taxonomy_fish.qmd
 
 spc_list <- read_csv(file.path(prj_path, "data/raw/taxonomy/inverts", "inverts_spc.csv"))|> 

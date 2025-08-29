@@ -43,12 +43,12 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
 
 ## Overview
 
-The `sbruv/` dataset contains all seabed baited remote underwater video (sBRUV) data collected during Pristine Seas expeditions. sBRUVs are stereo camera systems deployed on the seafloor with standardized bait to attract and record fish assemblages in a non-extractive manner.
+The `sBruvs/` dataset contains all seabed baited remote underwater video (sBRUV) data collected during Pristine Seas expeditions. sBRUVs are stereo camera systems deployed on the seafloor with standardized bait to attract and record fish assemblages in a non-extractive manner.
 
 Each sBRUV deployment represents a single sampling unit where paired cameras record simultaneously for a standardized soak time (typically 60-90 minutes). This method is particularly effective for detecting mobile predators, sharks, and other fish attracted to bait, providing complementary data to visual survey methods.
 
 ```text
-sbruv/
+sBruvs/
 ├── stations      # Individual sBRUV deployments with metadata
 ├── detections    # Individual fish observations with timing and length measurements
 └── maxn_by_taxa  # Maximum number of individuals by species per deployment
@@ -59,15 +59,15 @@ For detailed field protocols and analysis methods, see the [Pristine Seas sBRUV 
 
 ## Tables
 
-### Stations (`sbruv.stations`)
+### Stations (`sBruvs.stations`)
 
-The `sbruv.stations` table contains one row per sBRUV deployment. Each deployment represents a distinct point in space and time where a stereo camera system was deployed on the seafloor with bait. Since each sBRUV site has exactly one deployment at one specific depth, there is a 1:1 relationship between sites and stations, eliminating the need for a separate sites table.
+The `sBruvs.stations` table contains one row per sBRUV deployment. Each deployment represents a distinct point in space and time where a stereo camera system was deployed on the seafloor with bait. Since each sBRUV site has exactly one deployment at one specific depth, there is a 1:1 relationship between sites and stations, eliminating the need for a separate sites table.
 
 This table stores all deployment metadata including spatial information, equipment details, environmental conditions, and deployment parameters. It follows the core site schema shared across methods and adds sBRUV-specific fields for camera equipment, bait type, and bottom conditions.
 
 ```{r eval = T, include = T}
-#| label: tbl-sbruv.stations
-#| tbl-cap: "Schema for `sbruv.stations`: sBRUV deployment metadata"
+#| label: tbl-sBruvs.stations
+#| tbl-cap: "Schema for `sBruvs.stations`: sBRUV deployment metadata"
 
 sbruv_stations_fields <- tribble(
   ~field,                ~type,     ~required, ~description,
@@ -76,6 +76,7 @@ sbruv_stations_fields <- tribble(
   "ps_station_id",       "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth`), e.g., `PNG_2024_sbruv_001_25m`",
   "ps_site_id",          "STRING",  TRUE,      "Site identifier (`exp_id_method_###`), e.g., `PNG_2024_sbruv_001`",
   "exp_id",              "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`)",
+  "method",              "STRING",  TRUE,      "Survey method (`Seabed BRUVS`)",
   
   # Spatial context
   "region",              "STRING",  TRUE,      "Broad geographic or administrative unit",
@@ -86,18 +87,17 @@ sbruv_stations_fields <- tribble(
   
   # Deployment
   "date",                "DATE",    TRUE,      "Date of deployment (`YYYY-MM-DD`)",
-  "time_in",             "TIME",    TRUE,      "Deployment time (`HH:MM:SS`)",
-  "time_out",            "TIME",    FALSE,     "Recovery time (`HH:MM:SS`)",
+  "time",                "TIME",    TRUE,      "Deployment time (`HH:MM:SS`)",
   "latitude",            "FLOAT",   TRUE,      "Deployment latitude (decimal degrees, WGS84)",
   "longitude",           "FLOAT",   TRUE,      "Deployment longitude (decimal degrees, WGS84)",
   "depth_m",             "FLOAT",   TRUE,      "Deployment depth (meters)",
   "bottom_type",         "STRING",  FALSE,     "Substrate description at deployment site (e.g., `sand`, `coral_rubble`, `rock`)",
   
   # Equipment and methodology
-  "bait_type",           "STRING",  FALSE,     "Type of bait used (e.g., `sardines`, `skipjack`, `local_fish`)",
   "rig_id",              "STRING",  TRUE,      "ID of the camera rig used (e.g., `RIG01`, `SBRUV_A`)",
   "left_cam",            "STRING",  TRUE,      "Model or serial number of the left camera",
   "right_cam",           "STRING",  TRUE,      "Model or serial number of the right camera",
+  "bait",               "STRING",  FALSE,      "Type of bait used (e.g., `sardines`, `skipjack`)",
   "team_lead",           "STRING",  TRUE,      "Name of the field lead or technician responsible for deployment",
   
   # Field observations
@@ -132,9 +132,9 @@ gt(sbruv_stations_fields) |>
 
 
 ```{r create-dataset, include = FALSE}
-if (!bq_dataset_exists(bq_dataset("pristine-seas", "sbruv"))) {
+if (!bq_dataset_exists(bq_dataset("pristine-seas", "sBRUVS"))) {
   bq_dataset_create(
-    bq_dataset("pristine-seas", "sbruv"),
+    bq_dataset("pristine-seas", "sBRUVS"),
     description = "Seabed baited remote underwater video (sBRUV) dataset. Includes deployment metadata and fish observations from stereo camera systems deployed on the seafloor."
   )
 }
@@ -150,7 +150,7 @@ sbruv_stations_schema <- sbruv_stations_fields |>
     list(name = name, type = type, mode = mode, description = description)
   })
 
-bq_table_create(bq_table(project_id, "sbruv", "stations"),
+bq_table_create(bq_table(project_id, "sBRUVS", "stations"),
                 fields = sbruv_stations_schema,
                 description = "Individual sBRUV deployment metadata. Each row represents a discrete camera deployment on the seafloor with standardized bait, including equipment details, environmental conditions, and deployment parameters.")
 ```
@@ -164,8 +164,8 @@ This table contains species-level summaries for each sBRUV deployment using the 
 Each row represents a unique combination of deployment (`ps_station_id`) and species, with taxonomic information standardized using `accepted_aphia_id` from `taxonomy.fish`. Key deployment and spatial metadata are denormalized to enable efficient querying without joins.
 
 ```{r eval = T, include = T}
-#| label: tbl-sbruv.maxn
-#| tbl-cap: "Schema for `sbruv.maxn_by_taxa`: MaxN abundance by species per deployment"
+#| label: tbl-sBRUVS.maxn
+#| tbl-cap: "Schema for `sBRUVS.maxn_by_taxa`: MaxN abundance by species per deployment"
 
 sbruv_maxn_fields <- tribble(
   ~field,              ~type,     ~required, ~description,

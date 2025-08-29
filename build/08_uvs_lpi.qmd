@@ -107,7 +107,9 @@ lpi_stations_fields <- tribble(
   "pct_soft_coral",    "FLOAT",   FALSE,     "Percent of points classified as soft coral",
   "pct_sponges",       "FLOAT",   FALSE,     "Percent of points classified as sponges",
   "pct_turf",          "FLOAT",   FALSE,     "Percent of points classified as Turf",
+  "pct_eam",           "FLOAT",   FALSE,       "Percent of points classified as Endolithic Algae Matix",
   "pct_other",         "FLOAT",   FALSE,     "Percent of points classified as other (e.g., tunicates)",
+
   
   # Notes
   "notes",             "STRING",  FALSE,     "Field notes or QA comments"
@@ -176,7 +178,7 @@ lpi_contacts_fields <- tribble(
 
   "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
   "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
-  "station_label",     "STRING",  TRUE,      "Field-assigned station label (A, B).",
+  "transect_label",     "STRING",  TRUE,     "Field-assigned transect label (A, B).",
   "transect_section",  "STRING",  TRUE,      "Transect section (0-10, 10-20, 20-30, 30-40, 40-50)",
 
   # Taxonomic identity
@@ -188,7 +190,7 @@ lpi_contacts_fields <- tribble(
   "functional_group",  "STRING",  TRUE,      "Functional group classification (e.g., `coral`, `CCA`, `turf`, `macroalgae`).",
 
   # Observation details
-  "contacts",          "INTEGER", TRUE,      "Number of points at which the morphotaxon was recorded.",
+  "contacts",          "FLOAT", TRUE,      "Number of points at which the morphotaxon was recorded.",
 
   # Notes
   "notes",             "STRING",  FALSE,     "Optional comments or QA annotations."
@@ -273,7 +275,7 @@ lpi_cover_by_taxa_fields <- tribble(
   "functional_group",  "STRING",  TRUE,      "Functional group classification (e.g., `coral`, `CCA`, `turf`, `macroalgae`).",
   
   # Counts
-  "contacts",           "INTEGER", TRUE,      "Number of points at which the morphotaxon was recorded.",
+  "contacts",           "FLOAT", TRUE,      "Number of points at which the morphotaxon was recorded.",
   "pct_cover",          "FLOAT",   TRUE,      "Percent cover acros the entire transect",
   "pct_cover_sd",       "FLOAT",   FALSE,     "Standard deviation of percent cover across transect sections.",
 )

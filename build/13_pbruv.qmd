@@ -43,12 +43,12 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
 
 ## Overview
 
-The `pbruv/` dataset contains all pelagic baited remote underwater video (pBRUV) data collected during Pristine Seas expeditions. pBRUVs are stereo camera systems deployed in the water column to sample pelagic and semi-pelagic fish assemblages, particularly effective for detecting predators, tunas, and other mobile species.
+The `pBruvs/` dataset contains all pelagic baited remote underwater video (pBRUV) data collected during Pristine Seas expeditions. pBRUVs are stereo camera systems deployed in the water column to sample pelagic and semi-pelagic fish assemblages, particularly effective for detecting predators, tunas, and other mobile species.
 
 Each deployment involves a string of up to 5 camera rigs suspended at approximately 10 meters depth, providing replicated sampling of the near-surface pelagic environment.
 
 ```text
-pbruv/
+pBruvs/
 ├── sites        # String deployments with overall operation metadata
 ├── stations     # Individual camera rigs within each string deployment
 └── maxn_by_taxa # Maximum number of individuals by species per rig (future)
@@ -60,7 +60,7 @@ For detailed field protocols and analysis methods, see the [Pristine Seas pBRUV 
 
 ## Tables
 
-### Sites (`pbruv.sites`)
+### Sites (`pBruvs.sites`)
 
 Contains one row per deployment event, storing operation-level metadata including spatial information (averaged across all rigs), environmental conditions, team logistics, and summary effort metrics. Follows the core site schema shared across methods while adding pBRUV-specific fields for string configuration and deployment success tracking.
 
@@ -88,17 +88,16 @@ pbruv_sites_fields <- tribble(
   # Spatial (deployment center - calculated from all rigs)
   "latitude",            "FLOAT",   TRUE,      "Average latitude across all rigs (decimal degrees, WGS84)",
   "longitude",           "FLOAT",   TRUE,      "Average longitude across all rigs (decimal degrees, WGS84)",
-  "distance_shore_km",   "FLOAT",   FALSE,     "Average distance from shore across all rigs (km) - calculated",
-  
+
   # Environmental context
-  "habitat",             "STRING",  TRUE,      "Water mass/habitat type (`oceanic`, `neritic`, `seamount`, `lagoon`, `channel`)",
-  "exposure",            "STRING",  FALSE,     "Wave/wind exposure if applicable",
+  "habitat",             "STRING",  FALSE,      "Water mass/habitat type (`oceanic`, `neritic`, `seamount`, `lagoon`, `channel`, `bank`)",
+  "exposure",            "STRING",  FALSE,     "Wave/wind exposure if applicable (`windward`, `leeward`, `exposed`, `lagoon`, `sheltered`)",
   
   # Deployment logistics
-  "bait_type",           "STRING",  FALSE,     "Type of bait used (e.g., `sardines`, `skipjack`, `local_fish`)",
   "n_rigs",              "INTEGER", TRUE,      "Number of rigs successfully deployed (typically 5)",
   "drift_m",             "FLOAT",   FALSE,     "Average drift distance across all rigs (meters) - calculated",
   "drift_hrs",           "FLOAT",   FALSE,     "Average drift duration across all rigs (hours) - calculated",
+  "bait",                "STRING",  FALSE,     "Type of bait used (e.g., `sardines`, `skipjack`, `local_fish`)",
   "team_lead",           "STRING",  TRUE,      "Name of the field lead responsible for deployment",
   "highlights",          "STRING",  FALSE,     "Notable events during deployment (e.g., large predator presence)",
   "field_notes",         "STRING",  FALSE,     "Additional deployment comments or observations",
@@ -126,9 +125,9 @@ gt(pbruv_sites_fields) |>
 ```
 
 ```{r create-dataset, include = FALSE}
-if (!bq_dataset_exists(bq_dataset("pristine-seas", "pbruv"))) {
+if (!bq_dataset_exists(bq_dataset("pristine-seas", "pBRUVS"))) {
   bq_dataset_create(
-    bq_dataset("pristine-seas", "pbruv"),
+    bq_dataset("pristine-seas", "pBRUVS"),
     description = "Pelagic baited remote underwater video (pBRUV) dataset. Includes string deployment metadata and fish observations from stereo camera systems deployed in the water column."
   )
 }
@@ -144,7 +143,7 @@ pbruv_sites_schema <- pbruv_sites_fields |>
     list(name = name, type = type, mode = mode, description = description)
   })
 
-bq_table_create(bq_table(project_id, "pbruv", "sites"),
+bq_table_create(bq_table(project_id, "pBRUVS", "sites"),
                 fields = pbruv_sites_schema,
                 description = "pBRUV string deployment metadata. Each row represents a complete string operation with multiple camera rigs deployed in the water column.")
 ```
@@ -171,7 +170,7 @@ pbruv_stations_fields <- tribble(
   "region",              "STRING",  TRUE,      "Region name - from pbruv.sites",
   "subregion",           "STRING",  TRUE,      "Subregion name - from pbruv.sites",
   "locality",            "STRING",  FALSE,     "Locality name - from pbruv.sites",
-  "habitat",             "STRING",  TRUE,      "Water mass/habitat type (`oceanic`, `neritic`, `seamount`, `lagoon`, `channel`) - from sites",
+  "habitat",             "STRING",  FALSE,      "Water mass/habitat type (`oceanic`, `neritic`, `seamount`, `lagoon`, `channel`) - from sites",
   "exposure",            "STRING",  FALSE,     "Wave/wind exposure - from sites",
   
   # Deployment
@@ -179,7 +178,6 @@ pbruv_stations_fields <- tribble(
   "time_in",             "TIME",    TRUE,      "Time when rig entered water",
   "latitude_in",         "FLOAT",   TRUE,      "Rig deployment latitude (decimal degrees, WGS84)",
   "longitude_in",        "FLOAT",   TRUE,      "Rig deployment longitude (decimal degrees, WGS84)",
-  "distance_shore_km",   "FLOAT",   FALSE,     "Distance from nearest shore for this rig (km) - calculated",
   "time_out",            "TIME",    FALSE,     "Time when rig was recovered",
   "latitude_out",        "FLOAT",   FALSE,     "Rig recovery latitude (decimal degrees, WGS84)",
   "longitude_out",       "FLOAT",   FALSE,     "Rig recovery longitude (decimal degrees, WGS84)",
@@ -235,7 +233,7 @@ pbruv_stations_schema <- pbruv_stations_fields |>
  })
 
 # Create pbruv.stations table
-bq_table_create(bq_table(project_id, "pbruv", "stations"),
+bq_table_create(bq_table(project_id, "pBRUVS", "stations"),
                fields = pbruv_stations_schema,
                description = "Individual camera rig metadata within pBRUV deployments. Each row represents a discrete sampling unit (stereo camera rig) deployed at approximately 10m depth with tracking of deployment and recovery positions.")
 ```

@@ -101,6 +101,7 @@ edna_site_fields <- tribble(
   "paired_site_id", "STRING",  FALSE,     "ID of coordinated survey site (e.g., UVS or BRUVS site at same location)",
   "n_stations",     "INTEGER", TRUE,      "Number of depth-stratified stations sampled at this site",
   "n_samples",      "INTEGER", TRUE,      "Total number of individual water samples collected",
+  "water_l",        "FLOAT",   TRUE,      "Total volume of water filtered across samples (L)",
   "site_photos",    "BOOLEAN", FALSE,     "TRUE if photo documentation exists for this site"
 )
 
@@ -151,7 +152,7 @@ edna_sites_all_fields <- bind_rows(core_site_fields, edna_site_fields) |>
     field %in% c("date", "time")                                 ~ "Temporal", 
     field %in% c("latitude", "longitude")                        ~ "Geolocation",
     field %in% c("habitat", "exposure", "bottom_type","target", "paired_site_id", "site_photos") ~ "eDNA-Specific",
-    field %in% c("n_stations", "n_samples")                     ~ "Summary",
+    field %in% c("n_stations", "n_samples", "water_l")           ~ "Summary",
     field == "team_lead"                                         ~ "Metadata",
     field == "notes"                                             ~ "Notes",
     TRUE ~ "Other"
