@@ -1,0 +1,15 @@
+{
+  "hash": "69f71734ab18c0fa35139259640e56f1",
+  "result": {
+    "engine": "knitr",
+    "markdown": "---\ntitle: \"Taxonomy Dataset\"\nformat: \n  html:\n    theme: lux\n    self-contained: true\n    code-fold: true\n    toc: true \n    toc-depth: 3\n    toc-location: right\n    number-sections: true\n    number-depth: 3\n---\n\n::: {.cell}\n\n:::\n\n\nThe `taxonomy/` dataset is the backbone of biological consistency in the Pristine Seas Science Database. It provides harmonized reference lists and ecological traits for all taxa recorded across expeditions, enabling seamless integration of species-level data across methods, habitats, and years.\n\nThis shared taxonomy serves three essential roles:\n\n  - ***Identity resolution*** — Ensures consistent naming using authoritative sources (e.g., WoRMS, Coral Traits)\n  - ***Ecological interpretation*** — Assigns functional and trophic traits for downstream analyses (e.g., predator biomass, herbivore richness)\n  - ***Data integration*** — Supports clean joins between observation tables and trait metadata\n\nEach major taxonomic group is documented in a dedicated table:\n\n``` text\ntaxonomy/\n├── fish    # Reef and pelagic fishes from UVS, BRUVS, etc\n├── benthos   # Sessile benthic taxa from LPI, recruits, photomosaics (e.g., corals, algae, sponges)\n├── inverts # Sessile and mobile invertebrates\n```\n\nAll tables follow a standardized schema, centered on aphia_id (WoRMS) as the canonical key. Fields include accepted_name, family, trophic_group, functional_group, and additional group-specific traits.\n\n\n\n\n",
+    "supporting": [],
+    "filters": [
+      "rmarkdown/pagebreak.lua"
+    ],
+    "includes": {},
+    "engineDependencies": {},
+    "preserve": {},
+    "postProcess": true
+  }
+}

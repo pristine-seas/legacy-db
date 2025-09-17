@@ -1,0 +1,343 @@
+---
+title: "Expedition Sites"
+date: today
+format: 
+  html:
+    theme: minty
+    self-contained: true
+    code-fold: true
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+execute:
+  fig-width: 10
+---
+
+```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
+options(scipen = 999)
+
+# Load libraries
+
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(PristineSeasR2)
+library(hms)
+library(pointblank)
+library(sf)
+library(mapview)
+library(gt)
+library(bigrquery)
+library(basemaps)
+library(ggrepel)
+library(showtext)
+library(ggspatial)
+
+# Add Google font for consistent visual outputs
+
+font_add_google("Lato", "lato")
+showtext_auto()
+
+# =============================================================================
+# Expedition Configuration
+# =============================================================================
+
+exp_config <- list(exp_id      = "NIU_2016",
+                   date_bounds = c(as.Date("2016-01-01"), as.Date("2016-12-31")),
+                   lat_min     = -12.3, 
+                   lat_max     = -5,  
+                   lon_min     = 155, 
+                   lon_max     = 170)  
+
+
+# Setup paths and BQ auth
+
+ps_paths <- PristineSeasR2::get_drive_paths()
+
+exp_path <- file.path(ps_paths$expeditions, str_replace(exp_config$exp_id, "_", "-"))
+
+bigrquery::bq_auth(email = "marine.data.science@ngs.org")
+
+bq_connection <- DBI::dbConnect(bigrquery::bigquery(), project = "pristine-seas")
+
+exp_id <- exp_config$exp_id
+
+legacy_path <- "/Users/marinedatascience/Library/CloudStorage/GoogleDrive-marine.data.science@ngs.org/.shortcut-targets-by-id/16vjFvzPNgx8MuRqNqZj-Uqc08bkAVKqX/Pristine Seas/SCIENCE/legacy data/Niue/"
+```
+
+## Overview
+
+This script processes and validates **Underwater Visual Survey (UVS) site metadata** for the expedition **`r exp_id`**. 
+
+**Workflow**: Import → Standardize → QA/QC → Visualize → Export → Upload
+
+This process ensures data integrity prior to analysis and database ingestion.
+
+## 1. Import and Standardize Fieldbook Data
+
+```{r uvs-import}
+# 1. Import Underwater Visual Surveys (UVS) fieldbook
+
+uvs_sites <- read_xlsx(file.path(legacy_path, "Fish", "Niue_fish_data_AMF.xlsx"),
+                       sheet = "metadata") |> 
+  clean_names() |> 
+  rename(latitude  = lat,
+         longitude = long,
+         region    = reef,
+         site      = station) |> 
+  mutate(exp_id    = exp_id,
+         method    = "uvs",
+         date      = lubridate::ymd(date),
+         time      = hms::as_hms(time),
+         habitat   = str_to_lower(habitat),
+         exposure  = str_to_lower(exposure),
+         region    = str_to_title(region),
+         subregion = region,
+         locality  = NA_character_,
+         in_mpa    = if_else(mangt == "MPA", TRUE, FALSE),
+         notes     = NA_character_,
+         site_name = NA_character_,
+         team_lead = "Alan Friedlander",
+         # Standardize site IDs to match database format (3-digit padding)
+         ps_site_id =  paste0("NIU_2016_uvs_", str_pad(site, 3, pad = "0"))) |> 
+  # Arrange columns in logical order
+  select(ps_site_id, exp_id, method, region, subregion, locality, 
+         date, time, latitude, longitude, habitat, exposure, site_name, in_mpa, team_lead, notes)
+
+uvs_sites$habitat[uvs_sites$habitat == "forereef"] <- "fore_reef"
+uvs_sites$habitat[uvs_sites$habitat == "backreef"] <- "back_reef"
+
+# Create regions lookup from actual data for validation
+
+regions_lookup_table <- uvs_sites |> 
+  distinct(region, subregion) 
+
+valid_regions <- unique(regions_lookup_table$region)
+valid_subregions <- unique(regions_lookup_table$subregion)
+
+# Need to load exposures separately
+
+exps <- read_xlsx(file.path(legacy_path, "Fish", "Exposure.xlsx")) |> 
+  clean_names() |> 
+  transmute(ps_site_id =  paste0("NIU_2016_uvs_", str_pad(station, 3, pad = "0")),
+            exposure   = case_when(exposure == "Wind" ~ "windward",
+                                   exposure == "Lee" ~ "leeward",
+                                   TRUE ~ NA_character_))
+
+uvs_sites <- uvs_sites |> 
+  select(-exposure) |> 
+  left_join(exps)
+
+uvs_sites$exposure[uvs_sites$habitat == "back_reef"] <- "lagoon"
+```
+
+We conducted a total of `r nrow(uvs_sites)` UVS surveys across `r length(unique(uvs_sites$region))` regions and `r length(unique(uvs_sites$subregion))` subregions. The data includes `r sum(uvs_sites$in_mpa, na.rm = TRUE)` sites within Marine Protected Areas (MPAs). The first site was surveyed on `r min(uvs_sites$date)` and the last on `r max(uvs_sites$date)`.
+
+## 2. QA/QC and Validation
+
+```{r uvs_qaqc}
+# 2.QA/QC using pointblank
+
+uvs_sites_qaqc <- uvs_sites |> 
+  create_agent(label = "UVS sites QA/QC", tbl_name = "uvs_sites_raw") |> 
+  # Ensure each site ID is unique
+  rows_distinct(ps_site_id,
+                label = "Unique site IDs",
+                actions = action_levels(stop_at = 0.001)) |> 
+  # Enforce non-missing values for critical columns
+  rows_complete(columns = vars(ps_site_id, latitude, longitude, date),
+                label = "Complete rows for key fields",
+                actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |>
+  # Habitat and exposure validation against allowed vocab
+  col_vals_in_set(columns = vars(habitat),
+                  set = allowed_vocab$uvs_habitats,
+                  label = "Valid habitat values",
+                  actions = action_levels(stop_at = 0.1)) |>
+  col_vals_in_set(columns = vars(exposure),
+                  set = allowed_vocab$exposure,
+                  label = "Valid exposure values",
+                  actions = action_levels(stop_at = 0.1)) |>
+  # Region validation against lookup table
+  col_vals_in_set(columns = vars(region),
+                  set = valid_regions,
+                  label = "Region in lookup table",
+                  actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |>
+  col_vals_in_set(columns = vars(subregion), 
+                  set = valid_subregions,
+                  label = "Subregion in lookup table",
+                  actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |>
+  # Geographic bounds validation
+  col_vals_between(columns = vars(latitude),
+                   left = exp_config$lat_min,
+                   right = exp_config$lat_max,
+                   label = "Latitude within bounds",
+                   actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |>
+  col_vals_between(columns = vars(longitude),
+                   left = exp_config$lon_min, 
+                   right = exp_config$lon_max,
+                   label = "Longitude within bounds",
+                   actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |> 
+  # Date within expedition range
+  col_vals_between(columns = vars(date),
+                   left = exp_config$date_bounds[1],
+                   right = exp_config$date_bounds[2], 
+                   label = "Date within expedition period",
+                   actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |> 
+  # Critical NAs
+  col_vals_not_null(columns = vars(latitude, longitude),
+                    label = "Coordinates are not missing",
+                    actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |>
+  col_vals_not_null(columns = vars(date),
+                    label = "Date is not missing", 
+                    actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |> 
+  interrogate()
+
+
+# Display QA/QC results
+uvs_sites_qaqc
+```
+
+
+Validation checks confirmed that all site IDs are unique and coordinates fall within the expedition bounds. 
+
+```{r uvs-missing-data}
+#| fig-cap: "Missing data in UVS sites fieldbook"
+
+naniar::vis_miss(uvs_sites)
+```
+
+## 3. Visualize
+
+The interactive map below displays unique UVS sites with metadata-rich popups.
+
+```{r uvs-map}
+# Interactive visual map
+
+uvs_sites_sf <- uvs_sites |>
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) |>
+  distinct(ps_site_id, region, subregion, locality, habitat, exposure, in_mpa, geometry)
+
+mapview::mapview(uvs_sites_sf,
+                 zcol = "exposure",
+                 legend = TRUE,
+                 map.types = "Esri.WorldImagery",
+                 layer.name = "in MPA",
+                 popup = leafpop::popupTable(uvs_sites_sf, 
+                                             zcol = c("ps_site_id", "region", "subregion", "locality", "habitat", "exposure", "in_mpa"))) |> 
+  leafem::addMouseCoordinates() |> 
+  leaflet.extras::addFullscreenControl()
+```
+
+```{r eval = F, include = F}
+plot_uvs_sites_map <- function(region, subregion = NULL, save = FALSE, path = NULL) {
+
+  # Filter and transform
+  map_data <- uvs_sites_sf |>
+  mutate(site_number = str_extract(ps_site_id, "\\d+(?!.*\\d)")) |>
+  filter(region == !!region)
+
+if (!is.null(subregion)) {
+  map_data <- filter(map_data, subregion == !!subregion)
+}
+map_data <- st_transform(map_data, 3857)
+
+  # Coordinates for label repel
+  coords <- st_coordinates(map_data)
+  
+  map_data_coords <- map_data |>
+    mutate(x = coords[, 1], y = coords[, 2])
+
+  # Bounding box + buffer
+  bbox <- st_bbox(map_data)
+  
+  buffer_meters <- 1000
+  
+  bbox_buffered_m <- c(xmin = bbox[1] - buffer_meters,
+                       ymin = bbox[2] - buffer_meters,
+                       xmax = bbox[3] + buffer_meters,
+                       ymax = bbox[4] + buffer_meters)
+  
+  class(bbox_buffered_m) <- "bbox"
+  
+  attr(bbox_buffered_m, "crs") <- st_crs(3857)
+
+  # Basemap
+  aoi <- basemap_ggplot(bbox_buffered_m,
+                        map_service = "esri",
+                        map_type = "world_imagery",
+                        map_res = 1)
+
+  # Compose title/subtitle
+  subtitle_text <- if (!is.null(subregion)) { 
+    paste(region, "|", subregion)} else {
+      region}
+
+  # Final plot
+  p <- aoi +
+    geom_sf(data = map_data, shape = 21, size = 4,
+            fill = "yellow", color = "black", stroke = 0.8, alpha = 0.85) +
+    annotation_scale(location = "bl", width_hint = 0.3,
+                     pad_x = unit(0.5, "cm"), pad_y = unit(0.5, "cm")) +
+    annotation_north_arrow(location = "tr", which_north = "true",
+                           pad_x = unit(0.2, "cm"), pad_y = unit(0.2, "cm"),
+                           style = north_arrow_fancy_orienteering) +
+    labs(title = "Underwater Survey Sites",
+         subtitle = subtitle_text,
+         x = NULL, y = NULL) +
+    scale_x_continuous(breaks = seq(-180, 180, by = 0.025), expand = c(0, 0)) +
+    scale_y_continuous(breaks = seq(-90, 90, by = 0.025), expand = c(0, 0)) +
+    theme_minimal(base_family = "lato") +
+    theme(plot.title = element_text(size = 16, face = "bold", hjust = 0),
+          plot.subtitle = element_text(size = 14, hjust = 0, color = "gray30"),
+          axis.text = element_text(size = 12, color = "gray30"),
+          panel.grid.major = element_line(color = "gray85", linewidth = 0.2),
+          plot.margin = margin(10, 10, 10, 10))
+  
+  # Save if needed
+  if (isTRUE(save)) {
+    if (is.null(path)) {
+      stop("Please provide a file path to save the plot.")
+    }
+    ggsave(path, plot = p, width = 10, height = 10, dpi = 300)
+  }
+  
+  return(p)
+}
+
+plot_uvs_sites_map(region = "Niue", subregion = NULL,
+                   save = TRUE, path = file.path(exp_path, "figures/site_maps/", "uvs_Niue.pdf"))
+```
+
+## 4. Summary and Export
+
+Of the `r nrow(uvs_sites)` sites, `r sum(uvs_sites$in_mpa, na.rm = TRUE)` are located within MPAs. Surveys covered `r length(unique(uvs_sites$habitat))` habitat types.
+
+```{r}
+#| label: tbl-uvs-sites-by-habitat
+#| tbl-cap: "Summary of UVS survey effort by region, exposure, and habitat."
+
+uvs_sites |> 
+  group_by(region, subregion, exposure) |>
+  summarize(n_surveys = n(),
+            .groups = "drop") |> 
+  pivot_wider(names_from = exposure, values_from = n_surveys, values_fill = 0) |> 
+  gt::gt(groupname_col = "leg") |> 
+  gt::tab_options(row_group.as_column = T,
+                  table.width = pct(80),
+                  table.font.size = 12,
+                  table.border.top.style = "solid",
+                  table.border.top.width = px(1),
+                  table.border.top.color = "black",
+                  heading.align = "center",
+                  column_labels.font.weight = "bold")
+```
+
+```{r eval = F}
+bq_table_upload(bq_table("pristine-seas", "uvs", "sites"),
+                values = uvs_sites,
+                create_disposition = "CREATE_NEVER",
+                write_disposition = "WRITE_APPEND")
+
+write_csv(uvs_sites, file.path(exp_path, "data/primary/output/uvs/",  paste0(exp_id,"_uvs_sites_clean.csv")))
+```
+

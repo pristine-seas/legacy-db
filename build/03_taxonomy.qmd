@@ -55,7 +55,7 @@ Each major taxonomic group is documented in a dedicated table:
 ``` text
 taxonomy/
 ├── fish    # Reef and pelagic fishes from UVS, BRUVS, etc
-├── nthos   # Sessile benthic taxa from LPI, recruits, photomosaics (e.g., corals, algae, sponges)
+├── benthos   # Sessile benthic taxa from LPI, recruits, photomosaics (e.g., corals, algae, sponges)
 ├── inverts # Sessile and mobile invertebrates
 ```
 

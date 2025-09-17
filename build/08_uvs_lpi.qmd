@@ -262,7 +262,7 @@ lpi_cover_by_taxa_fields <- tribble(
 
   # Station Characteristics
   
-  "divers",               "STRING",  TRUE,      "Comma-separated names of divers who conducted the transects.",
+  "diver",               "STRING",  TRUE,      "Name of the diver responsible for the observation.",
   "depth_strata",        "STRING",  TRUE,      "Depth bin label: `supershallow`, `shallow`, or `deep`.",
   "depth_m",             "FLOAT",   TRUE,      "Mean depth (m) of the station.",
   

@@ -1,0 +1,665 @@
+---
+title: "Benthos Taxa"
+format: 
+  html:
+    theme: lux
+    self-contained: true
+    code-fold: true
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+    number-sections: false
+    number-depth: 2
+---
+
+```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
+options(scipen = 999)
+
+library(PristineSeasR)
+library(bigrquery)
+library(gt)
+library(gtExtras)
+library(tibble)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(lubridate)
+library(future)
+library(furrr)
+library(janitor)
+library(worrms)
+library(ggthemr)
+
+ggthemr("fresh", layout = "clear")
+
+knitr::opts_chunk$set(eval = F, warning = F, message = F, include = F, echo = F)
+
+ps_paths <- PristineSeasR2::get_drive_paths()
+
+prj_path <- file.path(ps_paths$projects, "legacy-db")
+
+ps_data_path <- ps_paths$datasets
+  
+bigrquery::bq_auth(email = "marine.data.science@ngs.org")
+
+project_id <- "pristine-seas"
+
+bq_connection <- DBI::dbConnect(bigrquery::bigquery(), 
+                                project = project_id)
+```
+
+The `taxonomy.benthos` table provides a standardized reference for all taxa observed during Line Point Intercept surveys and other shallow benthic protocols during Pristine Seas expeditions. It harmonizes scientific names, taxonomic hierarchy, and ecological traits to support robust analysis, reporting, and integration across survey methods.
+
+Each row corresponds to a unique accepted **AphiaID** from the World Register of Marine Species (WoRMS), and includes the scientific name, taxonomic ranks, common names, functional group and others. 
+
+This table supports three core functions:
+
+  - ***Taxonomic resolution*** — reconciles field-recorded names with accepted nomenclature
+  - ***Trait-based analysis*** — enables grouping by functional group, habitat, and ecological traits (pending)
+  - ***Cross-dataset integration*** — provides a consistent key (`accepted_aphia_id`) to link observations, field codes, and traits
+
+------------------------------------------------------------------------
+
+## Data Sources
+
+The table integrates multiple curated sources to ensure taxonomic consistency and trait completeness:
+
+- **Pristine Seas Field Records**  
+  Derived from diver-entered observations, fieldbooks, and expedition species lists across UVS. These are reconciled with accepted WoRMS entries.
+
+- **World Register of Marine Species (WoRMS)**  
+  Used as the taxonomic backbone. Each taxon is linked to an accepted AphiaID, with full lineage (kingdom to species) and synonym resolution.
+
+- **Literature and Expert Knowledge**  
+  Supplements functional group assignments, and ecological notes from peer-reviewed sources and expert consultation.
+
+Together, these sources provide a robust, reproducible foundation for ecological analysis.
+
+```{r}
+plw_lpi_taxa <- readxl::read_xlsx(file.path(ps_paths$expeditions, "PLW-2024", "data/primary/raw/benthos/PLW_2024_lpi_fieldsheet_Quim_final.xlsx"),
+                          sheet         = "transects",
+                          range         = "B7:B128",
+                          col_names     = FALSE,
+                          .name_repair  = "minimal") |> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon))
+
+plw_coral_taxa <- readxl::read_xlsx(file.path(ps_paths$expeditions, "PLW-2024","data/primary/raw/benthos/PLW_2024_lpi_fieldsheet_Eve_25Feb_Preliminary.xlsx"),,
+                                sheet         = "transects",
+                                range         = "A6:A91",
+                                col_names     = FALSE,
+                                .name_repair  = "minimal") |> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon)) 
+
+png_lpi_taxa_QG <- readxl::read_xlsx(file.path(ps_paths$expeditions, "PNG-2024", "data/primary/raw/benthos/PNG_2024_lpi_fieldsheet_Quim.xlsx"),
+                                     sheet = "transects",
+                                     range = "G8:G317",
+                                     col_names     = FALSE,
+                                .name_repair  = "minimal") |> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon))
+
+png_lpi_taxa_EM <- readxl::read_xlsx(file.path(ps_paths$expeditions, "PNG-2024", "data/primary/raw/benthos/PNG_2024_lpi_fieldsheet_Emma.xlsx"),
+                                     sheet = "transects",
+                                     range = "D8:D352",
+                                     col_names     = FALSE,
+                                .name_repair  = "minimal") |> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon))
+
+png_coral_taxa_leg1 <- readxl::read_xlsx(path = file.path(ps_paths$expeditions, "PNG-2024", "data/primary/raw/benthos/PS_PNG_Leg_1_AJKM_GENUS_FINAL.xlsx")) |> 
+  janitor::clean_names() |> 
+  distinct(genus) |> 
+  rename(morphotaxon = genus)
+  
+png_coral_taxa_leg2 <- readxl::read_xlsx(path = file.path(ps_paths$expeditions, "PNG-2024", "data/primary/raw/benthos/PS_PNG_Leg_2_AJKM_Coral_Long_FINAL_1.xlsx")) |>
+  janitor::clean_names() |> 
+  distinct(species) |> 
+  rename(morphotaxon = species)
+
+slb_lpi_KB <-  readxl::read_xlsx(path = file.path(ps_paths$expeditions, "SLB-2024", "data/primary/raw/benthos/SLB_2024_lpi_fieldbook_Kike.xlsx"),
+                                 sheet = "transects",
+                                 range = "A7:A145",
+                                 col_names     = FALSE) |> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon))
+
+slb_lpi_MT <- readxl::read_xlsx(path = file.path(ps_paths$expeditions, "SLB-2024", "data/primary/raw/benthos/SLB_2024_lpi_fieldbook_Molly.xlsx"),
+                                sheet = "transects",
+                                range = "B7:B85",
+                                col_names = FALSE)|> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon))
+
+slb_coral_EB <- readxl::read_xlsx(path = file.path(ps_paths$expeditions, "SLB-2024", "data/primary/raw/benthos/SLB_2024_lpi_fieldbook_Eric.xlsx"),
+                                  sheet = "transects",
+                                  range = "B9:B314",
+                                  col_names = FALSE)|> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon))
+
+
+niu_lpi <- readxl::read_xlsx(path = file.path(ps_paths$expeditions, "NIU-2023", "data/primary/raw/benthos/NIUE_2023_Transsects-rough.xlsx"),
+                                  range = "C5:C46",
+                                  col_names = FALSE)|> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon))
+
+niu_corals <- readxl::read_xlsx(path = file.path(ps_paths$expeditions, "NIU-2023", "data/primary/raw/benthos/Niue_2023_Corals.xlsx"),
+                                  range = "A5:A66",
+                                  col_names = FALSE)|> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon))
+
+rmi_lpi <- readxl::read_xlsx(path = file.path(ps_paths$expeditions, "RMI-2023", "data/primary/raw/benthos/MARSHALLS_Transsects-rough_kike.xlsx"),
+                                  range = "C5:C85",
+                                  col_names = FALSE)|> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon))
+
+rmi_corals <- readxl::read_xlsx(path = file.path(ps_paths$expeditions, "RMI-2023", "data/primary/raw/benthos/RMI_Coral_Data.xlsx"),
+                                  range = "A6:A59",
+                                  col_names = FALSE)|> 
+  set_names("morphotaxon") |>
+  filter(!is.na(morphotaxon))
+
+benthos_taxa <- bind_rows(slb_coral_EB, slb_lpi_MT, slb_lpi_KB,
+                          png_coral_taxa_leg2, png_coral_taxa_leg1, png_lpi_taxa_EM, png_lpi_taxa_QG,
+                          plw_coral_taxa, plw_lpi_taxa,
+                          niu_lpi, niu_corals,
+                          rmi_lpi, rmi_corals) |> 
+  mutate(morphotaxon = str_squish(morphotaxon)) |> 
+  distinct(morphotaxon)
+```
+
+```{r}
+to_rm <- c("Hard coral","Hard coral - bleached", "Hard coral - dead", "No coral", "EAM - Epilithic Algal Matrix", "EAM (epilithic algal matrix)", "Sand", "Sediment", "Turf",
+           "Unknown scleractinian", "Coral rubble")
+
+benthos_taxa <- benthos_taxa |> 
+  filter(!morphotaxon %in% to_rm, !str_detect(morphotaxon, "Barren|barren")) |> 
+  mutate(morphotaxon = str_replace(morphotaxon, "Lobophyton", "Lobophytum"),
+         morphotaxon = str_replace(morphotaxon, "Lendenfeldeldia", "Lendenfeldia"),
+         morphotaxon = str_replace(morphotaxon, "Lynbya", "Lyngbya"),
+         morphotaxon = str_replace(morphotaxon, "Dendronephyta", "Dendronephthya"),
+         morphotaxon = str_replace(morphotaxon, "Scleronephyta", "Scleronephthya"),
+         morphotaxon = str_replace(morphotaxon, "Cymbastella", "Cymbastela"),
+         morphotaxon = str_replace(morphotaxon, "Halyclonia", "Haliclona"),
+         morphotaxon = str_replace(morphotaxon, "Asteriospicularia", "Asterospicularia") ,
+         morphotaxon = str_replace(morphotaxon, "Coalocarteria", "Coelocarteria") ,
+         morphotaxon = str_replace(morphotaxon, "Anthipathes", "Antipathes"),
+         morphotaxon = str_replace(morphotaxon, "Elisella", "Ellisella"),
+         morphotaxon = str_replace(morphotaxon, "hutschyanum", "kotschnyanum"),
+         morphotaxon = str_replace(morphotaxon, "Microcinidae", "Microcionidae"),
+         morphotaxon = str_replace(morphotaxon, "Darwillenidae", "Darwinellidae"),
+         morphotaxon = str_replace(morphotaxon, "gemmacaea", "gemmacea"),
+         morphotaxon = str_replace(morphotaxon, "acuelata", "aculeata"),
+         morphotaxon = str_replace(morphotaxon, "Sandolitha", "Sandalolitha"),
+         morphotaxon = str_replace(morphotaxon, "elephatotus", "elephantotus"),
+         morphotaxon = str_replace(morphotaxon, "hirsutissma", "hirsutissima"),
+         morphotaxon = str_replace(morphotaxon, "chaldicum|chalcidium", "chalcidicum"),
+         morphotaxon = str_replace(morphotaxon, "transvera", "transversa"),
+         morphotaxon = str_replace(morphotaxon, "amata", "ammata"),
+         morphotaxon = str_replace(morphotaxon, "moniasteriata", "monasteriata"),
+         morphotaxon = str_replace(morphotaxon, "nassuta", "nasuta"),
+         morphotaxon = str_replace(morphotaxon, "urvilliana", "urvilleana"),
+         morphotaxon = str_replace(morphotaxon, "Milipora", "Millepora"),
+         morphotaxon = str_replace(morphotaxon, "Distichophora", "Distichopora"),
+         morphotaxon = str_replace(morphotaxon, "Euphillia", "Euphyllia"),
+         morphotaxon = str_replace(morphotaxon, "Pectinita", "Pectinia"),
+         morphotaxon = str_replace(morphotaxon, "Gibbsmithia", "Gibsmithia"),
+         morphotaxon = str_replace(morphotaxon, "bikiniensis", "bikinensis"),
+         morphotaxon = str_replace(morphotaxon, "gambieriensis", "gambierensis"),
+         morphotaxon = str_replace(morphotaxon, "turgensis", "turtlensis"),
+         morphotaxon = str_replace(morphotaxon, "edyouxi", "eydouxi"),
+         morphotaxon = str_replace(morphotaxon, "kuroshiro", "kuroshio"))
+
+benthos_taxa$morphotaxon[benthos_taxa$morphotaxon == "Favia matthai"] <- "Favia matthaii"
+benthos_taxa$morphotaxon[benthos_taxa$morphotaxon == "Clavelina zobustra"] <- "Clavelina robusta"
+benthos_taxa$morphotaxon[benthos_taxa$morphotaxon == "Porites tuberculosa"] <- "Porites tuberculosus"
+benthos_taxa$morphotaxon[benthos_taxa$morphotaxon == "Seriatopora dentrica"] <- "Seriatopora dendritica"
+benthos_taxa$morphotaxon[benthos_taxa$morphotaxon == "Favia spinosa"] <- "Favites spinosa"
+
+benthos_taxa <- benthos_taxa |> 
+  mutate(taxon_clean = morphotaxon |>
+           str_remove(regex("\\blike.*", ignore_case = TRUE)) |>          # remove "like..." and everything after
+           str_remove(regex("\\bsp(p)?\\.?\\b.*", ignore_case = TRUE)) |> # remove "sp.", "spp.", etc.
+           str_remove(regex("\\bcf\\.|\\bc\\.f\\.|aff\\.", ignore_case = TRUE)) |>    # remove "cf.", "c.f.", "aff."
+           str_remove(regex("-.*")) |>                                    # remove everything after a dash
+           str_remove_all("\\([^)]*\\)") |>                               # remove everything inside parentheses
+           str_remove_all("[\\?\\(\\)]") |>                               # remove question marks
+           str_remove_all('\\"[^\\"]*\\"') |>                             # remove everything inside double quotes
+           str_remove_all("\\*") |>                                       # remove asterisks
+           str_squish() |> 
+           str_to_sentence()) |> 
+  mutate(taxon_clean = case_when(str_detect(morphotaxon, "CCA") ~ "Corallinales",
+                                 morphotaxon %in% c("Red algae non identified", "Red encrusting alga non identified")          ~ "Rhodophyta",
+                                 morphotaxon == "Chlorophyta non identified"                                                   ~ "Chlorophyta",
+                                 morphotaxon == "Phaeophyceae non identified"                                                  ~ "Phaeophyceae",
+                                 morphotaxon == "Aplysinidae unidentified"                                                     ~ "Aplysinidae",
+                                 morphotaxon == "Filamentous cyanobacteria"                                                    ~ "Cyanophyceae",
+                                 morphotaxon == "Lobophora + Peysonella"                                                       ~ "Lobophora",
+                                 str_detect(morphotaxon, "Massive sponge|Sponge massive|massive sponge|sponge non identified") ~ "Porifera",
+                                 morphotaxon %in% c("Hidrarian", "Hidraria unidentified"  )                                    ~ "Hydrozoa",
+                                 morphotaxon == "Anemone unidentified"                                                         ~ "Actiniaria",
+                                 morphotaxon %in% c("Soft coral unidentified", "Gorgonian non identified")                     ~ "Octocorallia",
+                                 morphotaxon == "Halimeda mitja"                                                               ~ "Halimeda",
+                                 morphotaxon == "Halimeda taenicola mini"                                                      ~ "Halimeda taenicola",
+                                 morphotaxon == "Lyngbya + Halimeda"                                                           ~ "Lyngbya",
+                                 str_detect(morphotaxon, "Didemnidae|Didemnid")                                                ~ "Didemnum",
+                                 morphotaxon == "Ecionemia acervus (ex Suberea sp.)"                                           ~ "Ecionemia acervus",
+                                 morphotaxon == "Scleronephthya/Stereophthya?"                                                 ~ "Nephtheidae",
+                                 morphotaxon == "Dipsastraea russelli"                                                         ~ "Paragoniastrea russelli",
+                                 morphotaxon == "Acropora staghorn"                                                            ~ "Acropora",
+                                 morphotaxon == "Crinoidea n.i."                                                               ~ "Crinoidea",
+                                 morphotaxon == "Nudibranchia n.i"                                                             ~ "Nudibranchia",
+                                 morphotaxon == "Turbinaria rectiformis"                                                       ~ "Turbinaria reniformis",
+                                 morphotaxon == "Turbinaria stellata"                                                          ~ "Turbinaria stellulata",
+                                 taxon_clean == "Clathria/dysidea"                                                             ~ "Clathria",
+                                 str_detect(taxon_clean, "sponge")                                                             ~ "Porifera",
+                                 taxon_clean == "Haliclona osiris"                                                             ~ "Haliclona (Reniera) osiris",
+                                 taxon_clean == "Caulerpa chemnitzia varietat turbinata"                                       ~ "Caulerpa chemnitzia var. turbinata",
+                                 taxon_clean == "Caulerpa filicoides andamanensis"                                             ~ "Caulerpa filicoides var. andamanensis",
+                                 taxon_clean == "Porites lobata/australiensis"                                                 ~ "Porites lobata",
+                                 taxon_clean == "Porolithon reinboldii massive"                                                ~ "Porolithon reinboldii",
+                                 TRUE ~ taxon_clean))
+
+taxa_changes <- benthos_taxa |> 
+  filter(taxon_clean != morphotaxon)
+
+benthos_taxa <- benthos_taxa |> 
+  distinct(taxon_clean)
+```
+
+------------------------------------------------------------------------
+
+## Structure
+
+### Taxonomy
+
+These fields define the accepted scientific identity and taxonomic lineage of each record (@tbl-lpi-taxonomy-schema). 
+
+All taxa are matched to an accepted **AphiaID** from WoRMS, ensuring global consistency and traceability. These fields enable spatial and ecological grouping, support taxonomic joins, and serve as the foundation for trait integration.
+
+```{r eval = T, include = T}
+#| label: tbl-lpi-taxonomy-schema
+#| tbl-cap: "Taxonomic lineage fields for benthic taxa in the Pristine Seas Database."
+
+core_taxonomy_schema <- tribble(
+  ~field,              ~type,     ~required, ~description,
+  "taxon_name",        "STRING",  TRUE,      "Original name associated with field observations.",
+  "aphia_id",          "INTEGER", TRUE,      "WoRMS AphiaID corresponding to the input taxon name.",
+  "rank",              "STRING",  TRUE,      "Taxonomic rank of the record (`species`, `genus`, or `family`).",
+  "status",            "STRING",  TRUE,      "Taxonomic status according to WoRMS.",
+  "accepted_name",     "STRING",  TRUE,      "Valid scientific name (Genus species), standardized using WoRMS.",
+  "accepted_aphia_id", "INTEGER", TRUE,      "Unique WoRMS identifier for the accepted name.",
+  "genus",             "STRING",  FALSE,     "Genus of the accepted name.",
+  "family",            "STRING",  FALSE,     "Family of the accepted name.",
+  "order",             "STRING",  FALSE,     "Order of the accepted name.",
+  "class",             "STRING",  TRUE,      "Class of the accepted name.",
+  "phylum",            "STRING",  TRUE,      "Phylum of the accepted name.",
+  "kingdom",           "STRING",  TRUE,      "Kingdom of the accepted name."
+)
+
+core_taxonomy_schema |> 
+  gt() |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+```{r}
+# Get unique names
+
+clean_names <- na.omit(unique(benthos_taxa$taxon_clean))
+
+# Batch names into groups of 100
+
+batches <- split(clean_names, 
+                 ceiling(seq_along(clean_names) / 100))
+
+# Run WoRMS queries over each batch
+
+worms_records <- purrr::map_dfr(batches, 
+                            ~worrms::wm_records_names(.x)) |> 
+  select(taxon_clean = scientificname, aphia_id = AphiaID, rank, 
+         name_status = status, accepted_name = valid_name, accepted_aphia_id = valid_AphiaID)
+
+# Deduplicate 
+
+dupes <- worms_records |> 
+  get_dupes(taxon_clean)
+
+deduped <- dupes |> 
+  filter(!accepted_aphia_id %in% c(206630, 426070, 115400)) |> 
+  filter(name_status == "accepted" | accepted_aphia_id == 166600) |> 
+  select(-dupe_count) |> 
+  distinct()
+
+worms_records <- worms_records |> 
+  anti_join(dupes) |> 
+  bind_rows(deduped) |> 
+  select(taxon_clean, aphia_id, rank, name_status, accepted_name, accepted_aphia_id) |> 
+  distinct()
+
+benthos_taxa <- benthos_taxa |> 
+  left_join(worms_records) 
+
+benthos_taxa$rank[benthos_taxa$taxon_clean == "Isopora cylindrica"] <- "species"
+benthos_taxa$accepted_name[benthos_taxa$taxon_clean == "Isopora cylindrica"] <- "Isopora cylindrica"
+
+benthos_taxa |>
+  filter(is.na(accepted_aphia_id))
+```
+
+```{r}
+get_taxonomic_ranks <- function(id) {
+  tryCatch(
+    {worrms::wm_classification(id) |>
+        select(rank, scientificname) |>
+        pivot_wider(names_from = rank, values_from = scientificname) |>
+        mutate(accepted_aphia_id = id)},
+    error = function(e) {
+      tibble(accepted_aphia_id = id)
+    })
+  }
+
+taxonomy_ranks <- future_map_dfr(benthos_taxa$accepted_aphia_id,
+                                 get_taxonomic_ranks,
+                                 .options = furrr_options(seed = TRUE)) |>
+  clean_names() |>
+  select(accepted_aphia_id, kingdom, phylum, class, order, family, genus)
+
+benthos_taxa <- benthos_taxa |> 
+  left_join(distinct(taxonomy_ranks), 
+            by = "accepted_aphia_id")
+
+benthos_taxa$phylum[benthos_taxa$class == "Ulvophyceae"] <- "Chlorophyta"
+benthos_taxa$phylum[benthos_taxa$class == "Florideophyceae"] <- "Rhodophyta"
+benthos_taxa$phylum[benthos_taxa$accepted_aphia_id == "801"] <- "Chlorophyta"
+benthos_taxa$phylum[benthos_taxa$accepted_aphia_id == "852"] <- "Rhodophyta"
+benthos_taxa$kingdom[benthos_taxa$taxon_clean == "Isopora cylindrica"] <- "Animalia"
+benthos_taxa$phylum[benthos_taxa$taxon_clean == "Isopora cylindrica"]  <- "Cnidaria"
+benthos_taxa$class[benthos_taxa$taxon_clean == "Isopora cylindrica"]   <- "Hexacorallia"
+benthos_taxa$order[benthos_taxa$taxon_clean == "Isopora cylindrica"]   <- "Scleractinia"
+benthos_taxa$family[benthos_taxa$taxon_clean == "Isopora cylindrica"]  <- "Acroporidae"
+benthos_taxa$genus[benthos_taxa$taxon_clean == "Isopora cylindrica"]   <- "Isopora"
+
+benthos_taxa |> 
+  filter(is.na(class))
+
+benthos_taxa |> 
+  get_dupes(accepted_aphia_id)
+
+benthos_taxa |> 
+  filter(name_status != "accepted") |> 
+  count(name_status)
+```
+
+### Functional groups
+
+We classify benthic organisms recorded in our surveys into functional groups, reflecting their ecological roles and growth forms. This system allows for consistent summaries of benthic cover and comparisons across sites.
+
+- `functional_group`  
+  Broad ecological category assigned based on expert knowledge of morphology, life history, and functional traits. One of:
+
+  - `hard_coral`: Living scleractinian corals forming reef framework and colonies.
+  - `cca` : Crustose coralline algae (Corallinales, Sporolithales, Hapalidiaceae); calcified red algae that form rigid crusts and contribute to reef cementation
+  - `cyanobacteria`: Cyanobacterial mats and films, often opportunistic and associated with nutrient enrichment
+  - `soft_coral`: Octocorals including sea fans, sea whips, and fleshy soft corals; provide structural habitat but do not build reef framework.
+  - `sponges`: Poriferan colonies and structures; important in bioerosion, nutrient cycling, and benthic–pelagic coupling.
+  - `algae_erect`: Erect or foliose macroalgae (greens, browns, and reds) including siphonous greens (Caulerpa, Halimeda), fleshy browns (Dictyota, Sargassum), and blade-forming reds (Laurencia, Schizymenia).
+  - `algae_encrusting`: Non-coralline encrusting algae such as Peyssonnelia, Ralfsiaceae, and encrusting Lobophora; form thin crusts over substrate without significant vertical relief.
+  - `turf`: Low-growing mats (<1–2 cm) of filamentous and juvenile algae, often mixed with cyanobacteria, diatoms, and detritus; functionally distinct from erect macroalgae.
+  - `eam`: Endolithic algal matrix: microalgae and boring forms living within carbonate substrate, often visible as green or red bands in eroded coral skeletons.
+  - `sediment|rubble|barren`: Non-living substrate categories including unconsolidated sand or silt, loose rubble, and bare rock with little or no biological cover.
+  - `other`: All other benthic invertebrates not captured above (e.g., non-scleractinian cnidarians, hydrozoans, ascidians, bryozoans, echinoderms, molluscs, annelids, foraminifera)
+
+```{r eval = T, include = T}
+#| label: tbl-lpi-functional-schema
+#| tbl-cap: "Schema for functional traits in `taxonomy.benthos`."
+
+functional_group_schema <- tribble(
+  ~field,            ~type,    ~required, ~description,
+  "functional_group",    "STRING", FALSE,     "Primary functional group ('hard_coral', 'cca', 'cyanobacteria', 'soft_coral', 'algae_erect', etc) ")
+
+gt(functional_group_schema) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+```{r}
+# helpers
+cca_orders      <- c("Corallinales","Sporolithales")
+cca_families    <- c("Hapalidiaceae")
+
+# erect macroalgae (siphonous greens + fleshy reds/browns)
+erect_families  <- c("Halimedaceae","Udoteaceae","Dasycladaceae","Caulerpaceae","Valoniaceae",
+                     "Siphonocladaceae","Bryopsidaceae","Boodleaceae","Codiaceae","Anadyomenaceae",
+                     "Dictyotaceae","Padinaceae","Lobophoraceae","Galaxauraceae",
+                     "Rhodomelaceae","Schizymeniaceae","Cystocloniaceae","Gelidiaceae",
+                     "Dumontiaceae","Delesseriaceae","Halymeniaceae","Nemastomataceae",
+                     "Placentophoraceae","Rhizophyllidaceae","Lomentariaceae", "Dichotomosiphonaceae")
+
+# encrusting non-CCA reds
+encrusting_families <- c("Peyssonneliaceae","Ralfsiaceae")
+
+# apply
+
+benthos_taxa <- benthos_taxa %>%
+  mutate(functional_group = case_when(
+    # --- SPECIES & GENUS EXCEPTIONS (most specific first) ---
+    taxon_clean == "Gelidiella pannosa"                  ~ "turf",
+    taxon_clean == "Lobophora gambieriensis"             ~ "algae_encrusting",
+    taxon_clean == "Cladophoropsis luxurians"            ~ "algae_erect",
+    genus == "Chlorodesmis"                              ~ "algae_erect",     
+    
+    # --- FRAMEWORK CATEGORIES ---
+    order  == "Scleractinia"                             ~ "hard_coral",
+    order  %in% cca_orders | family %in% cca_families    ~ "cca",
+    family %in% encrusting_families                      ~ "algae_encrusting",
+    family %in% erect_families                           ~ "algae_erect",
+    class  == "Phaeophyceae"                             ~ "algae_erect",
+    class  == "Cyanophyceae"                             ~ "cyanobacteria",
+    
+    # --- INVERTS  ---
+    class  == "Octocorallia"                             ~ "soft_coral",
+    phylum == "Porifera"                                 ~ "sponges",
+    class  == "Hydrozoa"                                 ~ "hydrozoans",
+    class  == "Ascidiacea" | accepted_name == "Tunicata" ~ "ascidians",
+    phylum == "Bryozoa"                                  ~ "bryozoans",
+    phylum == "Echinodermata"                            ~ "echinoderms",
+    phylum == "Mollusca"                                 ~ "molluscs",
+    phylum == "Annelida"                                 ~ "worms",
+    phylum == "Foraminifera"                             ~ "forams",
+    phylum %in% c("Chlorophyta", "Rhodophyta")           ~ "algae_erect",
+    order  %in% c("Zoantharia","Actiniaria","Antipatharia","Corallimorpharia") ~ "other_cnidarians",
+    
+    # --- FALLBACK ---
+    TRUE ~ "unknown"
+  )) 
+
+benthos_taxa |> 
+  count(functional_group, sort = T)
+```
+
+### Conservation Status (IUCN)
+
+The `taxonomy.benthos` table includes fields derived from the IUCN Red List to support biodiversity assessments and conservation planning. Each species is matched to its most recent listing (SIS ID) and assigned a standardized category (e.g., LC, NT, VU, EN, CR)
+
+```{r}
+iucn_schema <- tribble(
+  ~field,        ~type,    ~required, ~description,
+  "iucn_cat",    "STRING",  FALSE,      "Global threat status from the IUCN Red List (e.g., 'Least Concern', 'Vulnerable', 'Endangered').",
+  "iucn_sis_id", "INTEGER", FALSE,      "Unique taxon ID in the IUCN Species Information System (SIS)."
+)
+
+iucn_db <- read_csv(file.path(ps_data_path, 
+                              "iucn-redlist-marine-species",  
+                              "joined_and_resolved_taxa.csv"))
+
+iucn_priority <- c("CR", "EN", "VU", "NT", "LC", "DD", "NE")
+
+iucn_clean <- iucn_db |> 
+  rename(accepted_name = taxon_valid_name) |> 
+  filter(accepted_name %in% benthos_taxa$accepted_name) |> 
+  distinct(accepted_name, iucn_redlist_cat, iucn_taxon_id) |> 
+  mutate(iucn_redlist_cat = case_when(str_detect(iucn_redlist_cat, "Critically Endangered") ~ "CR",
+                                      str_detect(iucn_redlist_cat, "Endangered") ~ "EN",
+                                      str_detect(iucn_redlist_cat, "Vulnerable") ~ "VU",
+                                      str_detect(iucn_redlist_cat, "Near Threatened") ~ "NT",
+                                      str_detect(iucn_redlist_cat, "Least Concern") ~ "LC",
+                                      str_detect(iucn_redlist_cat, "Data Deficient") ~ "DD",
+                                      str_detect(iucn_redlist_cat, "Extinct") ~ "EX",
+                                      str_detect(iucn_redlist_cat, "Lower Risk/least concern") ~ "LC",
+                                      str_detect(iucn_redlist_cat, "Lower Risk/near threatened") ~ "NT",
+                                      TRUE ~ NA_character_)) |> 
+  mutate(iucn_rank = match(iucn_redlist_cat, c("EX", iucn_priority))) |> 
+  group_by(accepted_name) |> 
+  arrange(iucn_rank) |> 
+  slice(1) |> 
+  ungroup() |> 
+  select(-iucn_rank) |> 
+  rename(iucn_cat = iucn_redlist_cat,
+         iucn_sis_id = iucn_taxon_id)
+
+benthos_taxa <- benthos_taxa |> 
+  left_join(iucn_clean) 
+
+benthos_taxa |> 
+  count(iucn_cat)
+```
+
+```{r}
+# Define complete schema
+lpi_taxa_schema <- bind_rows(
+  core_taxonomy_schema,
+  functional_group_schema,
+  iucn_schema
+)
+
+# Convert to BigQuery fields
+lpi_taxa_fields <- pmap(lpi_taxa_schema, 
+                       function(field, type, description, required) {
+                         bq_field(name = field, type = type, mode = if (required) "REQUIRED" else "NULLABLE", description = description)
+                         })
+
+# Create table
+bq_table_create(
+  bq_table("pristine-seas", "taxonomy", "benthos"),
+  fields = lpi_taxa_fields,
+  description = "Taxonomic and trait information for benthic species in the Pristine Seas database."
+)
+```
+
+```{r}
+benthos_taxa <- benthos_taxa |> 
+  rename(taxon_name = taxon_clean,
+         status = name_status) |> 
+  mutate(rank = str_to_lower(rank))
+
+bq_table_upload(bq_table("pristine-seas", "taxonomy", "benthos"),
+                values = benthos_taxa,
+                create_disposition = "CREATE_NEVER",
+                write_disposition = "WRITE_TRUNCATE")
+
+benthos_taxa |> 
+  arrange(taxon_name) |> 
+  write_csv(file.path(prj_path, "data/output/taxonomy.benthos.csv"))
+```
+
+## Summary
+
+```{r include = T, eval = T}
+benthos_taxa <-  read_csv(file.path(prj_path, "data/output/taxonomy.benthos.csv"))
+```
+
+Overall, the `taxonomy.benthos` table contains `r nrow(benthos_taxa)` entries, representing `r length(unique(benthos_taxa$accepted_name))` unique taxa across `r length(unique(benthos_taxa$family))` families (@fig-richness-treemap). The majority of records are hard corals, with `r length(unique(benthos_taxa$accepted_name[benthos_taxa$functional_group == "hard_coral"]))` taxa.
+
+```{r include = T, eval = T}
+#| label: fig-missingness
+#| fig-cap: "Missingness in the benthos taxonomy table"
+#| fig-width: 10
+#| fig-height: 7
+
+benthos_taxa |> 
+  arrange(family) |> 
+  visdat::vis_miss()
+```
+
+### By Functional Group
+
+```{r include = T, eval = T}
+#| label: fig-richness-treemap
+#| fig-cap: "Number of species by family and functional group"
+
+library(highcharter)
+
+lvl_opts <-  list(list(level = 1,
+                       borderWidth = 0,
+                       borderColor = "transparent",
+                       dataLabels = list(enabled = TRUE,
+                                         align = "left",
+                                         verticalAlign = "top",
+                                         style = list(fontSize = "12px", 
+                                                      textOutline = FALSE,
+                                                      color = "white",
+                                                      fontWeight = "normal"))),
+                  list(level = 2,
+                       borderWidth = 0,
+                       borderColor = "transparent",
+                       colorVariation = list(key = "brightness", to = 0.250),
+                       dataLabels = list(enabled = FALSE),
+                       style = list(fontSize = "9px",
+                                    textOutline = FALSE, 
+                                    color = "white", 
+                                    fontWeight = "normal")))
+
+
+hc_data <- benthos_taxa |> 
+  mutate(n = 1) |> 
+  mutate_if(is.numeric, round,2) |> 
+  data_to_hierarchical(c(functional_group, family), n)
+
+diversity_treemap <- hchart(hc_data,
+                            type = "treemap",
+                            allowDrillToNode = TRUE,
+                            levels = lvl_opts,
+                            tooltip = list(valueDecimals = FALSE)) |> 
+  hc_chart(style = list(fontFamily = "Times New Roman")) |> 
+  hc_title(text = "Number of species by family and functional group",
+           style = list(fontFamily = "Times New Roman")) |> 
+  hc_size(height = 500)
+
+diversity_treemap
+```
+
+
+
