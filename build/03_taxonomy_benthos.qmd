@@ -148,7 +148,7 @@ niu_lpi <- readxl::read_xlsx(path = file.path(ps_paths$expeditions, "NIU-2023", 
   filter(!is.na(morphotaxon))
 
 niu_corals <- readxl::read_xlsx(path = file.path(ps_paths$expeditions, "NIU-2023", "data/primary/raw/benthos/Niue_2023_Corals.xlsx"),
-                                  range = "A5:A66",
+                                  range = "A6:A67",
                                   col_names = FALSE)|> 
   set_names("morphotaxon") |>
   filter(!is.na(morphotaxon))
@@ -403,7 +403,7 @@ benthos_taxa |>
   filter(is.na(class))
 
 benthos_taxa |> 
-  get_dupes(accepted_aphia_id)
+  get_dupes(aphia_id)
 
 benthos_taxa |> 
   filter(name_status != "accepted") |> 
@@ -455,59 +455,52 @@ gt(functional_group_schema) |>
   gt_theme_nytimes()
 ```
 
+
 ```{r}
-# helpers
-cca_orders      <- c("Corallinales","Sporolithales")
-cca_families    <- c("Hapalidiaceae")
+# Mappings based on Kike's work
 
-# erect macroalgae (siphonous greens + fleshy reds/browns)
-erect_families  <- c("Halimedaceae","Udoteaceae","Dasycladaceae","Caulerpaceae","Valoniaceae",
-                     "Siphonocladaceae","Bryopsidaceae","Boodleaceae","Codiaceae","Anadyomenaceae",
-                     "Dictyotaceae","Padinaceae","Lobophoraceae","Galaxauraceae",
-                     "Rhodomelaceae","Schizymeniaceae","Cystocloniaceae","Gelidiaceae",
-                     "Dumontiaceae","Delesseriaceae","Halymeniaceae","Nemastomataceae",
-                     "Placentophoraceae","Rhizophyllidaceae","Lomentariaceae", "Dichotomosiphonaceae")
+turf_genera       <- c("Cladophoropsis", "Cladophora", "Dictyosphaeria", "Chlorodesmis", "Ceratodictyon", "Gelidium", "Millerella")
 
-# encrusting non-CCA reds
-encrusting_families <- c("Peyssonneliaceae","Ralfsiaceae")
+cca_genera        <- c("Pneophyllum", "Hydrolithon", "Porolithon", "Neogoniolithon", "Lithophyllum", "Sporolithon", "Lithothamnion", "Harveylithon", "Jania", "Mastophora")
 
-# apply
+cyano_genera      <- c("Lyngbya", "Symploca", "Symplocastrum", "Phormidium", "Schizothrix", "Caldora")
 
+other_order       <- c("Zoantharia","Actiniaria","Antipatharia","Corallimorpharia")
+
+encrusting_genera <- c("Lobophora", "Haematocelis", "Peyssonnelia", "Ralfsia")
+
+erect_genera      <- c("Caulerpa", "Halimeda", "Galaxaura", "Avrainvillea", "Valonia", "Udotea", "Rhipilia", "Microdictyon", "Tricleocarpa", "Halymenia", "Gibsmithia", "Tydemania",
+                       "Cheilosporum", "Portieria", "Callophycus", "Kraftalia", "Rhipidosiphon", "Actinotrichia", "Dichotomaria", "Schizymenia", "Titanophora", "Predaea", "Padina",
+                       "Amphiroa", "Neomeris", "Codium", "Bornetella", "Hypnea", "Dasya", "Bryopsis", "Dictyota", "Dictyopteris", "Laurencia")
+  
 benthos_taxa <- benthos_taxa %>%
-  mutate(functional_group = case_when(
-    # --- SPECIES & GENUS EXCEPTIONS (most specific first) ---
-    taxon_clean == "Gelidiella pannosa"                  ~ "turf",
-    taxon_clean == "Lobophora gambieriensis"             ~ "algae_encrusting",
-    taxon_clean == "Cladophoropsis luxurians"            ~ "algae_erect",
-    genus == "Chlorodesmis"                              ~ "algae_erect",     
-    
-    # --- FRAMEWORK CATEGORIES ---
-    order  == "Scleractinia"                             ~ "hard_coral",
-    order  %in% cca_orders | family %in% cca_families    ~ "cca",
-    family %in% encrusting_families                      ~ "algae_encrusting",
-    family %in% erect_families                           ~ "algae_erect",
-    class  == "Phaeophyceae"                             ~ "algae_erect",
-    class  == "Cyanophyceae"                             ~ "cyanobacteria",
-    
-    # --- INVERTS  ---
-    class  == "Octocorallia"                             ~ "soft_coral",
-    phylum == "Porifera"                                 ~ "sponges",
-    class  == "Hydrozoa"                                 ~ "hydrozoans",
-    class  == "Ascidiacea" | accepted_name == "Tunicata" ~ "ascidians",
-    phylum == "Bryozoa"                                  ~ "bryozoans",
-    phylum == "Echinodermata"                            ~ "echinoderms",
-    phylum == "Mollusca"                                 ~ "molluscs",
-    phylum == "Annelida"                                 ~ "worms",
-    phylum == "Foraminifera"                             ~ "forams",
-    phylum %in% c("Chlorophyta", "Rhodophyta")           ~ "algae_erect",
-    order  %in% c("Zoantharia","Actiniaria","Antipatharia","Corallimorpharia") ~ "other_cnidarians",
-    
-    # --- FALLBACK ---
-    TRUE ~ "unknown"
-  )) 
-
-benthos_taxa |> 
-  count(functional_group, sort = T)
+  mutate(functional_group = case_when(#Erect algae 
+                                      genus %in% erect_genera                              ~ "algae_erect",
+                                      #Encrusting algae 
+                                      genus %in% encrusting_genera                         ~ "algae_encrusting",
+                                      # CCA
+                                      genus %in% cca_genera                                ~ "cca",
+                                      # TURF
+                                      genus %in% turf_genera                               ~ "turf",
+                                      # Cyanobacteria
+                                      class  == "Cyanophyceae"                             ~ "cyanobacteria",
+                                      # Corals
+                                      order  == "Scleractinia"                             ~ "hard_coral",
+                                      class  == "Octocorallia"                             ~ "soft_coral",
+                                      # Inverts 
+                                      phylum == "Porifera"                                 ~ "sponges",
+                                      phylum == "Bryozoa"                                  ~ "bryozoans",
+                                      phylum == "Echinodermata"                            ~ "echinoderms",
+                                      phylum == "Mollusca"                                 ~ "molluscs",
+                                      phylum == "Annelida"                                 ~ "worms",
+                                      phylum == "Foraminifera"                             ~ "forams",
+                                      class  == "Hydrozoa"                                 ~ "hydrozoans",
+                                      class  == "Ascidiacea" | accepted_name == "Tunicata" ~ "ascidians",
+                                      order  %in% other_order                              ~ "other_cnidarians",
+                                      # Fillers
+                                      order  == "Corallinales"                             ~ "cca",
+                                      phylum %in% c("Chlorophyta", "Rhodophyta", "Ochrophyta")           ~ "algae_erect"
+                                      )) 
 ```
 
 ### Conservation Status (IUCN)
