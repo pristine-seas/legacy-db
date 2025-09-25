@@ -97,19 +97,20 @@ lpi_stations_fields <- tribble(
   "n_points",          "INTEGER", TRUE,      "Total number of points sampled across all transects",
   
   # Summary metrics
-  "total_morphotaxa",  "INTEGER", FALSE,     "Total unique morphotaxa observed",
-  "pct_coral",         "FLOAT",   FALSE,     "Percent of points classified as hard coral (Scleractinia)",
-  "pct_cca",           "FLOAT",   FALSE,     "Percent of points classified as crustose coralline algae (CCA)",
-  "pct_cyano",         "FLOAT",   FALSE,     "Percent of points classified as Cyanobacteria",
-  "pct_algae_encrust", "FLOAT",   FALSE,     "Percent of points classified as encrusting algae",
-  "pct_algae_erect",   "FLOAT",   FALSE,      "Percent of points classified as erect algae",
-  "pct_rubble",        "FLOAT",   FALSE,     "Percent of points classified as sediment, rubble, or barren",
-  "pct_soft_coral",    "FLOAT",   FALSE,     "Percent of points classified as soft coral",
-  "pct_sponges",       "FLOAT",   FALSE,     "Percent of points classified as sponges",
-  "pct_turf",          "FLOAT",   FALSE,     "Percent of points classified as Turf",
-  "pct_eam",           "FLOAT",   FALSE,       "Percent of points classified as Endolithic Algae Matix",
-  "pct_other",         "FLOAT",   FALSE,     "Percent of points classified as other (e.g., tunicates)",
-
+  "n_morphotaxa",      "INTEGER", FALSE,     "Total unique morphotaxa observed",
+  "pct_coral",         "FLOAT",   FALSE,     "% points classified as hard coral (Scleractinia)",
+  "pct_cca",           "FLOAT",   FALSE,     "% points classified as crustose coralline algae (CCA)",
+  "pct_cyano",         "FLOAT",   FALSE,     "% points classified as cyanobacteria",
+  "pct_algae_encrust", "FLOAT",   FALSE,     "% points classified as encrusting algae",
+  "pct_algae_erect",   "FLOAT",   FALSE,     "% points classified as erect algae",
+  "pct_turf",          "FLOAT",   FALSE,     "% points classified as turf",
+  "pct_rubble",        "FLOAT",   FALSE,     "% points classified as sediment, rubble, or barren",
+  "pct_soft_coral",    "FLOAT",   FALSE,     "% points classified as soft coral",
+  "pct_sponges",       "FLOAT",   FALSE,     "% points classified as sponges",
+  "pct_eam",           "FLOAT",   FALSE,     "% points classified as Endolithic Algae Matix",
+  "pct_seagrass",      "FLOAT",   FALSE,     "% points classified as seagrass",
+  "pct_kelp",          "FLOAT",   FALSE,     "% points classified as kelp",
+  "pct_other",         "FLOAT",   FALSE,     "% points classified as other (e.g., tunicates)",
   
   # Notes
   "notes",             "STRING",  FALSE,     "Field notes or QA comments"
