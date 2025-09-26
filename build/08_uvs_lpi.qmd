@@ -179,7 +179,7 @@ lpi_contacts_fields <- tribble(
 
   "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
   "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
-  "transect_label",     "STRING",  TRUE,     "Field-assigned transect label (A, B).",
+  "transect",          "STRING",  TRUE,      "Field-assigned transect label (A, B).",
   "transect_section",  "STRING",  TRUE,      "Transect section (0-10, 10-20, 20-30, 30-40, 40-50)",
 
   # Taxonomic identity

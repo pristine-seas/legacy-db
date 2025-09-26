@@ -93,13 +93,14 @@ inverts_stations_fields <- tribble(
   "depth_strata",      "STRING",  TRUE,      "Depth category: `supershallow`, `shallow`, or `deep`",
   
   # Survey effort
+  "n_transects",       "FLOAT",   TRUE,      "Number of transect done at the station",
   "survey_dist_m",     "FLOAT",   TRUE,      "Total distance surveyed (m)",
   "survey_area_m2",    "FLOAT",  TRUE,       "Total area surveyed (transect_length x belt_width).",
   
   # Summary metrics
-  "total_taxa",    "INTEGER", FALSE,   "Total number of unique invertebrate taxa observed at the station (on-transect only).",
-  "total_count",       "INTEGER", FALSE,   "Total number of invertebrates recorded.",
-  "density_m2",        "FLOAT",  FALSE,    "Mean density (individuals/m²).",
+  "n_morphotaxa",      "INTEGER", FALSE,   "Total number of unique invertebrate morphotaxa observed at the station (on-transect only).",
+  "count",             "INTEGER", FALSE,   "Mean number of invertebrates recorded across transects",
+  "density_m2",        "FLOAT",  FALSE,    "Mean density of invertebrates recorded across transects (individuals/m²).",
   
   # Notes
   "notes",             "STRING",  FALSE,     "Field notes or QA comments"
@@ -162,9 +163,9 @@ inverts_obs_fields <- tribble(
   "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
 
   "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
-  "station_label",     "STRING",  TRUE,      "Field-assigned station label (A, B).",
   "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
-  "in_transect",       "BOOLEAN", TRUE,      "TRUE if observation was made within the standard 1-m or 4-m survey band; FALSE if incidental or off-transect.",
+  "transect",          "STRING",  TRUE,      "Field-assigned transect label (A, B, OFF).",
+  "transect_length_m", "FLOAT",   TRUE,      "Length of the transect - typically 50m for general surveys",
   "transect_width_m",  "FLOAT",   TRUE,      "Width of the transect band (m) — typically 1 for general surveys, 4 for large-scale surveys.",
 
   # Taxonomic identity
@@ -174,7 +175,6 @@ inverts_obs_fields <- tribble(
   "rank",              "STRING",  TRUE,     "Taxonomic rank of the record (`species`, `genus`, or `family`).",
   "family",            "STRING",  TRUE,     "Family of the observed taxon (from `taxonomy.inverts`).",
   "common_name",       "STRING",  FALSE,      "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins).",
-  "functional_group",  "STRING",  FALSE,      "Functional group classification",
 
   # Observation details
   "count",             "INTEGER", TRUE,      "Number of individuals observed for this taxa",
@@ -259,19 +259,16 @@ density_by_taxa_fields <- tribble(
   
   # Taxa info
   "morphotaxon",       "STRING",  TRUE,   "Diver-entered morphotaxon",
-  "accepted_name",     "STRING",  TRUE,  "Scientific name (`Genus species`) of the observed taxon.",
-  "accepted_aphia_id", "INTEGER", TRUE,  "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
-  "rank",              "STRING",  TRUE,  "Taxonomic rank of the record (`species`, `genus`, or `family`).",
-  "family",            "STRING",  TRUE,  "Family of the observed taxon (from `taxonomy.inverts`).",
-  "common_name",       "STRING",  FALSE,      "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins).",
-  "functional_group",  "STRING",  FALSE,   "Functional group classification",
-  
+  "accepted_name",     "STRING",  TRUE,   "Scientific name (`Genus species`) of the observed taxon.",
+  "accepted_aphia_id", "INTEGER", TRUE,   "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
+  "rank",              "STRING",  TRUE,   "Taxonomic rank of the record (`species`, `genus`, or `family`).",
+  "family",            "STRING",  TRUE,   "Family of the observed taxon (from `taxonomy.inverts`).",
+  "common_name",       "STRING",  FALSE,  "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins).",
+
   # Aggregated metrics
-  "total_count",       "INTEGER", TRUE,  "Total number of individuals observed at the station.",
-  "density_m2",        "FLOAT",   TRUE,  "Mean density (individuals/m²), standardized by band width and transect length.",
-  "avg_size_cm",       "FLOAT",   FALSE,  "Weighted mean length (cm), if applicable.",
-  "min_size_cm",       "FLOAT",   FALSE,  "Minimum length (cm) observed at the station.",
-  "max_size_cm",       "FLOAT",   FALSE,  "Maximum length (cm) observed at the station."
+  "count",             "INTEGER", TRUE,   "Mean number of individuals observed across transects at the station.",
+  "density_m2",        "FLOAT",   TRUE,   "Mean density (individuals/m²), standardized by band width and transect length.",
+  "avg_size_cm",       "FLOAT",   FALSE,  "Weighted mean length (cm), if applicable."
 )
 
 gt(density_by_taxa_fields) |>
