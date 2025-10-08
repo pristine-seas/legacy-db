@@ -184,6 +184,8 @@ blt_obs_fields <- tribble(
   "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
   "station_label",     "STRING",  TRUE,      "Field-assigned relative stratum label (e.g., `shallow`, `deep`).",
   "transect",          "STRING",  TRUE,      "Transect label: `A`, `B`, or `C`; `OFF` for observations outside standard transects.",
+  "transect_length_m", "STRING",  TRUE,      "Transect length (usually 25m)",
+  "transect_width_m",  "STRING",  TRUE,      "Transect width (usually 4m for fish >=20cm, and 2m for fish <20cm",
 
   # Taxonomic identity
   "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`) of the observed taxon.",

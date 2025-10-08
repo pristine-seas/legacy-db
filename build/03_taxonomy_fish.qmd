@@ -70,8 +70,11 @@ The table integrates multiple curated sources to ensure taxonomic consistency an
 - **Pristine Seas Field Records**  
   Derived from diver-entered codes, fieldbooks, and expedition species lists across UVS, BRUVS, and other survey methods. These are reconciled with accepted WoRMS entries.
 
-- **Akiona et al.**  
+- **Akiona et al., 2025**  
   A curated dataset of Pacific reef fishes, their length–weight parameters, and trophic classification, developed by researchers at Scripps Institution of Oceanography. This dataset provides key life history traits (e.g., maximum length, *a* and *b* coefficients) and has been manually corrected and standardized for integration.
+  
+- **Parravicini et al., 2020**
+  A global gut content data synthesis leveraging machine learning to delineate trophic guilds of tropical reef fish. 
 
 - **World Register of Marine Species (WoRMS)**  
   Used as the taxonomic backbone. Each taxon is linked to an accepted AphiaID, with full lineage (kingdom to species) and synonym resolution.
@@ -95,18 +98,16 @@ All taxa are matched to an accepted **AphiaID** from WoRMS, ensuring global cons
 #| label: tbl-taxonomy-schema
 #| tbl-cap: "Taxonomic lineage fields for fish taxa in the Pristine Seas Database."
 
-core_taxonomy_schema <- tribble(
-  ~field,              ~type,     ~required, ~description,
-  "accepted_name",     "STRING",  TRUE,      "Valid scientific name (Genus species), standardized using WoRMS.",
-  "accepted_aphia_id", "INTEGER", TRUE,      "Unique WoRMS identifier for the accepted name.",
-  "rank",              "STRING",  TRUE,      "Taxonomic rank of the record (`species`, `genus`, or `family`).",
-  "genus",             "STRING",  FALSE,      "Genus of the accepted name.",
-  "family",            "STRING",  FALSE,      "Family of the accepted name.",
-  "order",             "STRING",  FALSE,      "Order of the accepted name.",
-  "class",             "STRING",  TRUE,      "Class of the accepted name.",
-  "phylum",            "STRING",  TRUE,      "Phylum of the accepted name.",
-  "kingdom",           "STRING",  TRUE,      "Kingdom of the accepted name."
-)
+core_taxonomy_schema <- tribble(~field,              ~type,     ~required, ~description,
+                                "accepted_name",     "STRING",  TRUE,      "Valid scientific name (Genus species), standardized using WoRMS.",
+                                "accepted_aphia_id", "INTEGER", TRUE,      "Unique WoRMS identifier for the accepted name.",
+                                "rank",              "STRING",  TRUE,      "Taxonomic rank of the record (`species`, `genus`, or `family`).",
+                                "genus",             "STRING",  FALSE,     "Genus of the accepted name.",
+                                "family",            "STRING",  FALSE,     "Family of the accepted name.",
+                                "order",             "STRING",  FALSE,     "Order of the accepted name.",
+                                "class",             "STRING",  TRUE,      "Class of the accepted name.",
+                                "phylum",            "STRING",  TRUE,      "Phylum of the accepted name.",
+                                "kingdom",           "STRING",  TRUE,      "Kingdom of the accepted name.")
 
 core_taxonomy_schema |> 
   gt() |>
@@ -135,11 +136,11 @@ get_taxonomic_ranks <- function(id) {
     {worrms::wm_classification(id) |>
         select(rank, scientificname) |>
         pivot_wider(names_from = rank, values_from = scientificname) |>
-        mutate(accepted_aphia_id = id)},
+        mutate(accepted_aphia_id = id)
+      },
     error = function(e) {
       tibble(accepted_aphia_id = id)
-    })
-  }
+    })}
 
 taxonomy_ranks <- future_map_dfr(fish_taxa$accepted_aphia_id,
                                  get_taxonomic_ranks,
@@ -149,6 +150,9 @@ taxonomy_ranks <- future_map_dfr(fish_taxa$accepted_aphia_id,
 
 fish_taxa <- fish_taxa |> 
   left_join(distinct(taxonomy_ranks), by = "accepted_aphia_id")
+
+write_csv(fish_taxa, 
+          file.path(prj_path, "data/processed/taxonomy_fish_staging.csv"))
 ```
 
 ### Common Names
@@ -159,11 +163,9 @@ Each record includes species and family level common names to support communicat
 #| label: tbl-common-names-schema
 #| tbl-cap: "Common names fields for fish taxa in the Pristine Seas Database."
 
-common_name_schema <- tribble(
-  ~field,           ~type,    ~required, ~description,
-  "common_name",    "STRING", FALSE,     "Primary English common name, sourced from FishBase or regional sources.",
-  "common_family",  "STRING", FALSE,     "Generalized family name used for communication and summaries (e.g., wrasses, groupers)."
-)
+common_name_schema <- tribble(~field,           ~type,    ~required, ~description,
+                              "common_name",    "STRING", FALSE,     "Primary English common name, sourced from FishBase or regional sources.",
+                              "common_family",  "STRING", FALSE,     "Generalized family name used for communication and summaries (e.g., wrasses, groupers).")
 
 common_name_schema |> 
   gt() |>
@@ -184,7 +186,9 @@ common_name_schema |>
   gt_theme_nytimes()
 ```
 
-```{r}
+```{r }
+fish_taxa <- read_csv(file.path(prj_path, "data/processed/taxonomy_fish_staging.csv"))
+
 ## Load and join common family names
 
 fb_species_db <- rfishbase::species() 
@@ -227,15 +231,14 @@ The `trophic_group` field is the most important and is used extensively in Prist
 #| label: tbl-trophic-schema
 #| tbl-cap: "Schema for trophic traits in `taxonomy.fish`."
 
-trophic_traits_schema <- tribble(
-  ~field,            ~type,    ~required, ~description,
-  "trophic_group",   "STRING", FALSE,      "Expert-assigned ecological role from Akiona et al. or internal classification. One of: 'herbivore/detritivore', 'planktivore', 'lower-carnivore', 'top-predator', 'shark', 'unknown'.",
-  "trophic_lvl",     "FLOAT",  FALSE,     "Numeric trophic level estimate from FishBase.",
-  "trophic_lvl_se",  "FLOAT",  FALSE,     "Standard error of the trophic level estimate (FishBase).",
-  "feeding_path",    "STRING", FALSE,     "Primary foraging environment, e.g., 'benthic', 'pelagic', 'non-feeding' (FishBase).",
-  "feeding_type",    "STRING", FALSE,     "Behavioral feeding mode such as 'ambush predator', 'filter feeder' (FishBase).",
-  "diet",            "STRING", FALSE,     "General dietary category from FishBase."
-)
+trophic_traits_schema <- tribble(~field,            ~type,    ~required, ~description,
+                                 "trophic_group",   "STRING", FALSE,     "Broad ecological role (Akiona et al., 2025 + internal classifications)",
+                                 "trophic_guild",   "STRING", FALSE,     "Finer scale trophic guild (Parravicini et al., )",
+                                 "trophic_lvl",     "FLOAT",  FALSE,     "Numeric trophic level estimate from FishBase.",
+                                 "trophic_lvl_se",  "FLOAT",  FALSE,     "Standard error of the trophic level estimate (FishBase).",
+                                 "feeding_path",    "STRING", FALSE,     "Primary foraging environment, e.g., 'benthic', 'pelagic' (FishBase).",
+                                 "feeding_type",    "STRING", FALSE,     "Behavioral feeding mode such as 'ambush predator', 'filter feeder' (FishBase).",
+                                 "diet",            "STRING", FALSE,     "General dietary category from FishBase.")
 
 
 gt(trophic_traits_schema) |>
@@ -256,11 +259,40 @@ gt(trophic_traits_schema) |>
   gt_theme_nytimes()
 ```
 
-```{r}
-# 1. Load and clean Akiona et al. traits
+```{r trophic}
+# Trophic Guilds (Parravicini et al.,)
 
-akiona_df <- readxl::read_excel(file.path(prj_path, 
-                                          "data/raw/taxonomy/fish/Pacific_LW_parameters_V1_07Apr2025.xlsx.xlsx"),
+trophic_guilds <- read_csv(file.path(prj_path, "data/raw/taxonomy/fish/Parravicini_et_al_pbio.3000702.s004.csv")) |> 
+  clean_names() |> 
+  mutate(taxon_name = str_replace_all(species, "_", " ")) |> 
+  select(family, taxon_name, trophic_guild = trophic_guild_predicted_text)
+
+names_to_aphiaID <- fish_taxa |> 
+  select(accepted_aphia_id, taxon_name, accepted_name) |>
+  pivot_longer(cols = c("taxon_name", "accepted_name"), names_to = "orig_col", values_to = "lookup_name") |>
+  filter(!is.na(lookup_name)) |>
+  distinct(accepted_aphia_id, lookup_name)
+
+trophic_guilds <- trophic_guilds |> 
+  left_join(names_to_aphiaID, 
+            by = c("taxon_name" = "lookup_name"))
+
+fish_taxa <- fish_taxa |> 
+  left_join(trophic_guilds |> 
+              select(accepted_aphia_id, trophic_guild)) |> 
+  mutate(trophic_guild = case_when(order == "Carcharhiniformes"                                                                         ~ "shark",
+                                   genus %in% c("Sphyraena", "Thunnus", "Acanthocybium", "Caranx", "Gymnosarda", "Sarda", "Katsuwonus") ~ "piscivore",
+                                   genus %in% c("Eviota", "Trimma", "Pleurosicya", "Bryaninops", "Priolepis", "Hippocampus")            ~ "microinvertivore",
+                                   genus %in% c("Rhincodon", "Mobula")                                                                  ~ "planktivore",
+                                   genus == "Kyphosus"                                                                                  ~ "Herbivores Microvores Detritivores",
+                                   TRUE ~ trophic_guild) |> 
+           str_to_lower())
+
+# Trophic Group (Akiona et al, 2025 + expert review)
+
+## Akiona et al
+
+akiona_df <- readxl::read_excel(file.path(prj_path, "data/raw/taxonomy/fish/Akiona_et_al_bb29484643_1_1.xlsx"),
                                 sheet = "Length-Weight Parameter Table") |> 
   clean_names() |> 
   mutate(taxon = str_replace_all(taxon, "Plectorhincus", "Plectorhinchus"),
@@ -272,9 +304,12 @@ akiona_df <- readxl::read_excel(file.path(prj_path,
          taxon = str_trim(taxon)) |> 
   filter(!str_detect(taxon, " x ")) |> 
   distinct(taxon, trophic_group = trophic_classification, lw_a = a,  lw_b = b,  ltl_ratio = source_length_to_total_length_ratio, 
-           lw_type = source_length_type)
+           lw_type = source_length_type) |> 
+  mutate(trophic_group = str_to_lower(trophic_group) |> 
+           str_replace("-", "_") |> 
+           str_replace("/", " | "))
 
-# 2. Load and unify internal trophic classifications
+## Internal classifications
 
 read_trophic_csv <- function(filename, name_col = "taxon_valid_name") {
   read_csv(file.path(prj_path, filename)) |> 
@@ -287,8 +322,7 @@ extra_troph_info <- bind_rows(read_csv(file.path(prj_path, "data/raw/taxonomy/fi
                               read_trophic_csv("data/raw/taxonomy/fish/trophic_info_missing_trophic_info_AMF.csv"),
                               read_trophic_csv("data/raw/taxonomy/fish/trophic_info_SLI_missing.csv"),
                               read_csv(file.path(prj_path, "data/raw/taxonomy/fish/trophic_info_filled_missing_PNG_JEC.csv")) |> 
-                                select(accepted_name, trophic_group)
-                              ) |> 
+                                select(accepted_name, trophic_group)) |> 
   distinct() |> 
   mutate(trophic_group = case_when(accepted_name == "Amphiprion biaculeatus"                          ~ "Lower-carnivore",
                                    trophic_group %in% c("Lower-carnivores", "Lower-carnivore")        ~ "Lower-carnivore",
@@ -304,9 +338,24 @@ extra_troph_info <- bind_rows(read_csv(file.path(prj_path, "data/raw/taxonomy/fi
                                    TRUE ~ trophic_group)) |> 
   rename(trophic_group_manual = trophic_group) |> 
   filter(!accepted_name %in% akiona_df$taxon) |> 
-  distinct()
+  distinct() |> 
+  mutate(trophic_group_manual = str_to_lower(trophic_group_manual) |> 
+           str_replace("-", "_") |> 
+           str_replace(" ", "_") |> 
+           str_replace("/", " | "))
 
-# 3. Load FishBase estimates (trophic level, feeding path, max length)
+
+fish_taxa <- fish_taxa |> 
+  left_join(akiona_df |> 
+              distinct(accepted_name = taxon, trophic_group),
+            by = "accepted_name") |> 
+  left_join(extra_troph_info, by = "accepted_name") |> 
+  mutate(trophic_group = str_to_lower(coalesce(trophic_group, trophic_group_manual))) |> 
+  select(-trophic_group_manual)
+```
+
+```{r fb}
+# FishBase information (trophic level, feeding path, max length)
 
 fb_estimates <- rfishbase::estimate() |> 
   clean_names() |> 
@@ -323,34 +372,29 @@ fb_estimates <- rfishbase::estimate() |>
          lw_source = "FishBase") |> 
   select(fb_spec_code, trophic_lvl, trophic_lvl_se, feeding_path, tl_max, tl_max_source, lw_a, lw_b, ltl_ratio, lw_type, lw_source,tl_max_source)
     
-# 4. Load FishBase ecology info (feeding strategy)
+# FishBase ecology info (feeding strategy)
+
 fb_ecology <- rfishbase::ecology() |> 
   clean_names() |> 
   select(fb_spec_code = spec_code, feeding_type, diet = herbivory2) |> 
   distinct()
 
-# 5. Merge traits into final taxonomy
 fish_taxa <- fish_taxa |> 
-  left_join(akiona_df |> 
-              distinct(accepted_name = taxon, trophic_group),
-            by = "accepted_name") |> 
-  left_join(extra_troph_info, by = "accepted_name") |> 
-  mutate(trophic_group = coalesce(trophic_group, trophic_group_manual)) |> 
-  select(-trophic_group_manual) |> 
   left_join(fb_estimates |> 
               distinct(fb_spec_code, trophic_lvl, trophic_lvl_se, feeding_path),
             by = "fb_spec_code") |> 
   left_join(fb_ecology, by = "fb_spec_code")
-```
 
-```{r}
 fish_taxa <- fish_taxa |> 
-  mutate(trophic_group = case_when(is.na(trophic_group) & feeding_type == "grazing on aquatic plants" ~ "herbivore/detritivore",
+  mutate(trophic_group = case_when(is.na(trophic_group) & feeding_type == "grazing on aquatic plants"                             ~ "herbivore | detritivore",
                                    is.na(trophic_group) & feeding_type %in% c("selective plankton feeding", "filtering plankton") ~ "planktivore",
-                                   family == "Carcharhinidae"  ~ "shark",
-                                   TRUE ~ trophic_group),
-         trophic_group = str_to_lower(trophic_group) |> 
-           str_replace_all("-", "_")) 
+                                   family == "Carcharhinidae"                                                                     ~ "shark",
+                                   family == "Muraenidae"                                                                         ~ "lower_carnivore",
+                                   genus %in% c("Trimma", "Eviota", "Pleurosicya", "Parioglossus")                                ~ "planktivore",
+                                   TRUE ~ trophic_group)) 
+
+fish_taxa$trophic_guild[fish_taxa$trophic_guild == "herbivores microvores detritivores"] <- "herbivore | microvore | detritivore"
+fish_taxa$trophic_guild[fish_taxa$trophic_guild == "sessile invertivores"] <- "sessile_invertivore"
 ```
 
 ### Morphometrics
@@ -370,16 +414,14 @@ The table includes:
 #| label: tbl-morphometrics-schema
 #| tbl-cap: "Schema for morphometric traits in `taxonomy.fish`."
 
-morphometrics_schema <- tribble(
-  ~field,            ~type,    ~required, ~description,
-  "tl_max",          "FLOAT",  FALSE,     "Maximum total length (TL) in cm from FishBase, Akiona, or field observation.",
-  "tl_max_source",   "STRING", FALSE,     "Source of max length (`FishBase`, `SIO`, `field`, or `literature`).",
-  "lw_a",            "FLOAT",  FALSE,     "Length–weight coefficient 'a' in W = a × Lᵇ. Used to estimate biomass.",
-  "lw_b",            "FLOAT",  FALSE,     "Length–weight exponent 'b' in W = a × Lᵇ.",
-  "ltl_ratio",       "FLOAT",  FALSE,     "Length-to-length conversion ratio (e.g., SL to TL) when parameters are based on non-TL metrics.",
-  "lw_type",         "STRING", FALSE,     "Type of length used in the LW relationship (`TL`, `SL`, `FL`, etc.).",
-  "lw_source",       "STRING", FALSE,     "Provenance of the LW parameters (e.g., `Akiona`, `FishBase`, or `literature`)."
-)
+morphometrics_schema <- tribble(~field,            ~type,    ~required, ~description,
+                                "tl_max",          "FLOAT",  FALSE,     "Maximum total length (TL) in cm from FishBase, Akiona, or field observation.",
+                                "tl_max_source",   "STRING", FALSE,     "Source of max length (`FishBase`, `SIO`, `field`, or `literature`).",
+                                "lw_a",            "FLOAT",  FALSE,     "Length–weight coefficient 'a' in W = a × Lᵇ. Used to estimate biomass.",
+                                "lw_b",            "FLOAT",  FALSE,     "Length–weight exponent 'b' in W = a × Lᵇ.",
+                                "ltl_ratio",       "FLOAT",  FALSE,     "Length-to-length conversion ratio (e.g., SL to TL) when parameters are based on non-TL metrics.",
+                                "lw_type",         "STRING", FALSE,     "Type of length used in the LW relationship (`TL`, `SL`, `FL`, etc.).",
+                                "lw_source",       "STRING", FALSE,     "Provenance of the LW parameters (e.g., `Akiona`, `FishBase`, or `literature`).")
 
 gt(morphometrics_schema) |>
   cols_label(field = md("**Field**"),
@@ -418,7 +460,8 @@ join2 <- join1 |>
 fish_taxa <- bind_rows(join1 |> filter(!is.na(lw_a)),
                         join2)
 
-missin_ab <- tibble::tribble(~accepted_name,                     ~a,       ~b,   
+missin_ab <- tibble::tribble(~accepted_name,               ~a,       ~b,   
+                             "Coris schroederii",          0.0175,   2.957, # using C. batuensis
                              "Plectranthias inermis",      0.01349,  3.00,
                              "Plectranthias longimanus",   0.01349,  3.00,   
                              "Plectranthias nanus",        0.01349,  3.00,   
@@ -431,6 +474,8 @@ missin_ab <- tibble::tribble(~accepted_name,                     ~a,       ~b,
                              "Pseudanthias smithvanizi",   0.01349,  3.00,   
                              "Rabaulichthys altipinnis",   0.00389,  3.12, 
                              "Rhabdamia novaluna",         0.01096,  3.09) # From FISHBASE
+
+fish_taxa$ltl_ratio[fish_taxa$accepted_name == "Coris schroederii"] <- 1
 
 fish_taxa <- fish_taxa |> 
   left_join(missin_ab) |> 
@@ -448,6 +493,8 @@ fish_taxa <- fish_taxa |>
   left_join(fb_estimates |> 
               select(fb_spec_code, tl_max, tl_max_source),
             by = "fb_spec_code") 
+
+fish_taxa |> filter(is.na(lw_a), rank == "species")
 ```
 
 ### Habitat
@@ -468,10 +515,8 @@ The habitat_zone field classifies each species into a broad ecological zone base
   - `unknown`
 
 ```{r}
-habitat_schema <- tribble(
-  ~field,          ~type,    ~required, ~description,
-  "habitat_zone",  "STRING", FALSE,      "Spatial habitat classification based on FishBase. One of: 'reef-associated', 'benthopelagic', 'demersal', 'pelagic', 'pelagic-neritic', 'pelagic-oceanic', 'bathypelagic', 'bathydemersal', 'unknown'."
-)
+habitat_schema <- tribble(~field,          ~type,    ~required, ~description,
+                          "habitat_zone",  "STRING", FALSE,      "Spatial habitat classification based on FishBase")
 
 fish_taxa <- fish_taxa |> 
   left_join(fb_species_db |> 
@@ -495,10 +540,8 @@ Values are sourced primarily from the **Importance** field in FishBase and are s
   - `of potential interest`  
 
 ```{r}
-fisheries_schema <- tribble(
-  ~field,              ~type,    ~required, ~description,
-  "fishery_importance","STRING", FALSE,     "FishBase classification of the species' importance to fisheries (e.g., 'minor commercial', 'subsistence fisheries', 'highly commercial', 'of no interest')."
-)
+fisheries_schema <- tribble(~field,              ~type,    ~required, ~description,
+                            "fishery_importance","STRING", FALSE,     "FishBase classification of the species' importance to fisheries")
 
 fish_taxa <- fish_taxa |> 
   left_join(fb_species_db |> 
@@ -507,20 +550,34 @@ fish_taxa <- fish_taxa |>
 fish_taxa$fishery_importance[fish_taxa$fishery_importance == " "] <- NA_character_
 ```
 
+```{r}
+# library(fishstat)
+# 
+# fao_capture <- merge(merge(merge(merge(merge(merge(capture, area), country), measure), source), species), status)
+# 
+# fao_species <- fao_capture |> 
+#   distinct(species_name, scientific, isscaap)
+# 
+# names_to_aphiaID <- fish_taxa |> 
+#   select(accepted_aphia_id, taxon_name, accepted_name) |>
+#   pivot_longer(cols = c("taxon_name", "accepted_name"), names_to = "orig_col", values_to = "lookup_name") |>
+#   filter(!is.na(lookup_name)) |>
+#   distinct(accepted_aphia_id, lookup_name) 
+# 
+# fao_species |> 
+#   left_join(names_to_aphiaID, by = c("scientific" = "lookup_name")) |> filter(!is.na(accepted_aphia_id))
+```
+
 ### Conservation Status (IUCN)
 
 The `taxonomy.fish` table includes fields derived from the IUCN Red List to support biodiversity assessments and conservation planning. Each species is matched to its most recent listing (SIS ID) and assigned a standardized category (e.g., `LC`, `NT`, `VU`, `EN`, `CR`).
 
 ```{r}
-iucn_schema <- tribble(
-  ~field,        ~type,    ~required, ~description,
-  "iucn_cat",    "STRING",  FALSE,      "Global threat status from the IUCN Red List (e.g., 'Least Concern', 'Vulnerable', 'Endangered').",
-  "iucn_sis_id", "INTEGER", FALSE,      "Unique taxon ID in the IUCN Species Information System (SIS)."
-)
+iucn_schema <- tribble(~field,        ~type,    ~required, ~description,
+                       "iucn_cat",    "STRING",  FALSE,      "Global threat status from the IUCN Red List (e.g., 'Least Concern', 'Vulnerable', 'Endangered').",
+                       "iucn_sis_id", "INTEGER", FALSE,      "Unique taxon ID in the IUCN Species Information System (SIS).")
 
-iucn_db <- read_csv(file.path(ps_data_path, 
-                              "iucn-redlist-marine-species",  
-                              "joined_and_resolved_taxa.csv"))
+iucn_db <- read_csv(file.path(ps_data_path, "iucn-redlist-marine-species", "joined_and_resolved_taxa.csv"))
 
 iucn_priority <- c("CR", "EN", "VU", "NT", "LC", "DD", "NE")
 
@@ -528,14 +585,14 @@ iucn_clean <- iucn_db |>
   rename(accepted_name = taxon_valid_name) |> 
   filter(accepted_name %in% fish_taxa$accepted_name) |> 
   distinct(accepted_name, iucn_redlist_cat, iucn_taxon_id) |> 
-  mutate(iucn_redlist_cat = case_when(str_detect(iucn_redlist_cat, "Critically Endangered") ~ "CR",
-                                      str_detect(iucn_redlist_cat, "Endangered") ~ "EN",
-                                      str_detect(iucn_redlist_cat, "Vulnerable") ~ "VU",
-                                      str_detect(iucn_redlist_cat, "Near Threatened") ~ "NT",
-                                      str_detect(iucn_redlist_cat, "Least Concern") ~ "LC",
-                                      str_detect(iucn_redlist_cat, "Data Deficient") ~ "DD",
-                                      str_detect(iucn_redlist_cat, "Extinct") ~ "EX",
-                                      str_detect(iucn_redlist_cat, "Lower Risk/least concern") ~ "LC",
+  mutate(iucn_redlist_cat = case_when(str_detect(iucn_redlist_cat, "Critically Endangered")      ~ "CR",
+                                      str_detect(iucn_redlist_cat, "Endangered")                 ~ "EN",
+                                      str_detect(iucn_redlist_cat, "Vulnerable")                 ~ "VU",
+                                      str_detect(iucn_redlist_cat, "Near Threatened")            ~ "NT",
+                                      str_detect(iucn_redlist_cat, "Least Concern")              ~ "LC",
+                                      str_detect(iucn_redlist_cat, "Data Deficient")             ~ "DD",
+                                      str_detect(iucn_redlist_cat, "Extinct")                    ~ "EX",
+                                      str_detect(iucn_redlist_cat, "Lower Risk/least concern")   ~ "LC",
                                       str_detect(iucn_redlist_cat, "Lower Risk/near threatened") ~ "NT",
                                       TRUE ~ NA_character_)) |> 
   mutate(iucn_rank = match(iucn_redlist_cat, c("EX", iucn_priority))) |> 
@@ -552,16 +609,14 @@ fish_taxa <- fish_taxa |>
 ```
 
 ```{r}
-final_schema <-  tribble(
-  # Core identification
-  ~field,                ~type,   ~required,    ~description,                                                                 
-  "taxon_name",         "STRING",  TRUE,         "Original name associated with the code in fieldbooks.",                 
-  "aphia_id",           "INTEGER", TRUE,         "WoRMS AphiaID corresponding to the input taxon name.",                  
-  "rank",               "STRING",  TRUE,         "Taxonomic rank of the record (`species`, `genus`, or `family`).",  
-  "status",             "STRING",  TRUE,         "Taxonomic status according to WoRMS.",                                  
-  "accepted_name",      "STRING",  TRUE,         "Valid scientific name (Genus species), standardized using WoRMS",                          
-  "accepted_aphia_id",  "INTEGER", TRUE,         "Unique WoRMS identifier for the accepted name",                                        
-  "fb_spec_code",       "INTEGER", FALSE,         "FishBase SpecCode identifier."                                        ) |> 
+final_schema <-  tribble(~field,                ~type,   ~required,    ~description,                                                                 
+                         "taxon_name",         "STRING",  TRUE,         "Original name associated with the code in fieldbooks.",                 
+                         "aphia_id",           "INTEGER", TRUE,         "WoRMS AphiaID corresponding to the input taxon name.",                  
+                         "rank",               "STRING",  TRUE,         "Taxonomic rank of the record (`species`, `genus`, or `family`).",  
+                         "status",             "STRING",  TRUE,         "Taxonomic status according to WoRMS.",                                  
+                         "accepted_name",      "STRING",  TRUE,         "Valid scientific name (Genus species), standardized using WoRMS",                          
+                         "accepted_aphia_id",  "INTEGER", TRUE,         "Unique WoRMS identifier for the accepted name",                                        
+                         "fb_spec_code",       "INTEGER", FALSE,        "FishBase SpecCode identifier.") |> 
   bind_rows(core_taxonomy_schema |> 
               filter(!field %in% c("accepted_name", "accepted_aphia_id", "rank")),
             common_name_schema,
@@ -572,16 +627,15 @@ final_schema <-  tribble(
             iucn_schema)
 
 # Convert to bq_field() list
-fish_taxa_fields <- pmap(final_schema, function(field, type, description, required) {
-  bq_field(name = field, type = type, mode = if (required) "REQUIRED" else "NULLABLE", description = description)
-})
+fish_taxa_fields <- pmap(final_schema, 
+                         function(field, type, description, required) {
+                           bq_field(name = field, type = type, mode = if (required) "REQUIRED" else "NULLABLE", description = description)
+                           })
 
 # Create table
-bq_table_create(
-  bq_table("pristine-seas", "taxonomy", "fish"),
-  fields = fish_taxa_fields,
-  description = "Taxonomic and trait information for fish species in the Pristine Seas database."
-)
+bq_table_create(bq_table("pristine-seas", "taxonomy", "fish"),
+                fields = fish_taxa_fields,
+                description = "Taxonomic and trait information for fish species in the Pristine Seas database.")
 
 fish_taxa <- fish_taxa |> 
   select(-taxon_code)
@@ -680,17 +734,16 @@ Most species in the dataset are classified as Lower-carnivores, with `r length(u
 #| fig-width: 10
 #| fig-height: 8
 #| 
-trophic_levels <- rev(c("herbivore/detritivore", "planktivore", "lower_carnivore", "top_predator", "shark"))
+trophic_levels <- rev(c("herbivore | detritivore", "planktivore", "lower_carnivore", "top_predator", "shark"))
 
 taxonomy.fish <- fish_taxa |>
   mutate(trophic_group = factor(trophic_group, levels = trophic_levels, ordered = TRUE))
 
-trophic_palette <- c("herbivore/detritivore" = "#7BD389", 
+trophic_palette <- c("herbivore | detritivore" = "#7BD389", 
                      "planktivore"            = "#C6C8EE",
                      "lower_carnivore"        = "#33658A",
                      "top_predator"           = "#EA8C55",
                      "shark"                  = "#960200" )
-
 taxonomy.fish |> 
   filter(rank == "species") |> 
   group_by(common_family, trophic_group) |> 
@@ -705,6 +758,24 @@ taxonomy.fish |>
   coord_flip()+
   scale_y_continuous(expand = expansion(mult = c(0, 0.05)))+
   scale_fill_manual(values = trophic_palette)+
+  labs(x = "", y = "", title = "Number of Species by Family and Trophic group", fill = "")+
+  theme(plot.title.position = "plot")
+```
+```{r}
+taxonomy.fish |> 
+  filter(rank == "species") |> 
+  group_by(common_family, trophic_guild) |> 
+  summarise(n = n()) |> 
+  ungroup() |> 
+  group_by(common_family) |> 
+  mutate(total = sum(n)) |> 
+  filter(total >= 10) |> 
+  arrange(desc(n)) |> 
+  ggplot()+
+  geom_col(aes(x = fct_reorder(common_family, total), y = n, fill = trophic_guild)) +
+  coord_flip()+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)))+
+  paletteer::scale_fill_paletteer_d("tidyquant::tq_dark", na.value = "grey")+
   labs(x = "", y = "", title = "Number of Species by Family and Trophic group", fill = "")+
   theme(plot.title.position = "plot")
 ```

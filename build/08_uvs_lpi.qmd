@@ -93,11 +93,11 @@ lpi_stations_fields <- tribble(
   
   # Survey effort
   "n_transects",       "INTEGER", TRUE,      "Number of transects completed",
-  "survey_dist_m",     "FLOAT",   TRUE,       "Total distance surveyed (m)",
-  "n_points",          "INTEGER", TRUE,      "Total number of points sampled across all transects",
+  "survey_dist_m",     "FLOAT",   TRUE,      "Total distance surveyed (m)",
+  "total_points",      "INTEGER", TRUE,      "Total number of points sampled across all transects",
   
   # Summary metrics
-  "n_morphotaxa",      "INTEGER", FALSE,     "Total unique morphotaxa observed",
+  "total_morphotaxa",  "INTEGER", FALSE,     "Total unique morphotaxa observed",
   "pct_coral",         "FLOAT",   FALSE,     "% points classified as hard coral (Scleractinia)",
   "pct_cca",           "FLOAT",   FALSE,     "% points classified as crustose coralline algae (CCA)",
   "pct_cyano",         "FLOAT",   FALSE,     "% points classified as cyanobacteria",
@@ -180,6 +180,7 @@ lpi_contacts_fields <- tribble(
   "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
   "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
   "transect",          "STRING",  TRUE,      "Field-assigned transect label (A, B).",
+  "transect_length_m", "INTEGER",  TRUE,     "Completed transect length (normally 50m)",
   "transect_section",  "STRING",  TRUE,      "Transect section (0-10, 10-20, 20-30, 30-40, 40-50)",
 
   # Taxonomic identity
@@ -234,7 +235,6 @@ bq_table_create(bq_table(project_id, "uvs", "lpi_contacts"),
 
 ---
 
-
 ##### Cover by taxa (`uvs.lpi_cover_by_taxa`)
 
 This table contains station-level summaries of benthic percent cover by morphotaxa. Each row represents a unique combination of ps_station_id and benthic taxon, with cover calculated as the proportion of total points assigned to that taxon.
@@ -276,7 +276,7 @@ lpi_cover_by_taxa_fields <- tribble(
   "functional_group",  "STRING",  TRUE,      "Functional group classification (e.g., `coral`, `CCA`, `turf`, `macroalgae`).",
   
   # Counts
-  "contacts",           "FLOAT", TRUE,      "Number of points at which the morphotaxon was recorded.",
+  "total_contacts",     "FLOAT", TRUE,      "Number of points at which the morphotaxon was recorded.",
   "pct_cover",          "FLOAT",   TRUE,      "Percent cover acros the entire transect",
   "pct_cover_sd",       "FLOAT",   FALSE,     "Standard deviation of percent cover across transect sections.",
 )
