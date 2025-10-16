@@ -14,7 +14,7 @@ format:
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
 options(scipen = 999)
 
-library(PristineSeasR)
+library(PristineSeasR2)
 library(bigrquery)
 library(gt)
 library(gtExtras)
@@ -27,7 +27,7 @@ library(lubridate)
 
 knitr::opts_chunk$set(eval = F, warning = F, message = F, include = F, echo = F)
 
-ps_paths <- PristineSeasR::get_sci_drive_paths()
+ps_paths <- PristineSeasR2::get_drive_paths()
 
 prj_path <- file.path(ps_paths$projects, "legacy-db")
 

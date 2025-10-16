@@ -1,0 +1,15 @@
+{
+  "hash": "a699809fb5982a1480dfa2c26a330d6b",
+  "result": {
+    "engine": "knitr",
+    "markdown": "---\ntitle: \"ROV Dataset\"\nformat: \n  html:\n    theme: lux\n    self-contained: true\n    code-fold: true\n    toc: true \n    toc-depth: 3\n    toc-location: right\n    number-sections: false\n---\n\n\n::: {.cell}\n\n:::\n\n\nThe ROV (Remotely Operated Vehicle) dataset documents deep and shallow reef surveys conducted using ROV platforms. Each deployment is structured into a hierarchical format consistent with other Pristine Seas methods:\n\n- A site represents a full ROV dive (deployment).\n- One or more stations represent discrete horizontal transects or observation segments within the dive.\n\nThis separation supports flexible integration of spatial, temporal, and ecological data while aligning with the standardized schema used across methods like UVS and submersible surveys.\n\n------------------------------------------------------------------------\n\n#### Tables \n\n------------------------------------------------------------------------\n\n##### Sites (`rov.sites``)\n\nEach row in this table corresponds to a single ROV deployment. It contains core spatial and temporal metadata aligned with the standard core_site_fields, as well as ROV-specific fields including:\n\t•\tDeployment and recovery coordinates and time (lat_deploy, lon_deploy, time_deploy, time_recover)\n\t•\tMaximum depth, total duration, and dive type\n\t•\tHighlights — field notes or notable events during the dive\n\nThe fields latitude, longitude, and time in the core schema are populated using the deployment position and time, ensuring consistency across methods.\n\n\n\n-----\n\n##### Stations (`rov.stations``)\n\nThis table contains one row per ROV transect conducted during a dive. Each station represents a horizontal segment or observation window along the dive path — the primary unit of sampling effort for ROV-based analyses.\n\nRecords include start and end coordinates, depth range, start and end time, habitat description, personnel, and optional video metadata such as file path and highlights. All stations are linked to their parent deployment via ps_site_id.\n\n\n\n\n",
+    "supporting": [],
+    "filters": [
+      "rmarkdown/pagebreak.lua"
+    ],
+    "includes": {},
+    "engineDependencies": {},
+    "preserve": {},
+    "postProcess": true
+  }
+}

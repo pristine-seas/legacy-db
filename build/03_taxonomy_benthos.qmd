@@ -15,7 +15,7 @@ format:
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
 options(scipen = 999)
 
-library(PristineSeasR)
+library(PristineSeasR2)
 library(bigrquery)
 library(gt)
 library(gtExtras)
