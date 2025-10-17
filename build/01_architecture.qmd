@@ -57,18 +57,18 @@ These datasets provide a shared scaffold for spatial joins, species trait integr
 
 **📂 expeditions/** — *Spatial backbone & metadata for all field campaigns*
 
-- 📄 `info` — Expedition registry: dates, vessels, teams, partners
+- 📄 `info`  — Expedition registry: dates, vessels, teams, partners
 - 📄 `sites` — Master site registry across all survey methods
 
-**📂 taxonomy/** — *Standardized species reference data*
+**📂 taxa_info/** — *Standardized species reference data*
 
-- 📄 `fish` — Fish taxonomy, traits, and life history
+- 📄 `fish`    — Fish taxonomy, traits, and life history
 - 📄 `benthos` — Benthic organisms: corals, algae, sponges
 - 📄 `inverts` — Mobile and sessile invertebrates
 
 **📂 lookup/** — *Controlled vocabularies & reference tables*
 
-- 📄 `habitat_types` — Standardized habitat classifications
+- 📄 `habitat_types`  — Standardized habitat classifications
 - 📄 `exposure_types` — Wave exposure categories  
 
 </div>
@@ -107,12 +107,12 @@ Each method has its own dataset (e.g., `uvs`, `pbruv`, `sub`, `edna`) that store
   - 📄 `recruits_stations` — Coral recruitment quadrat metadata
   - 📄 `recruits_counts` — Juvenile coral counts by genus
 
-**📂 sbruv/** — *Seabed Baited Remote Underwater Video*
+**📂 sBRUVS/** — *Seabed Baited Remote Underwater Video*
 
 - 📄 `stations` — Camera deployment metadata: location, depth, bait
 - 📄 `maxn_by_taxa` — Fish MaxN summaries by species
 
-**📂 pbruv/** — *Pelagic BRUVS (mid-water camera arrays)*
+**📂 pBRUVS/** — *Pelagic BRUVS (mid-water camera arrays)*
 
 - 📄 `stations` — String deployment metadata
 - 📄 `rigs` — Individual rig positions and drift

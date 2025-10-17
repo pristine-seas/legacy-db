@@ -71,8 +71,8 @@ This table stores metadata and summary metrics for each coral recruit survey sta
 #| tbl-cap: "Schema for `uvs.recruits_stations`: metadata and summary metrics for coral recruit stations"
 
 recruits_stations_fields <- tribble(
-  ~field,             ~type,     ~required, ~description,
-
+  ~field,              ~type,     ~required,  ~description,
+  
   # Core identifiers
   "ps_station_id",     "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth`), e.g., `COL_2024_uvs_001_20m`",
   "ps_site_id",        "STRING",  TRUE,      "Foreign key to `uvs.sites`",
@@ -89,17 +89,20 @@ recruits_stations_fields <- tribble(
   "divers",            "STRING",  TRUE,      "Divers who conducted transects (pipe-delimited)",
   "depth_m",           "FLOAT",   TRUE,      "Average station depth (meters)",
   "depth_strata",      "STRING",  TRUE,      "Depth category: `supershallow`, `shallow`, or `deep`",
-
-  # Effort and summaries
-  "quadrat_area_m2",  "FLOAT",   TRUE,     "Area of each quadrat in m² (typically 0.25).",
-  "n_quadrats",       "INTEGER", TRUE,     "Number of quadrats surveyed (typically 10).",
-  "survey_area_m2",   "FLOAT",   TRUE,     "Total area surveyed (e.g., 2.5 m²).",
-  "total_taxa",       "INTEGER", TRUE,     "Total number of coral taxa observed at the station.",
-  "total_count",      "INTEGER", TRUE,    "Total number of coral recruits recorded.",
-  "density_m2",       "FLOAT",   TRUE,    "Recruit density (individuals/m²).",
-
+  
+  # Survey effort
+  "survey_dist_m",     "FLOAT",   TRUE,      "Total distance surveyed (m), typically 50m transect",
+  "quadrat_area_m2",   "FLOAT",   TRUE,      "Area of each quadrat in m² (typically 0.25)",
+  "n_quadrats",        "INTEGER", TRUE,      "Number of quadrats surveyed (typically 10)",
+  "survey_area_m2",    "FLOAT",   TRUE,      "Total area surveyed (e.g., 2.5 m²)",
+  
+  # Summary metrics
+  "n_taxa",            "INTEGER", TRUE,      "Total number of coral taxa observed",
+  "total_count",       "INTEGER", TRUE,      "Total number of coral recruits recorded",
+  "avg_density_m2",    "FLOAT",   TRUE,      "Recruit density (individuals/m²)",
+  
   # Notes
-  "notes",            "STRING",  FALSE,    "Optional QA or field notes."
+  "notes",             "STRING",  FALSE,     "Optional QA or field notes"
 )
 
 gt(recruits_stations_fields) |>
@@ -151,29 +154,29 @@ recruits_observations_fields <- tribble(
   ~field,              ~type,     ~required, ~description,
   
   # Identifiers
-  "obs_id",            "STRING",  TRUE,      "Unique observation ID (e.g., `FJI_2025_rec_JSD_0001`).",
-  "ps_station_id",     "STRING",  TRUE,      "Foreign key linking to `uvs.recruits_stations`.",
+  "obs_id",            "STRING",  TRUE,      "Unique observation ID (e.g., `FJI_2025_rec_JSD_0001`)",
+  "ps_station_id",     "STRING",  TRUE,      "Foreign key to `uvs.recruits_stations`",
   "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
-
-  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
-  "transect",          "STRING",  TRUE,      "Field-assigned station label (A, B).",
-  "transect_length_m", "FLOAT",  TRUE,       "Length of the transect line (typically 50 m).",
-  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
-  "quadrat",           "INTEGER", FALSE,     "Quadrat number (1–10) at fixed intervals along the transect.",
-
+  
+  # Survey context
+  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation",
+  "transect",          "STRING",  TRUE,      "Field-assigned station label (A, B)",
+  "transect_length_m", "FLOAT",   TRUE,      "Length of the transect line (typically 50m)",
+  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted",
+  "quadrat",           "INTEGER", FALSE,     "Quadrat number (1–10) at fixed intervals along the transect",
+  
   # Taxonomic identity
-  "accepted_name",     "STRING",  TRUE,     "Scientific name (`Genus species`) of the observed morphotaxon",
-  "accepted_aphia_id", "INTEGER", TRUE,     "WoRMS AphiaID — foreign key to `taxonomy.corals`.",
-  "rank",              "STRING",  TRUE,     "Taxonomic rank of the record (`species`, `genus`, or `family`).",
-  "family",            "STRING",  FALSE,      "Family of the coral taxon.",
-
+  "accepted_name",     "STRING",  TRUE,      "Scientific name (typically genus level)",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.corals`",
+  "rank",              "STRING",  TRUE,      "Taxonomic rank (`species`, `genus`, or `family`)",
+  "family",            "STRING",  FALSE,     "Family of the coral taxon",
   
   # Observation details
-  "diameter_cm",       "FLOAT",   TRUE,      "Maximum colony diameter (cm), measured in the field.",
-  "substrate",         "STRING",  FALSE,     "Substrate type where the recruit was observed (e.g., rock, sand, rubble).",
+  "diameter_cm",       "FLOAT",   TRUE,      "Maximum colony diameter (cm), measured in the field",
+  "substrate",         "STRING",  FALSE,     "Substrate type where the recruit was observed (e.g., rock, sand, rubble)",
   
   # Notes
-  "notes",             "STRING",  FALSE,     "Optional comments or QA annotations."
+  "notes",             "STRING",  FALSE,     "Optional comments or QA annotations"
 )
 
 gt(recruits_observations_fields) |>
@@ -226,33 +229,33 @@ Taxonomic information is joined from taxonomy.corals, and all entries are linked
 
 recruits_density_by_taxa_fields <- tribble(
   ~field,              ~type,     ~required, ~description,
-
-  # Keys
-  "ps_station_id",     "STRING",  TRUE,  "Station identifier (foreign key)",
-  "ps_site_id",        "STRING",  TRUE,  "Site identifier - denormalized for performance",
-  "exp_id",            "STRING",  TRUE,  "Expedition ID - denormalized for performance",
-
-  # Spatial context (denormalized for common queries)
-  "region",             "STRING", TRUE,  "◂ Region name.",
-  "subregion",          "STRING", TRUE,  "◂ Subregion name.",
-  "habitat",            "STRING", TRUE,  "◂ Habitat type (see controlled vocabulary).",
-  "exposure",           "STRING", TRUE,  "◂ Exposure type (see controlled vocabulary).",
-
-  # Station Characteristics
-  "divers",             "STRING", TRUE,  "Comma-separated names of divers who conducted the transects.",
-  "depth_strata",       "STRING", TRUE,  "Depth bin label: `supershallow`, `shallow`, or `deep`.",
-  "depth_m",            "FLOAT",  TRUE,  "Mean depth (m) of the station.",
   
-  # Taxa info
-  "accepted_name",     "STRING",  TRUE,      "Standardized taxon name (typically genus).",
-  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.corals`.",
-  "family",            "STRING",  FALSE,      "Family of the coral taxon.",
-  "rank",              "STRING",  TRUE,     "Taxonomic rank of the record (`species`, `genus`, or `family`).",
-
+  # Keys
+  "ps_station_id",     "STRING",  TRUE,      "Station identifier (foreign key)",
+  "ps_site_id",        "STRING",  TRUE,      "Site identifier - denormalized for performance",
+  "exp_id",            "STRING",  TRUE,      "Expedition ID - denormalized for performance",
+  
+  # Spatial context (denormalized for common queries)
+  "region",            "STRING",  TRUE,      "Region name",
+  "subregion",         "STRING",  TRUE,      "Subregion name",
+  "habitat",           "STRING",  TRUE,      "Habitat type",
+  "exposure",          "STRING",  TRUE,      "Exposure type",
+  
+  # Station characteristics
+  "divers",            "STRING",  TRUE,      "Pipe-delimited diver names",
+  "depth_strata",      "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`",
+  "depth_m",           "FLOAT",   TRUE,      "Mean depth (m) of the station",
+  
+  # Taxonomic identity
+  "accepted_name",     "STRING",  TRUE,      "Standardized taxon name (typically genus)",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.corals`",
+  "family",            "STRING",  FALSE,     "Family of the coral taxon",
+  "rank",              "STRING",  TRUE,      "Taxonomic rank",
+  
   # Aggregated metrics
-  "total_count",       "INTEGER", TRUE,     "Total number of recruits observed across all quadrats.",
-  "density_m2",        "FLOAT",   TRUE,     "Recruit density (individuals/m²), standardized by total quadrat area (2.5 m²).",
-  "avg_diameter_cm",   "FLOAT",   TRUE,     "Average maximum diameter of recruits (cm) across all quadrats.",
+  "total_count",       "INTEGER", TRUE,      "Total number of recruits observed across all quadrats",
+  "avg_density_m2",    "FLOAT",   TRUE,      "Recruit density (individuals/m²), standardized by total quadrat area",
+  "avg_diameter_cm",   "FLOAT",   TRUE,      "Average maximum diameter of recruits (cm) across all quadrats"
 )
 
 gt(recruits_density_by_taxa_fields) |>

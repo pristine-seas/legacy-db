@@ -97,20 +97,20 @@ lpi_stations_fields <- tribble(
   "total_points",      "INTEGER", TRUE,      "Total number of points sampled across all transects",
   
   # Summary metrics
-  "total_morphotaxa",  "INTEGER", FALSE,     "Total unique morphotaxa observed",
-  "pct_coral",         "FLOAT",   FALSE,     "% points classified as hard coral (Scleractinia)",
-  "pct_cca",           "FLOAT",   FALSE,     "% points classified as crustose coralline algae (CCA)",
-  "pct_cyano",         "FLOAT",   FALSE,     "% points classified as cyanobacteria",
-  "pct_algae_encrust", "FLOAT",   FALSE,     "% points classified as encrusting algae",
-  "pct_algae_erect",   "FLOAT",   FALSE,     "% points classified as erect algae",
-  "pct_turf",          "FLOAT",   FALSE,     "% points classified as turf",
-  "pct_rubble",        "FLOAT",   FALSE,     "% points classified as sediment, rubble, or barren",
-  "pct_soft_coral",    "FLOAT",   FALSE,     "% points classified as soft coral",
-  "pct_sponges",       "FLOAT",   FALSE,     "% points classified as sponges",
-  "pct_eam",           "FLOAT",   FALSE,     "% points classified as Endolithic Algae Matix",
-  "pct_seagrass",      "FLOAT",   FALSE,     "% points classified as seagrass",
-  "pct_kelp",          "FLOAT",   FALSE,     "% points classified as kelp",
-  "pct_other",         "FLOAT",   FALSE,     "% points classified as other (e.g., tunicates)",
+  "n_taxa",            "INTEGER", FALSE,     "Total unique morphotaxa observed",
+  "pct_coral",         "FLOAT",   FALSE,     "Percentage of points classified as hard coral (Scleractinia)",
+  "pct_cca",           "FLOAT",   FALSE,     "Percentage of points classified as crustose coralline algae (CCA)",
+  "pct_cyano",         "FLOAT",   FALSE,     "Percentage of points classified as cyanobacteria",
+  "pct_algae_encrust", "FLOAT",   FALSE,     "Percentage of points classified as encrusting algae",
+  "pct_algae_erect",   "FLOAT",   FALSE,     "Percentage of points classified as erect algae",
+  "pct_turf",          "FLOAT",   FALSE,     "Percentage of points classified as turf",
+  "pct_rubble",        "FLOAT",   FALSE,     "Percentage of points classified as sediment, rubble, or barren",
+  "pct_soft_coral",    "FLOAT",   FALSE,     "Percentage of points classified as soft coral",
+  "pct_sponges",       "FLOAT",   FALSE,     "Percentage of points classified as sponges",
+  "pct_eam",           "FLOAT",   FALSE,     "Percentage of points classified as Endolithic Algae Matrix",
+  "pct_seagrass",      "FLOAT",   FALSE,     "Percentage of points classified as seagrass",
+  "pct_kelp",          "FLOAT",   FALSE,     "Percentage of points classified as kelp",
+  "pct_other",         "FLOAT",   FALSE,     "Percentage of points classified as other (e.g., tunicates)",
   
   # Notes
   "notes",             "STRING",  FALSE,     "Field notes or QA comments"
@@ -172,30 +172,31 @@ The `n_points` field indicates how many times the morphotaxon was recorded in th
 
 lpi_contacts_fields <- tribble(
   ~field,              ~type,     ~required, ~description,
-
+  
   # Identifiers
-  "ps_station_id",     "STRING",  TRUE,      "Foreign key linking to `uvs.blt_stations`.",
+  "ps_station_id",     "STRING",  TRUE,      "Foreign key to `uvs.lpi_stations`",
   "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
-
-  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
-  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
-  "transect",          "STRING",  TRUE,      "Field-assigned transect label (A, B).",
-  "transect_length_m", "INTEGER",  TRUE,     "Completed transect length (normally 50m)",
+  
+  # Survey context
+  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation",
+  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted",
+  "transect",          "STRING",  TRUE,      "Field-assigned transect label (A, B)",
+  "transect_length_m", "INTEGER", TRUE,      "Completed transect length (typically 50m)",
   "transect_section",  "STRING",  TRUE,      "Transect section (0-10, 10-20, 20-30, 30-40, 40-50)",
-
+  
   # Taxonomic identity
-  "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label (e.g., `Porites sp.`, `CCA`, `Turf`).",
-  "accepted_name",     "STRING",  FALSE,      "Scientific name (`Genus species`) of the observed morphotaxon",
-  "accepted_aphia_id", "INTEGER", FALSE,      "WoRMS AphiaID — foreign key to `taxonomy.fish`.",
-  "rank",              "STRING",  FALSE,      "Taxonomic rank of the record (`species`, `genus`, or `family`).",
-  "family",            "STRING",  FALSE,      "Family of the observed taxon (from `taxonomy.fish`).",
-  "functional_group",  "STRING",  TRUE,      "Functional group classification (e.g., `coral`, `CCA`, `turf`, `macroalgae`).",
-
+  "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label (e.g., `Porites sp.`, `CCA`, `Turf`)",
+  "accepted_name",     "STRING",  FALSE,     "Scientific name (`Genus species`) of the observed morphotaxon",
+  "accepted_aphia_id", "INTEGER", FALSE,     "WoRMS AphiaID — foreign key to `taxonomy.benthos`",
+  "rank",              "STRING",  FALSE,     "Taxonomic rank (`species`, `genus`, or `family`)",
+  "family",            "STRING",  FALSE,     "Family of the observed taxon",
+  "functional_group",  "STRING",  TRUE,      "Functional group classification (e.g., `coral`, `CCA`, `turf`, `macroalgae`)",
+  
   # Observation details
-  "contacts",          "FLOAT", TRUE,      "Number of points at which the morphotaxon was recorded.",
-
+  "count",             "FLOAT",   TRUE,      "Number of points at which the morphotaxon was recorded",
+  
   # Notes
-  "notes",             "STRING",  FALSE,     "Optional comments or QA annotations."
+  "notes",             "STRING",  FALSE,     "Optional comments or QA annotations"
 )
 
 
@@ -247,38 +248,36 @@ Taxonomic identity is standardized via accepted_name and `accepted_aphia_id`. Fu
 #| tbl-cap: "Schema for `uvs.lpi_cover_by_taxa`: percent cover by taxon at each LPI station"
 
 lpi_cover_by_taxa_fields <- tribble(
-  ~field,                ~type,     ~required, ~description,
+  ~field,              ~type,     ~required, ~description,
   
   # Keys
   "ps_station_id",     "STRING",  TRUE,      "Station identifier (foreign key)",
   "ps_site_id",        "STRING",  TRUE,      "Site identifier - denormalized for performance",
   "exp_id",            "STRING",  TRUE,      "Expedition ID - denormalized for performance",
-
+  
   # Spatial context (denormalized for common queries)
+  "region",            "STRING",  TRUE,      "Region name",
+  "subregion",         "STRING",  TRUE,      "Subregion name",
+  "habitat",           "STRING",  TRUE,      "Habitat type",
+  "exposure",          "STRING",  TRUE,      "Exposure type",
   
-  "region",              "STRING",  TRUE,      "◂ Region name.",
-  "subregion",           "STRING",  TRUE,      "◂ Subregion name.",
-  "habitat",             "STRING",  TRUE,      "◂ Habitat type (see controlled vocabulary).",
-  "exposure",            "STRING",  TRUE,      "◂ Exposure type (see controlled vocabulary).",
-
-  # Station Characteristics
+  # Station characteristics
+  "diver",             "STRING",  TRUE,      "Name of the diver",
+  "depth_strata",      "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`",
+  "depth_m",           "FLOAT",   TRUE,      "Mean depth (m) of the station",
   
-  "diver",               "STRING",  TRUE,      "Name of the diver responsible for the observation.",
-  "depth_strata",        "STRING",  TRUE,      "Depth bin label: `supershallow`, `shallow`, or `deep`.",
-  "depth_m",             "FLOAT",   TRUE,      "Mean depth (m) of the station.",
+  # Taxonomic identity
+  "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label",
+  "accepted_name",     "STRING",  FALSE,     "Scientific name (`Genus species`)",
+  "accepted_aphia_id", "INTEGER", FALSE,     "WoRMS AphiaID — foreign key to `taxonomy.benthos`",
+  "rank",              "STRING",  FALSE,     "Taxonomic rank",
+  "family",            "STRING",  FALSE,     "Family of the observed taxon",
+  "functional_group",  "STRING",  TRUE,      "Functional group classification",
   
-  # Taxa info
-  "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label (e.g., `Porites sp.`, `CCA`, `Turf`).",
-  "accepted_name",     "STRING",  FALSE,      "Scientific name (`Genus species`) of the observed taxon.",
-  "accepted_aphia_id", "INTEGER", FALSE,      "WoRMS AphiaID — foreign key to `taxonomy.fish`.",
-  "rank",              "STRING",  FALSE,      "Taxonomic rank of the record (`species`, `genus`, or `family`).",
-  "family",            "STRING",  FALSE,      "Family of the observed taxon (from `taxonomy.fish`).",
-  "functional_group",  "STRING",  TRUE,      "Functional group classification (e.g., `coral`, `CCA`, `turf`, `macroalgae`).",
-  
-  # Counts
-  "total_contacts",     "FLOAT", TRUE,      "Number of points at which the morphotaxon was recorded.",
-  "pct_cover",          "FLOAT",   TRUE,      "Percent cover acros the entire transect",
-  "pct_cover_sd",       "FLOAT",   FALSE,     "Standard deviation of percent cover across transect sections.",
+  # Aggregated metrics
+  "total_contacts",    "FLOAT",   TRUE,      "Number of points at which the morphotaxon was recorded",
+  "pct_cover",         "FLOAT",   TRUE,      "Percent cover across the entire transect",
+  "pct_cover_sd",      "FLOAT",   FALSE,     "Standard deviation of percent cover across transect sections"
 )
 
 gt(lpi_cover_by_taxa_fields) |>

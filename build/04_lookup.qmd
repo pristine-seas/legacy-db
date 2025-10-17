@@ -52,12 +52,6 @@ Each table serves a specific harmonization role — for example, linking diver s
 
 ## Tables
 
-### Fish codes (`lookup.uvs_fish_codes`)
-
-This table maps shorthand taxon_code entries recorded during underwater visual surveys (UVS) to canonical species names and taxonomic metadata. These codes are used in the field for rapid annotation and often include abbreviated or non-standard identifiers.
-
-Each row links a field code to a taxon (species, genus, or family level), allowing traceable alignment with the authoritative taxonomy defined in `taxonomy.fish`. This mapping is essential for data integration, trait-based analyses, and reporting
-
 ### Researchers (`lookup.ps_researchers`)
 
 This table provides a mapping between abbreviated researcher identifiers (e.g., initials used in field logs or metadata) and full researcher names and IDs. It ensures consistency in authorship, data attribution, and team tracking across datasets and expedition records.

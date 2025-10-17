@@ -227,7 +227,7 @@ exp.sites_fields <- tribble(
   "time",         "TIME",    TRUE,      "Local time of the deployment in 24-hour format (`HH:MM:SS`)",
   "latitude",     "FLOAT",   TRUE,      "Approximate latitude (decimal degrees, WGS84)",
   "longitude",    "FLOAT",   TRUE,      "Approximate longitude (decimal degrees, WGS84)",
-  "team_lead",         "STRING",  TRUE,      "Name of the lead scientist or survey team lead",
+  "team_lead",    "STRING",  TRUE,      "Name of the lead scientist or survey team lead",
   "notes",        "STRING",  FALSE,     "Optional comments, metadata, or field observations"
 )
 

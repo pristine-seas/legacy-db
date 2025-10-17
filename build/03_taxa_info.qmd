@@ -1,0 +1,73 @@
+---
+title: "Taxa Information Dataset"
+format: 
+  html:
+    theme: lux
+    self-contained: true
+    code-fold: true
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+    number-sections: true
+    number-depth: 3
+---
+
+```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
+options(scipen = 999)
+
+library(PristineSeasR2)
+library(bigrquery)
+library(gt)
+library(gtExtras)
+library(tibble)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(lubridate)
+
+knitr::opts_chunk$set(eval = F, warning = F, message = F, include = F, echo = F)
+
+ps_paths <- PristineSeasR2::get_drive_paths()
+
+prj_path <- file.path(ps_paths$projects, "legacy-db")
+
+ps_data_path <- ps_paths$datasets
+  
+bigrquery::bq_auth(email = "marine.data.science@ngs.org")
+
+project_id <- "pristine-seas"
+
+bq_connection <- DBI::dbConnect(bigrquery::bigquery(), 
+                                project = project_id)
+```
+
+The `taxa_info/` dataset is the backbone of biological consistency in the Pristine Seas Science Database. It provides harmonized reference lists and ecological traits for all taxa recorded across expeditions, enabling seamless integration of species-level data across methods, habitats, and years.
+
+This shared taxonomy serves three essential roles:
+
+  - ***Identity resolution*** — Ensures consistent naming using authoritative sources (e.g., WoRMS, Coral Traits)
+  - ***Ecological interpretation*** — Assigns functional and trophic traits for downstream analyses (e.g., predator biomass, herbivore richness)
+  - ***Data integration*** — Supports clean joins between observation tables and trait metadata
+
+Each major taxonomic group is documented in a dedicated table:
+
+``` text
+taxa_info/
+├── fish    # Reef and pelagic fishes from UVS, BRUVS, etc
+├── benthos # Sessile benthic taxa from LPI, recruits, photomosaics (e.g., corals, algae, sponges)
+├── inverts # Sessile and mobile invertebrates
+├── uvs_fish_codes  # Internal field codes for reef fish surveys
+```
+
+All tables follow a standardized schema, centered on aphia_id (WoRMS) as the canonical key. Fields include accepted_name, family, trophic_group, functional_group, and additional group-specific traits.
+
+```{r}
+if (!bq_dataset_exists(bq_dataset("pristine-seas", "taxa_info"))) {
+  bq_dataset_create(
+    bq_dataset("pristine-seas", "taxa_info"),
+    description = "Reference taxonomy and trait metadata for all organisms recorded in Pristine Seas surveys. Provides standardized species names, AphiaIDs, and ecological groupings across methods."
+  )
+}
+```
+

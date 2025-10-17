@@ -47,20 +47,19 @@ website:
           file: 16_rov.qmd
         - text: "Deep Sea Cameras"
           file: 17_dscm.qmd
-      - text: "Taxonomy Dataset"
-        file: 03_taxonomy.qmd
+      - text: "Taxa Info"
+        file: 03_taxa_info.qmd
         contents:
           - text: "Fish"
-            file: 03_taxonomy_fish.qmd
+            file: 03_taxa_info_fish.qmd
+          - text: "UVS Fish codes"
+            file: 04_lookup_fish_codes.qmd
           - text: "Inverts"
-            file: 03_taxonomy_inverts.qmd 
+            file: 03_taxa_info_inverts.qmd 
           - text: "Benthos"
-            file: 03_taxonomy_benthos.qmd
+            file: 03_taxa_info_benthos.qmd
       - text: "Lookup Tables"
         file: 04_lookup.qmd
-        contents:
-          - text: "UVS fish codes"
-            file: 04_lookup_fish_codes.qmd
           
   page-footer:
     center: "© 2024 National Geographic Society. All rights reserved."

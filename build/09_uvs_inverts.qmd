@@ -93,14 +93,14 @@ inverts_stations_fields <- tribble(
   "depth_strata",      "STRING",  TRUE,      "Depth category: `supershallow`, `shallow`, or `deep`",
   
   # Survey effort
-  "n_transects",       "FLOAT",   TRUE,      "Number of transect done at the station",
+  "n_transects",       "FLOAT",   TRUE,      "Number of transects completed at the station",
   "survey_dist_m",     "FLOAT",   TRUE,      "Total distance surveyed (m)",
-  "survey_area_m2",    "FLOAT",  TRUE,       "Total area surveyed (transect_length x belt_width).",
+  "survey_area_m2",    "FLOAT",   TRUE,      "Total area surveyed (transect_length × belt_width)",
   
   # Summary metrics
-  "n_morphotaxa",      "INTEGER", FALSE,   "Total number of unique invertebrate morphotaxa observed at the station (on-transect only).",
-  "count",             "INTEGER", FALSE,   "Mean number of invertebrates recorded across transects",
-  "density_m2",        "FLOAT",  FALSE,    "Mean density of invertebrates recorded across transects (individuals/m²).",
+  "n_taxa",            "INTEGER", FALSE,     "Total number of unique invertebrate taxa observed at the station",
+  "total_count",       "INTEGER", FALSE,     "Total number of invertebrates recorded across transects",
+  "avg_density_m2",    "FLOAT",   FALSE,     "Mean density of invertebrates (individuals/m²)",
   
   # Notes
   "notes",             "STRING",  FALSE,     "Field notes or QA comments"
@@ -156,34 +156,35 @@ This table stores raw observations of invertebrates recorded during the surveys.
 
 inverts_obs_fields <- tribble(
   ~field,              ~type,     ~required, ~description,
-
+  
   # Identifiers
-  "obs_id",            "STRING",  TRUE,      "Unique observation ID (e.g., `CHL_2024_inverts_AMF_0001`).",
-  "ps_station_id",     "STRING",  TRUE,      "Foreign key linking to `uvs.inverts_stations`.",
+  "obs_id",            "STRING",  TRUE,      "Unique observation ID (e.g., `CHL_2024_inverts_AMF_0001`)",
+  "ps_station_id",     "STRING",  TRUE,      "Foreign key to `uvs.inverts_stations`",
   "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
-
-  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation.",
-  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted.",
-  "transect",          "STRING",  TRUE,      "Field-assigned transect label (A, B, OFF).",
-  "transect_length_m", "FLOAT",   TRUE,      "Length of the transect - typically 50m for general surveys",
-  "transect_width_m",  "FLOAT",   TRUE,      "Width of the transect band (m) — typically 1 for general surveys, 4 for large-scale surveys.",
-
+  
+  # Survey context
+  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation",
+  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted",
+  "transect",          "STRING",  TRUE,      "Field-assigned transect label (A, B, OFF)",
+  "transect_length_m", "FLOAT",   TRUE,      "Length of the transect (typically 50m)",
+  "transect_width_m",  "FLOAT",   TRUE,      "Width of the transect band (1m for general surveys, 4m for large-scale surveys)",
+  
   # Taxonomic identity
-  "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label (e.g., `Unidentified crinoid`, `Conus vexillum`, `Ancylomenes sp.`).",
-  "accepted_name",     "STRING",  TRUE,     "Scientific name (`Genus species`) of the observed morphotaxon",
-  "accepted_aphia_id", "INTEGER", TRUE,     "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
-  "rank",              "STRING",  TRUE,     "Taxonomic rank of the record (`species`, `genus`, or `family`).",
-  "family",            "STRING",  TRUE,     "Family of the observed taxon (from `taxonomy.inverts`).",
-  "common_name",       "STRING",  FALSE,      "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins).",
-
+  "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label (e.g., `Unidentified crinoid`, `Conus vexillum`, `Giant clam sp.`)",
+  "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`) of the observed taxon",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.inverts`",
+  "rank",              "STRING",  TRUE,      "Taxonomic rank (`species`, `genus`, or `family`)",
+  "family",            "STRING",  FALSE,      "Family of the observed taxon",
+  "common_name",       "STRING",  FALSE,     "Generalized name (e.g., sea cucumbers, giant clams, sea urchins)",
+  
   # Observation details
-  "count",             "INTEGER", TRUE,      "Number of individuals observed for this taxa",
-  "density_m2",         "FLOAT",  TRUE,     "Density (individuals/m²), standardized by transect area.",
-  "size_cm",           "FLOAT",   FALSE,     "Measured length (cm), if applicable for the taxon.",
-  "size_type",         "STRING",  FALSE,     "Type of length measured (e.g., `shell width`, `total length`). Use standardized vocabulary.",
+  "count",             "INTEGER", TRUE,      "Number of individuals observed for this taxon",
+  "density_m2",        "FLOAT",   TRUE,      "Density (individuals/m²), standardized by transect area",
+  "size_cm",           "FLOAT",   FALSE,     "Measured length (cm), if applicable",
+  "size_type",         "STRING",  FALSE,     "Type of measurement (e.g., `shell width`, `total length`)",
   
   # Notes
-  "notes",             "STRING",  FALSE,     "Optional comments or QA annotations."
+  "notes",             "STRING",  FALSE,     "Optional comments or QA annotations"
 )
 
 
@@ -236,42 +237,40 @@ Each row is a unique combination of `ps_station_id` and species, with fields suc
 #| label: tbl-inverts-cover-schema
 #| tbl-cap: "Schema for `uvs.inverts_density_by_taxa`"
 
-density_by_taxa_fields <- tribble(
-  ~field,             ~type,     ~required, ~description,
+inverts_density_by_taxa_fields <- tribble(
+  ~field,              ~type,     ~required, ~description,
   
   # Keys
-  "ps_station_id",     "STRING",  TRUE,  "Station identifier (foreign key)",
-  "ps_site_id",        "STRING",  TRUE,  "Site identifier - denormalized for performance",
-  "exp_id",            "STRING",  TRUE,  "Expedition ID - denormalized for performance",
-
+  "ps_station_id",     "STRING",  TRUE,      "Station identifier (foreign key)",
+  "ps_site_id",        "STRING",  TRUE,      "Site identifier - denormalized for performance",
+  "exp_id",            "STRING",  TRUE,      "Expedition ID - denormalized for performance",
+  
   # Spatial context (denormalized for common queries)
+  "region",            "STRING",  TRUE,      "Region name",
+  "subregion",         "STRING",  TRUE,      "Subregion name",
+  "habitat",           "STRING",  TRUE,      "Habitat type",
+  "exposure",          "STRING",  TRUE,      "Exposure type",
   
-  "region",             "STRING", TRUE,  "◂ Region name.",
-  "subregion",          "STRING", TRUE,  "◂ Subregion name.",
-  "habitat",            "STRING", TRUE,  "◂ Habitat type (see controlled vocabulary).",
-  "exposure",           "STRING", TRUE,  "◂ Exposure type (see controlled vocabulary).",
-
-  # Station Characteristics
+  # Station characteristics
+  "divers",            "STRING",  TRUE,      "Pipe-delimited diver names",
+  "depth_strata",      "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`",
+  "depth_m",           "FLOAT",   TRUE,      "Mean depth (m) of the station",
   
-  "divers",             "STRING", TRUE,  "Comma-separated names of divers who conducted the transects.",
-  "depth_strata",       "STRING", TRUE,  "Depth bin label: `supershallow`, `shallow`, or `deep`.",
-  "depth_m",            "FLOAT",  TRUE,  "Mean depth (m) of the station.",
+  # Taxonomic identity
+  "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label",
+  "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`)",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.inverts`",
+  "rank",              "STRING",  TRUE,      "Taxonomic rank",
+  "family",            "STRING",  TRUE,      "Family of the observed taxon",
+  "common_name",       "STRING",  FALSE,     "Generalized name",
   
-  # Taxa info
-  "morphotaxon",       "STRING",  TRUE,   "Diver-entered morphotaxon",
-  "accepted_name",     "STRING",  TRUE,   "Scientific name (`Genus species`) of the observed taxon.",
-  "accepted_aphia_id", "INTEGER", TRUE,   "WoRMS AphiaID — foreign key to `taxonomy.inverts`.",
-  "rank",              "STRING",  TRUE,   "Taxonomic rank of the record (`species`, `genus`, or `family`).",
-  "family",            "STRING",  TRUE,   "Family of the observed taxon (from `taxonomy.inverts`).",
-  "common_name",       "STRING",  FALSE,  "Generalized name used for communication and summaries (e.g., sea cucumbers, giant clams, sea urchins).",
-
   # Aggregated metrics
-  "count",             "INTEGER", TRUE,   "Mean number of individuals observed across transects at the station.",
-  "density_m2",        "FLOAT",   TRUE,   "Mean density (individuals/m²), standardized by band width and transect length.",
-  "avg_size_cm",       "FLOAT",   FALSE,  "Weighted mean length (cm), if applicable."
+  "total_count",       "INTEGER", TRUE,      "Total individuals observed across transects",
+  "avg_density_m2",    "FLOAT",   TRUE,      "Mean density (individuals/m²)",
+  "avg_size_cm",       "FLOAT",   FALSE,     "Weighted mean length (cm), if applicable"
 )
 
-gt(density_by_taxa_fields) |>
+gt(inverts_density_by_taxa_fields) |>
   cols_label(field = md("**Field**"),
              type = md("**Type**"),
              required = md("**Required**"),
@@ -291,7 +290,7 @@ gt(density_by_taxa_fields) |>
 
 
 ```{r}
-inverts_density_schema <- density_by_taxa_fields |>
+inverts_density_schema <- inverts_density_by_taxa_fields |>
   mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
   transmute(name = field,
             type = type,

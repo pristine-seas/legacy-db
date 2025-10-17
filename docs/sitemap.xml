@@ -62,7 +62,7 @@
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/10_uvs_recruits.html</loc>
-    <lastmod>2025-10-16T19:59:31.728Z</lastmod>
+    <lastmod>2025-10-17T15:48:10.208Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/15_sub.html</loc>
@@ -74,19 +74,19 @@
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/04_lookup.html</loc>
-    <lastmod>2025-06-30T19:45:10.967Z</lastmod>
+    <lastmod>2025-10-17T14:58:46.338Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/01_architecture.html</loc>
-    <lastmod>2025-05-13T16:20:57.593Z</lastmod>
+    <lastmod>2025-10-17T15:04:15.419Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/08_uvs_lpi.html</loc>
-    <lastmod>2025-09-27T15:39:02.298Z</lastmod>
+    <lastmod>2025-10-17T15:52:40.141Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/09_uvs_inverts.html</loc>
-    <lastmod>2025-09-26T17:37:21.790Z</lastmod>
+    <lastmod>2025-10-17T15:42:51.076Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/03_taxonomy.html</loc>
@@ -94,7 +94,7 @@
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/05_methods.html</loc>
-    <lastmod>2025-05-05T15:06:33.719Z</lastmod>
+    <lastmod>2025-10-15T21:11:14.292Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/11_edna.html</loc>
@@ -106,11 +106,11 @@
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/07_uvs_blt.html</loc>
-    <lastmod>2025-10-16T19:55:12.762Z</lastmod>
+    <lastmod>2025-10-17T15:35:01.566Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/02_expeditions.html</loc>
-    <lastmod>2025-10-16T20:05:42.350Z</lastmod>
+    <lastmod>2025-10-17T14:10:13.922Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/16_rov.html</loc>
@@ -118,7 +118,7 @@
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/03_taxonomy_fish.html</loc>
-    <lastmod>2025-10-16T20:05:18.431Z</lastmod>
+    <lastmod>2025-10-16T20:23:33.966Z</lastmod>
   </url>
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/03_taxonomy_fish_codes.html</loc>
@@ -143,5 +143,25 @@
   <url>
     <loc>https://pristine-seas.github.io/legacy-db/03_taxonomy_benthos.html</loc>
     <lastmod>2025-09-18T16:31:27.023Z</lastmod>
+  </url>
+  <url>
+    <loc>https://pristine-seas.github.io/legacy-db/03_taxa_info.html</loc>
+    <lastmod>2025-10-17T14:16:52.775Z</lastmod>
+  </url>
+  <url>
+    <loc>https://pristine-seas.github.io/legacy-db/03_taxa_info_inverts.html</loc>
+    <lastmod>2025-10-17T14:57:03.258Z</lastmod>
+  </url>
+  <url>
+    <loc>https://pristine-seas.github.io/legacy-db/03_taxa_info_fish.html</loc>
+    <lastmod>2025-10-17T14:42:10.642Z</lastmod>
+  </url>
+  <url>
+    <loc>https://pristine-seas.github.io/legacy-db/03_taxa_info_benthos.html</loc>
+    <lastmod>2025-10-17T14:51:07.355Z</lastmod>
+  </url>
+  <url>
+    <loc>https://pristine-seas.github.io/legacy-db/03_taxa_info_fish_uvs_codes.html</loc>
+    <lastmod>2025-10-17T14:41:35.907Z</lastmod>
   </url>
 </urlset>
