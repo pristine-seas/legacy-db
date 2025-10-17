@@ -94,7 +94,7 @@ lpi_stations_fields <- tribble(
   # Survey effort
   "n_transects",       "INTEGER", TRUE,      "Number of transects completed",
   "survey_dist_m",     "FLOAT",   TRUE,      "Total distance surveyed (m)",
-  "total_points",      "INTEGER", TRUE,      "Total number of points sampled across all transects",
+  "n_points",          "INTEGER", TRUE,      "Total number of points sampled across all transects",
   
   # Summary metrics
   "n_taxa",            "INTEGER", FALSE,     "Total unique morphotaxa observed",
@@ -262,10 +262,10 @@ lpi_cover_by_taxa_fields <- tribble(
   "exposure",          "STRING",  TRUE,      "Exposure type",
   
   # Station characteristics
-  "diver",             "STRING",  TRUE,      "Name of the diver",
-  "depth_strata",      "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`",
+  "divers",            "STRING",  TRUE,      "Pipe-delimited diver names",
   "depth_m",           "FLOAT",   TRUE,      "Mean depth (m) of the station",
-  
+  "depth_strata",      "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`",
+
   # Taxonomic identity
   "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label",
   "accepted_name",     "STRING",  FALSE,     "Scientific name (`Genus species`)",
@@ -275,7 +275,7 @@ lpi_cover_by_taxa_fields <- tribble(
   "functional_group",  "STRING",  TRUE,      "Functional group classification",
   
   # Aggregated metrics
-  "total_contacts",    "FLOAT",   TRUE,      "Number of points at which the morphotaxon was recorded",
+  "total_count",       "FLOAT",   TRUE,      "Number of points at which the morphotaxon was recorded",
   "pct_cover",         "FLOAT",   TRUE,      "Percent cover across the entire transect",
   "pct_cover_sd",      "FLOAT",   FALSE,     "Standard deviation of percent cover across transect sections"
 )
@@ -314,6 +314,3 @@ lpi_cover_by_taxa_schema <- lpi_cover_by_taxa_fields |>
 bq_table_create(bq_table(project_id, "uvs", "lpi_cover_by_taxa"),
                 fields = lpi_cover_by_taxa_schema)
 ```
-
-
-

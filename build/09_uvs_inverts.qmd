@@ -253,9 +253,9 @@ inverts_density_by_taxa_fields <- tribble(
   
   # Station characteristics
   "divers",            "STRING",  TRUE,      "Pipe-delimited diver names",
-  "depth_strata",      "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`",
   "depth_m",           "FLOAT",   TRUE,      "Mean depth (m) of the station",
-  
+  "depth_strata",      "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`",
+
   # Taxonomic identity
   "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label",
   "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`)",

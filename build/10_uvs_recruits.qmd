@@ -160,9 +160,9 @@ recruits_observations_fields <- tribble(
   
   # Survey context
   "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation",
+  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted",
   "transect",          "STRING",  TRUE,      "Field-assigned station label (A, B)",
   "transect_length_m", "FLOAT",   TRUE,      "Length of the transect line (typically 50m)",
-  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted",
   "quadrat",           "INTEGER", FALSE,     "Quadrat number (1–10) at fixed intervals along the transect",
   
   # Taxonomic identity
@@ -243,14 +243,14 @@ recruits_density_by_taxa_fields <- tribble(
   
   # Station characteristics
   "divers",            "STRING",  TRUE,      "Pipe-delimited diver names",
-  "depth_strata",      "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`",
   "depth_m",           "FLOAT",   TRUE,      "Mean depth (m) of the station",
+  "depth_strata",      "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`",
   
   # Taxonomic identity
   "accepted_name",     "STRING",  TRUE,      "Standardized taxon name (typically genus)",
   "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.corals`",
-  "family",            "STRING",  FALSE,     "Family of the coral taxon",
   "rank",              "STRING",  TRUE,      "Taxonomic rank",
+  "family",            "STRING",  FALSE,     "Family of the coral taxon",
   
   # Aggregated metrics
   "total_count",       "INTEGER", TRUE,      "Total number of recruits observed across all quadrats",
