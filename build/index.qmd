@@ -53,7 +53,7 @@ Transparent, well-documented, and modular. Designed for reuse, extension, and sh
 1. **Browse the documentation** using the sidebar navigation
 2. **Start with [Architecture](01_architecture.qmd)** to understand the system structure
 3. **Explore [Method Datasets](05_methods.qmd)** for specific survey protocols
-4. **Review [Taxonomy](03_taxonomy.qmd)** for species standardization
+4. **Review [Taxa Info](03_taxa_info.qmd)** for species standardization
 5. **Query data** via the [BigQuery Console](https://console.cloud.google.com/bigquery)
 
 ### Common Applications

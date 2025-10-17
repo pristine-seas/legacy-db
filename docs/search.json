@@ -1194,7 +1194,7 @@
     "href": "index.html#getting-started",
     "title": "Pristine Seas Science Database",
     "section": "Getting Started",
-    "text": "Getting Started\n\nBrowse the documentation using the sidebar navigation\nStart with Architecture to understand the system structure\nExplore Method Datasets for specific survey protocols\nReview Taxonomy for species standardization\nQuery data via the BigQuery Console\n\n\nCommon Applications\n\nSpecies richness and diversity analysis\nBiomass assessments by trophic group\nTemporal trends in coral cover\nMulti-method data integration\nConservation priority identification",
+    "text": "Getting Started\n\nBrowse the documentation using the sidebar navigation\nStart with Architecture to understand the system structure\nExplore Method Datasets for specific survey protocols\nReview Taxa Info for species standardization\nQuery data via the BigQuery Console\n\n\nCommon Applications\n\nSpecies richness and diversity analysis\nBiomass assessments by trophic group\nTemporal trends in coral cover\nMulti-method data integration\nConservation priority identification",
     "crumbs": [
       "Overview"
     ]
@@ -1641,7 +1641,7 @@
     "section": "",
     "text": "The taxa_info/ dataset is the backbone of biological consistency in the Pristine Seas Science Database. It provides harmonized reference lists and ecological traits for all taxa recorded across expeditions, enabling seamless integration of species-level data across methods, habitats, and years.\nThis shared taxonomy serves three essential roles:\n\nIdentity resolution — Ensures consistent naming using authoritative sources (e.g., WoRMS, Coral Traits)\nEcological interpretation — Assigns functional and trophic traits for downstream analyses (e.g., predator biomass, herbivore richness)\nData integration — Supports clean joins between observation tables and trait metadata\n\nEach major taxonomic group is documented in a dedicated table:\ntaxa_info/\n├── fish    # Reef and pelagic fishes from UVS, BRUVS, etc\n├── benthos # Sessile benthic taxa from LPI, recruits, photomosaics (e.g., corals, algae, sponges)\n├── inverts # Sessile and mobile invertebrates\n├── uvs_fish_codes  # Internal field codes for reef fish surveys\nAll tables follow a standardized schema, centered on aphia_id (WoRMS) as the canonical key. Fields include accepted_name, family, trophic_group, functional_group, and additional group-specific traits.",
     "crumbs": [
-      "Taxonomy Dataset"
+      "Taxa Info"
     ]
   },
   {
