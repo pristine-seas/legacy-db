@@ -99,7 +99,7 @@ recruits_stations_fields <- tribble(
   # Summary metrics
   "n_taxa",            "INTEGER", TRUE,      "Total number of coral taxa observed",
   "total_count",       "INTEGER", TRUE,      "Total number of coral recruits recorded",
-  "avg_density_m2",    "FLOAT",   TRUE,      "Recruit density (individuals/m²)",
+  "avg_density_m2",    "FLOAT",   TRUE,      "Mean recruit density (individuals/m²)",
   
   # Notes
   "notes",             "STRING",  FALSE,     "Optional QA or field notes"
@@ -173,7 +173,8 @@ recruits_observations_fields <- tribble(
   "family",            "STRING",  FALSE,     "Family of the coral taxon",
   
   # Observation details
-  "diameter_cm",       "FLOAT",   TRUE,      "Maximum colony diameter (cm), measured in the field",
+  "count",             "INTEGER", TRUE,      "Number of individual recruits observed in the quadrat of that size class",
+  "diameter_cm",       "FLOAT",   TRUE,      "Colony diameter (cm), measured in the field",
   "substrate",         "STRING",  FALSE,     "Substrate type where the recruit was observed (e.g., rock, sand, rubble)",
   
   # Notes
@@ -256,7 +257,7 @@ recruits_density_by_taxa_fields <- tribble(
   # Aggregated metrics
   "total_count",       "INTEGER", TRUE,      "Total number of recruits observed across all quadrats",
   "avg_density_m2",    "FLOAT",   TRUE,      "Recruit density (individuals/m²), standardized by total quadrat area",
-  "avg_diameter_cm",   "FLOAT",   TRUE,      "Average maximum diameter of recruits (cm) across all quadrats"
+  "avg_diameter_cm",   "FLOAT",   TRUE,      "Average diameter of recruits (cm) across all quadrats"
 )
 
 gt(recruits_density_by_taxa_fields) |>
