@@ -206,9 +206,10 @@ edna_stations_fields <- tribble(
   "habitat",          "STRING",  TRUE,      "Habitat type - from edna.sites",
   
   # Station characteristics
-  "paired_site_id",   "STRING",  FALSE,     "ID of coordinated survey site - from edna.sites",
-  "depth_strata",     "STRING",  TRUE,      "Depth category: `surface`,`supershallow`, `shallow`, or `deep`",
+  "collectors",       "STRING",  TRUE,      "Team members who collected samples (pipe-delimited)",
   "depth_m",          "FLOAT",   TRUE,      "Target sampling depth (meters)",
+  "depth_strata",     "STRING",  TRUE,      "Depth category: `surface`,`supershallow`, `shallow`, or `deep`",
+  "paired_site_id",   "STRING",  FALSE,     "ID of coordinated survey site from uvs or pelagic bruvs",
   
   # Collection methodology (most common for this station)
   "filter_type",      "STRING",  TRUE,      "Primary filter type used (e.g., `Sterivex`)",
@@ -217,7 +218,7 @@ edna_stations_fields <- tribble(
   
   # Summary metrics
   "n_replicates",     "INTEGER", TRUE,      "Number of replicate samples collected",
-  "total_water_liters", "FLOAT", TRUE,      "Total volume of water filtered across replicates (L)",
+  "total_water_l",    "FLOAT", TRUE,      "Total volume of water filtered across replicates (L)",
   "collection_date",  "DATE",    TRUE,      "Date of sample collection - denormalized for queries",
   
   # Notes

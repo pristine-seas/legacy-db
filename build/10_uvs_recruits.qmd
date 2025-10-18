@@ -91,8 +91,8 @@ recruits_stations_fields <- tribble(
   "depth_strata",      "STRING",  TRUE,      "Depth category: `supershallow`, `shallow`, or `deep`",
   
   # Survey effort
+  "n_transects",       "INTEGER", TRUE,      "Number of transects surveyed at the station (typically 1 or 2)",
   "survey_dist_m",     "FLOAT",   TRUE,      "Total distance surveyed (m), typically 50m transect",
-  "quadrat_area_m2",   "FLOAT",   TRUE,      "Area of each quadrat in m² (typically 0.25)",
   "n_quadrats",        "INTEGER", TRUE,      "Number of quadrats surveyed (typically 10)",
   "survey_area_m2",    "FLOAT",   TRUE,      "Total area surveyed (e.g., 2.5 m²)",
   
@@ -164,6 +164,7 @@ recruits_observations_fields <- tribble(
   "transect",          "STRING",  TRUE,      "Field-assigned station label (A, B)",
   "transect_length_m", "FLOAT",   TRUE,      "Length of the transect line (typically 50m)",
   "quadrat",           "INTEGER", FALSE,     "Quadrat number (1–10) at fixed intervals along the transect",
+  "quadrat_area_m2",   "FLOAT",   TRUE,      "Area of each quadrat in m² (typically 0.25)",
   
   # Taxonomic identity
   "accepted_name",     "STRING",  TRUE,      "Scientific name (typically genus level)",
@@ -288,6 +289,6 @@ recruits_density_schema <- recruits_density_by_taxa_fields |>
     list(name = name, type = type, mode = mode, description = description)
   })
 
-bq_table_create(bq_table(project_id, "uvs", "recruits_density_by_taxa"),
+bq_table_create(bq_table(project_id, "uvs", "recruits_density_by_station_and_taxa"),
                 fields = recruits_density_schema)
 ```
