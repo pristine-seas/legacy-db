@@ -53,7 +53,7 @@ website:
           - text: "Fish"
             file: 03_taxa_info_fish.qmd
           - text: "UVS Fish codes"
-            file: 04_lookup_fish_codes.qmd
+            file: 03_taxa_info_fish_uvs_codes.qmd
           - text: "Inverts"
             file: 03_taxa_info_inverts.qmd 
           - text: "Benthos"

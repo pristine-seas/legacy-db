@@ -41,69 +41,194 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-#### Overview
+## Overview
 
-The **invertebrate survey (inverts)** protocol is used to quantify the diversity, abundance, and size distribution of motile reef invertebrates at Pristine Seas UVS sites. Divers swim along fixed transects and record invertebrate observations within defined belt widths, using two complementary methods:
+The invertebrate survey protocol quantifies the diversity, abundance, and size distribution of motile reef invertebrates at Pristine Seas UVS sites. Divers swim along fixed transects and record invertebrate observations within defined belt widths, using two complementary methods:
 
-- **Standard invertebrate survey** — All motile invertebrates within 1 meter of one side of the transect are counted and identified to the lowest possible taxonomic level.
-- **Large-scale invertebrate survey** — Culturally and fishery important species are measured for size within a wider 4-meter belt on the opposite side of the transect.
+- **Standard invertebrate survey** — All motile invertebrates within 1 meter of one side of the transect are counted and identified to the lowest possible taxonomic level
+- **Large-scale invertebrate survey (optional)** — Culturally and fishery-important species are measured for size within a wider 4-meter belt on the opposite side of the transect
 
-This dual protocol captures both fine-scale community composition and large-bodied target species for management applications. 
+This dual protocol captures both fine-scale community composition and large-bodied target species for management applications.
 
-Invertebrate data are organized into three interlinked tables:
+### Standard Survey Methodology
 
-- `uvs.inverts_stations` — Metadata and ecological summaries for each invertebrate transect station
-- `uvs.inverts_observations` — Raw counts and size measurements of individual invertebrate taxa
-- `uvs.inverts_density_by_taxa` — Station-level summaries by species, including density and average size
+**Spatial Design:** Fixed-length transects with variable belt widths depending on survey type
 
-All records are linked by `ps_station_id`, and species are standardized using `accepted_aphia_id` from `taxonomy.inverts`.
+**Sampling Units:** 
+- 50-meter transect × 1-meter belt (50 m² per transect) for general invertebrate counts
+- 50-meter transect × 4-meter belt (200 m² per transect) for large-bodied species measurements (not always done)
+
+**Target Organisms:** Motile reef invertebrates including echinoderms, molluscs, crustaceans, and other conspicuous taxa
+
+**Taxonomic Resolution:** Species-level identification where possible, with genus or family fallback
+
+**Data Capture:** Each taxon is counted and, for selected large-bodied species, measured for size
 
 ------------------------------------------------------------------------
 
-#### Tables 
+## Data Architecture
+
+The dataset employs a three-tier normalized structure linking individual observations to station-level summaries and taxonomic aggregations.
+
+- `uvs.inverts_observations`            - One row per taxon per transect, with counts and optional size measurements
+- `uvs.inverts_stations`                - One row per UVS station, with metadata, survey effort, and summary metrics
+- `uvs.inverts_density_by_station_taxa` - Aggregated counts and densities by taxon for each station
+
+All tables link via `ps_station_id`. Taxonomy uses `accepted_aphia_id` as the canonical key to `taxa_info.inverts`; `accepted_name` is denormalized for convenience. Site context (region, subregion, locality, habitat, exposure) mirrors `uvs.sites`.
+
+### Relational Model
+
+**Primary Key Relationships:**
+
+- All tables link via `ps_station_id` (composite station identifier)
+- Taxonomic joins use `accepted_aphia_id` → `taxa_info.inverts`
+- Spatial context inherits from `uvs.sites` via `ps_site_id`
+
+**Denormalization Strategy:**
+
+Site context fields (`region`, `subregion`, `locality`, `habitat`, `exposure`) are denormalized in summary tables to optimize query performance for common filtering operations.
 
 ------------------------------------------------------------------------
 
-##### Stations (`uvs.inverts_stations`)
+## Tables
 
-This table contains metadata and summary statistics for each invertebrate survey station. Each row corresponds to a single 50 m transect at a UVS site and includes spatial context, survey effort, and ecological indicators such as species richness and density of target taxa.
+------------------------------------------------------------------------
+
+### Observations
+
+**Purpose:** Granular observation-level data capturing invertebrate counts and sizes within transects
+
+**Grain:** One row per taxon observation
+
+**Use Cases:**
+
+- Size-frequency distribution analysis for large-bodied species
+- Taxonomic composition assessment at transect level
+- Survey effort validation and QA
+- Raw data export for custom aggregations
+- Individual-level taxonomic verification
+
+```{r eval = T, include = T}
+#| label: tbl-inverts-obs-schema
+#| tbl-cap: "Schema for `uvs.inverts_observations`: invertebrate observations by transect"
+
+inverts_obs_fields <- tribble(
+  ~field,              ~type,     ~required, ~description,
+  
+  # Identifiers
+  "obs_id",            "STRING",  TRUE,      "Unique observation identifier. Format: `{ISO3}_{YEAR}_inverts_{DIVER_INITIALS}_{SEQUENCE}`",
+  "ps_station_id",     "STRING",  TRUE,      "Station identifier (FK → `uvs.inverts_stations`)",
+  "exp_id",            "STRING",  TRUE,      "Expedition identifier. Format: `{ISO3}_{YEAR}`",
+  
+  # Survey context
+  "diver",             "STRING",  TRUE,      "Observer name",
+  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m)",
+  "transect",          "STRING",  TRUE,      "Transect label (A, B, OFF)",
+  "transect_length_m", "INTEGER", TRUE,      "Transect length (m). Standard = 50",
+  "transect_width_m",  "INTEGER", TRUE,      "Belt width (m). 1m for counts, 4m for measurements",
+  
+  # Taxonomic identity
+  "morphotaxon",       "STRING",  TRUE,      "Field identification name",
+  "accepted_name",     "STRING",  TRUE,      "Valid scientific name",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID (FK → `taxa_info.inverts`)",
+  "rank",              "STRING",  TRUE,      "Taxonomic rank: `species`, `genus`, or `family`",
+  "family",            "STRING",  FALSE,     "Family name",
+  "common_name",       "STRING",  FALSE,     "Common name (e.g., sea cucumbers, giant clams)",
+  
+  # Observation details
+  "count",             "INTEGER", TRUE,      "Number of individuals of this taxon",
+  "size_cm",           "FLOAT",   FALSE,     "Measured length (cm), when applicable",
+  "size_type",         "STRING",  FALSE,     "Measurement type (e.g., shell width, total length)",
+  
+  # Notes
+  "notes",             "STRING",  FALSE,     "Optional comments or QA flags"
+  )
+
+gt(inverts_obs_fields) |>
+  cols_label(field = md("**Field**"),
+             type = md("**Type**"),
+             required = md("**Required**"),
+             description = md("**Description**")) |> 
+  cols_width(field ~ px(200),
+             type ~ px(100),
+             required ~ px(80),
+             description ~ px(500)) |>
+  data_color(columns = c(field),
+             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
+  tab_options(table.font.size = px(13),
+              table.width = pct(100)) |> 
+  fmt_tf(columns = required, tf_style = "true-false") |> 
+  fmt_markdown(columns = description) |> 
+  gt_theme_nytimes()
+```
+
+```{r}
+inverts_obs_schema <- inverts_obs_fields |>
+  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
+  transmute(name = field,
+            type = type,
+            mode = mode,
+            description = description) |>
+  pmap(function(name, type, mode, description) {
+    list(name = name, type = type, mode = mode, description = description)
+  })
+
+bq_table_create(bq_table(project_id, "uvs", "inverts_observations"),
+                fields = inverts_obs_schema)
+```
+
+---
+
+### Stations
+
+**Purpose:** Station-level metadata and summary statistics for invertebrate surveys
+
+**Grain:** One row per depth-stratified UVS station with invertebrate sampling
+
+**Use Cases:**
+
+- Survey effort tracking and validation
+- Station-level community metrics comparisons
+- Depth-stratified analysis
+- Regional and habitat-level summaries
+- Data completeness auditing
 
 ```{r eval = T, include = T}
 #| label: tbl-inverts-stations-schema
-#| tbl-cap: "Schema for `uvs.inverts_stations`: metadata and summary metrics for motile invertebrate survey stations"
+#| tbl-cap: "Schema for `uvs.inverts_stations`: metadata and summary metrics for invertebrate survey stations"
 
 inverts_stations_fields <- tribble(
   ~field,              ~type,     ~required,  ~description,
   
   # Core identifiers
-  "ps_station_id",     "STRING",  TRUE,      "Unique station ID (`ps_site_id_depth`), e.g., `COL_2024_uvs_001_20m`",
-  "ps_site_id",        "STRING",  TRUE,      "Foreign key to `uvs.sites`",
-  "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
+  "ps_station_id",     "STRING",  TRUE,      "Unique station identifier. Format: `{ps_site_id}_{depth}`",
+  "ps_site_id",        "STRING",  TRUE,      "Site identifier (FK → `uvs.sites`)",
+  "exp_id",            "STRING",  TRUE,      "Expedition identifier. Format: `{ISO3}_{YEAR}`",
   
   # Site context (denormalized for common queries)
-  "region",            "STRING",  TRUE,      "Region name - from uvs.sites",
-  "subregion",         "STRING",  TRUE,      "Subregion name - from uvs.sites",
-  "locality",          "STRING",  FALSE,     "Locality name - from uvs.sites",
-  "habitat",           "STRING",  TRUE,      "Habitat type - from uvs.sites",
-  "exposure",          "STRING",  TRUE,      "Exposure type - from uvs.sites",
+  "region",            "STRING",  TRUE,      "Geographic region (from `uvs.sites`)",
+  "subregion",         "STRING",  TRUE,      "Geographic subregion (from `uvs.sites`)",
+  "locality",          "STRING",  FALSE,     "Specific locality (from `uvs.sites`)",
+  "habitat",           "STRING",  TRUE,      "Habitat classification (from `uvs.sites`)",
+  "exposure",          "STRING",  TRUE,      "Wave exposure category (from `uvs.sites`)",
   
   # Station info
-  "divers",            "STRING",  TRUE,      "Divers who conducted transects (pipe-delimited)",
-  "depth_m",           "FLOAT",   TRUE,      "Average station depth (meters)",
   "depth_strata",      "STRING",  TRUE,      "Depth category: `supershallow`, `shallow`, or `deep`",
+  "depth_m",           "FLOAT",   TRUE,      "Mean recorded depth (m)",
+  "divers",            "STRING",  TRUE,      "Pipe-delimited list of observer names",
   
   # Survey effort
-  "n_transects",       "FLOAT",   TRUE,      "Number of transects completed at the station",
-  "survey_dist_m",     "FLOAT",   TRUE,      "Total distance surveyed (m)",
-  "survey_area_m2",    "FLOAT",   TRUE,      "Total area surveyed (transect_length × belt_width)",
+  "n_transects",       "FLOAT",   TRUE,      "Number of transects completed",
+  "survey_dist_m",     "FLOAT",   TRUE,      "Total transect distance (m)",
+  "survey_area_m2",    "FLOAT",   TRUE,      "Total area sampled (m²)",
   
   # Summary metrics
-  "n_taxa",            "INTEGER", FALSE,     "Total number of unique invertebrate taxa observed at the station",
-  "total_count",       "INTEGER", FALSE,     "Total number of invertebrates recorded across transects",
-  "avg_density_m2",    "FLOAT",   FALSE,     "Mean density of invertebrates (individuals/m²)",
+  "n_taxa",            "INTEGER", FALSE,     "Number of distinct taxa observed",
+  "total_count",       "INTEGER", FALSE,     "Total number of invertebrates",
+  "avg_density_m2",    "FLOAT",   FALSE,     "Mean invertebrate density (individuals/m²)",
   
   # Notes
-  "notes",             "STRING",  FALSE,     "Field notes or QA comments"
+  "notes",             "STRING",  FALSE,     "Station-level annotations or QA notes"
 )
 
 gt(inverts_stations_fields) |>
@@ -142,132 +267,60 @@ bq_table_create(bq_table(project_id, "uvs", "inverts_stations"),
 
 ---
 
-##### Observations (`uvs.inverts_observations`)
+### Density by Station & Taxa
 
-This table stores raw observations of invertebrates recorded during the surveys. Each row represents a single species recorded on a given transect, and includes taxonomic identity, count, and where applicable, size estimates for large-bodied species.
+**Purpose:** Pre-aggregated taxon-specific density metrics at station level
 
-- Species are identified using `accepted_name` and `accepted_aphia_id`
-- All individuals are counted in the 1 m belt
-- Selected species are measured in the 4 m belt (e.g., giant clams, pearl oysters, conchs, sea cucumbers)
+**Grain:** One row per station × taxon combination (only taxa present at station)
 
-```{r eval = T, include = T}
-#| label: tbl-inverts-obs-schema
-#| tbl-cap: "uvs.inverts_observations Table Schema"
+**Use Cases:**
 
-inverts_obs_fields <- tribble(
-  ~field,              ~type,     ~required, ~description,
-  
-  # Identifiers
-  "obs_id",            "STRING",  TRUE,      "Unique observation ID (e.g., `CHL_2024_inverts_AMF_0001`)",
-  "ps_station_id",     "STRING",  TRUE,      "Foreign key to `uvs.inverts_stations`",
-  "exp_id",            "STRING",  TRUE,      "Expedition ID (`ISO3_YEAR`) - denormalized for performance",
-  
-  # Survey context
-  "diver",             "STRING",  TRUE,      "Name of the diver who recorded the observation",
-  "depth_m",           "FLOAT",   TRUE,      "Recorded depth (m) at which the transect was conducted",
-  "transect",          "STRING",  TRUE,      "Field-assigned transect label (A, B, OFF)",
-  "transect_length_m", "FLOAT",   TRUE,      "Length of the transect (typically 50m)",
-  "transect_width_m",  "FLOAT",   TRUE,      "Width of the transect band (1m for general surveys, 4m for large-scale surveys)",
-  
-  # Taxonomic identity
-  "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label (e.g., `Unidentified crinoid`, `Conus vexillum`, `Giant clam sp.`)",
-  "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`) of the observed taxon",
-  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.inverts`",
-  "rank",              "STRING",  TRUE,      "Taxonomic rank (`species`, `genus`, or `family`)",
-  "family",            "STRING",  FALSE,      "Family of the observed taxon",
-  "common_name",       "STRING",  FALSE,     "Generalized name (e.g., sea cucumbers, giant clams, sea urchins)",
-  
-  # Observation details
-  "count",             "INTEGER", TRUE,      "Number of individuals observed for this taxon",
-  "density_m2",        "FLOAT",   TRUE,      "Density (individuals/m²), standardized by transect area",
-  "size_cm",           "FLOAT",   FALSE,     "Measured length (cm), if applicable",
-  "size_type",         "STRING",  FALSE,     "Type of measurement (e.g., `shell width`, `total length`)",
-  
-  # Notes
-  "notes",             "STRING",  FALSE,     "Optional comments or QA annotations"
-)
-
-
-gt(inverts_obs_fields) |>
-  cols_label(field = md("**Field**"),
-             type = md("**Type**"),
-             required = md("**Required**"),
-             description = md("**Description**")) |> 
-  cols_width(field ~ px(200),
-             type ~ px(100),
-             required ~ px(80),
-             description ~ px(500)) |>
-  data_color(columns = c(field),
-             fn = scales::col_factor(palette = c("#f6f6f6"), domain = NULL) ) |>
-  tab_options(table.font.size = px(13),
-              table.width = pct(100)) |> 
-  fmt_tf(columns = required, tf_style = "true-false") |> 
-  fmt_markdown(columns = description) |> 
-  gt_theme_nytimes()
-```
-
-
-```{r}
-inverts_obs_schema <- inverts_obs_fields |>
-  mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
-  transmute(name = field,
-            type = type,
-            mode = mode,
-            description = description) |>
-  pmap(function(name, type, mode, description) {
-    list(name = name, type = type, mode = mode, description = description)
-  })
-
-bq_table_create(bq_table(project_id, "uvs", "inverts_observations"),
-                fields = inverts_obs_schema)
-```
-
----
-
-##### Density by taxa
-
-This table summarizes invertebrate density and size metrics by species at each station. It is the primary analysis-ready table for evaluating community structure and assessing the presence of key indicator species.
-
-Each row is a unique combination of `ps_station_id` and species, with fields such as:
-
-- `density_m2` — mean individuals per square meter
-- `avg_size_cm`, `min_size_cm`, `max_size_cm` — summary of measured size data
+- Taxonomic composition analysis without repeated aggregation
+- Target species assessments (e.g., giant clams, sea cucumbers)
+- Efficient filtering for specific taxa across regions/habitats
+- Rapid dashboard queries (pre-computed densities)
+- Community structure metrics (diversity indices, dominance)
 
 ```{r eval = T, include = T}
 #| label: tbl-inverts-cover-schema
-#| tbl-cap: "Schema for `uvs.inverts_density_by_taxa`"
+#| tbl-cap: "Schema for `uvs.inverts_density_by_station_taxa`"
 
 inverts_density_by_taxa_fields <- tribble(
   ~field,              ~type,     ~required, ~description,
   
   # Keys
-  "ps_station_id",     "STRING",  TRUE,      "Station identifier (foreign key)",
-  "ps_site_id",        "STRING",  TRUE,      "Site identifier - denormalized for performance",
-  "exp_id",            "STRING",  TRUE,      "Expedition ID - denormalized for performance",
+  "ps_station_id",     "STRING",  TRUE,      "Station identifier (FK → `uvs.inverts_stations`)",
+  "ps_site_id",        "STRING",  TRUE,      "Site identifier (FK → `uvs.sites`)",
+  "exp_id",            "STRING",  TRUE,      "Expedition identifier. Format: `{ISO3}_{YEAR}`",
   
   # Spatial context (denormalized for common queries)
-  "region",            "STRING",  TRUE,      "Region name",
-  "subregion",         "STRING",  TRUE,      "Subregion name",
-  "habitat",           "STRING",  TRUE,      "Habitat type",
-  "exposure",          "STRING",  TRUE,      "Exposure type",
+  "region",            "STRING",  TRUE,      "Geographic region (from `uvs.sites`)",
+  "subregion",         "STRING",  TRUE,      "Geographic subregion (from `uvs.sites`)",
+  "habitat",           "STRING",  TRUE,      "Habitat classification (from `uvs.sites`)",
+  "exposure",          "STRING",  TRUE,      "Wave exposure category (from `uvs.sites`)",
   
   # Station characteristics
-  "divers",            "STRING",  TRUE,      "Pipe-delimited diver names",
-  "depth_m",           "FLOAT",   TRUE,      "Mean depth (m) of the station",
-  "depth_strata",      "STRING",  TRUE,      "Depth bin: `supershallow`, `shallow`, or `deep`",
+  "depth_strata",      "STRING",  TRUE,      "Depth category: `supershallow`, `shallow`, or `deep`",
+  "depth_m",           "FLOAT",   TRUE,      "Mean recorded depth (m)",
+  "divers",            "STRING",  TRUE,      "Pipe-delimited list of observer names",
+  
+  # Effort summary
+  
+  "n_transects",       "FLOAT",   TRUE,      "Number of transects completed",
+  "survey_area_m2",    "FLOAT",   TRUE,      "Total area sampled (m²)",
 
   # Taxonomic identity
-  "morphotaxon",       "STRING",  TRUE,      "Diver-entered morphotaxon label",
-  "accepted_name",     "STRING",  TRUE,      "Scientific name (`Genus species`)",
-  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID — foreign key to `taxonomy.inverts`",
-  "rank",              "STRING",  TRUE,      "Taxonomic rank",
-  "family",            "STRING",  TRUE,      "Family of the observed taxon",
-  "common_name",       "STRING",  FALSE,     "Generalized name",
+  "morphotaxon",       "STRING",  TRUE,      "Field identification label",
+  "accepted_name",     "STRING",  TRUE,      "Valid scientific name",
+  "accepted_aphia_id", "INTEGER", TRUE,      "WoRMS AphiaID (FK → `taxa_info.inverts`)",
+  "rank",              "STRING",  TRUE,      "Taxonomic rank: `Species`, `Genus`, or `Family`",
+  "family",            "STRING",  FALSE,     "Family name",
+  "common_name",       "STRING",  FALSE,     "Common name (e.g., sea cucumbers, giant clams)",
   
   # Aggregated metrics
-  "total_count",       "INTEGER", TRUE,      "Total individuals observed across transects",
-  "avg_density_m2",    "FLOAT",   TRUE,      "Mean density (individuals/m²)",
-  "avg_size_cm",       "FLOAT",   FALSE,     "Weighted mean length (cm), if applicable"
+  "total_count",       "INTEGER", TRUE,      "Total individuals for this taxon at station",
+  "avg_density_m2",    "FLOAT",   TRUE,      "Mean density for this taxon (individuals/m²)",
+  "avg_size_cm",       "FLOAT",   FALSE,     "Mean size for this taxon (cm), when measured"
 )
 
 gt(inverts_density_by_taxa_fields) |>
@@ -288,7 +341,6 @@ gt(inverts_density_by_taxa_fields) |>
   gt_theme_nytimes()
 ```
 
-
 ```{r}
 inverts_density_schema <- inverts_density_by_taxa_fields |>
   mutate(mode = if_else(required, "REQUIRED", "NULLABLE")) |>
@@ -300,7 +352,6 @@ inverts_density_schema <- inverts_density_by_taxa_fields |>
     list(name = name, type = type, mode = mode, description = description)
   })
 
-bq_table_create(bq_table(project_id, "uvs", "inverts_density_by_taxa"),
+bq_table_create(bq_table(project_id, "uvs", "inverts_density_by_station_taxa"),
                 fields = inverts_density_schema)
 ```
-
