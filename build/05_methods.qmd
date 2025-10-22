@@ -17,9 +17,9 @@ The Pristine Seas Science Database is organized around modular **method datasets
 All method datasets follow a common pattern of internal tables — typically including:
 
 - `sites`: deployments of the method at a given location and time  
-- `stations`: finer-scale spatial or depth-stratified sampling units  
 - `observations`: raw or cleaned data records (e.g., species counts, detections)  
-- `summaries`: optional station-level aggregates (e.g., biomass, percent cover)
+- `stations`: finer-scale spatial or depth-stratified sampling units  
+- `summaries`: station-level aggregates (e.g., biomass, percent cover)
 
 Despite methodological differences, each dataset is aligned with shared **spatial**, **taxonomic**, and **vocabulary** references. This allows for standardized integration, analysis, and reporting across methods and expeditions.
 

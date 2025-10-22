@@ -56,19 +56,19 @@ This architecture enables both focused analyses (e.g., fish biomass by depth) an
 
 ```text
 uvs/
-├── sites                     # Deployment-level metadata for each UVS dive
-├── blt_stations              # Fish transect metadata (BLT)
-├── blt_observations          # Raw fish counts
-├── blt_biomass_by_taxa       # Biomass summaries by taxa and station
-├── lpi_stations              # Benthic transect metadata
-├── lpi_counts                # Raw point-intercept records
-├── lpi_cover_by_taxa         # Percent cover by taxa and station
-├── inverts_stations          # Invertebrate transect metadata
-├── inverts_counts            # Raw invertebrate observations
-├── inverts_density_by_taxa   # Invertebrates density by taxa and station
-├── recruits_stations         # Coral recruit transect metadata
-├── recruits_counts           # Raw coral recruit counts
-├── recruits_density_by_taxa  # Coral recruits density by taxa and station
+├── sites                             # Deployment-level metadata for each UVS dive
+├── blt_observations                  # Raw fish counts
+├── blt_stations                      # Fish transect metadata (BLT)
+├── blt_biomass_by_station_taxa       # Biomass summaries by taxa and station
+├── lpi_observations                  # Raw point-intercept records
+├── lpi_stations                      # Benthic transect metadata
+├── lpi_cover_by_station_taxa         # Percent cover by taxa and station
+├── inverts_observations              # Raw invertebrate observations
+├── inverts_stations                  # Invertebrate transect metadata
+├── inverts_density_by_station_taxa   # Invertebrates density by taxa and station
+├── recruits_observations             # Raw coral recruit counts
+├── recruits_stations                 # Coral recruit transect metadata
+├── recruits_density_by_station_taxa  # Coral recruits density by taxa and station
 
 ```
 
@@ -172,7 +172,6 @@ if (!bq_dataset_exists(bq_dataset("pristine-seas", "uvs"))) {
     description = "Underwater visual survey (UVS) dataset. Includes site metadata, depth-stratified stations, and observations from fish BLT, benthic LPI, invertebrate, and coral recruit protocols."
   )
 }
-
 
 uvs_sites_all_fields <- bind_rows(core_site_fields, uvs.sites_fields) |>
   mutate(group = case_when(
