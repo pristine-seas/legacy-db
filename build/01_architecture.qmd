@@ -31,14 +31,14 @@ graph TB
     A --> C[Reference Datasets]
     
     B --> D[uvs]
-    B --> E[sbruv]
-    B --> F[pbruv]
+    B --> E[BRUVS_seabed]
+    B --> F[BRUVS_pelagic]
     B --> G[edna]
     B --> H[sub]
     B --> I[...]
     
     C --> J[expeditions]
-    C --> K[taxonomy]
+    C --> K[taxa_info]
     C --> L[lookup]
     
     style A fill:#004165,stroke:#fff,color:#fff
@@ -66,10 +66,9 @@ These datasets provide a shared scaffold for spatial joins, species trait integr
 - 📄 `benthos` — Benthic organisms: corals, algae, sponges
 - 📄 `inverts` — Mobile and sessile invertebrates
 
-**📂 lookup/** — *Controlled vocabularies & reference tables*
+**📂 lookup/** — *Other lookuptables*
 
-- 📄 `habitat_types`  — Standardized habitat classifications
-- 📄 `exposure_types` — Wave exposure categories  
+- 📄 `researchers`  — Information for researchers and expedition particpant. 
 
 </div>
 </div>
@@ -89,56 +88,64 @@ Each method has its own dataset (e.g., `uvs`, `pbruv`, `sub`, `edna`) that store
 **📂 uvs/** — *Underwater Visual Survey (SCUBA-based)*
 
 - 📄 `sites` — Dive site metadata: location, conditions, protocols used
-- 📄 `stations` — Depth-stratified sampling units within each site
+- 📄 `stations_unified` — Depth-stratified sampling units within each site joined across all methods (View)
+
 - **Fish Belt Transects**
 
   - 📄 `blt_stations` — Fish belt transect metadata: divers, effort, conditions
   - 📄 `blt_observations` — Raw fish counts by species, size, and transect
-  - 📄 `blt_biomass_by_taxa` — Station-level fish biomass summaries
-- **Benthic Surveys**
+  - 📄 `blt_biomass_by_station_taxa` — Station-level fish biomass summaries
+  
+- **Benthic Surveys (LPI)**
 
   - 📄 `lpi_stations` — Benthic line-point intercept transect metadata
-  - 📄 `lpi_counts` — Raw benthic point data by morphotaxon
-  - 📄 `lpi_cover_by_taxa` — Station-level benthic percent cover
-- **Other Protocols**
-
+  - 📄 `lpi_observations` — Raw benthic point data by morphotaxon
+  - 📄 `lpi_cover_by_station_taxa` — Station-level benthic percent cover
+  
+- **Inverts Surveys**
+  - 📄 `inverts_observations` — Raw invertebrate observations and sizes
   - 📄 `inverts_stations` — Mobile invertebrate transect metadata
-  - 📄 `inverts_counts` — Raw invertebrate observations and sizes
-  - 📄 `recruits_stations` — Coral recruitment quadrat metadata
+  - 📄 `inverts_density_by_station_taxa` — Mobile invertebrate transect metadata
+  
+- **Coral Recruitment**  
   - 📄 `recruits_counts` — Juvenile coral counts by genus
+  - 📄 `recruits_stations` — Coral recruitment quadrat metadata
+  - 📄 `recruits_density_by_station_taxa` — Mobile invertebrate transect metadata
 
-**📂 sBRUVS/** — *Seabed Baited Remote Underwater Video*
+
+**📂 BRUVS_seabed/** — *Seabed Baited Remote Underwater Video*
 
 - 📄 `stations` — Camera deployment metadata: location, depth, bait
-- 📄 `maxn_by_taxa` — Fish MaxN summaries by species
+- 📄 `maxn_by_station_taxa` — Fish MaxN summaries by species
 
-**📂 pBRUVS/** — *Pelagic BRUVS (mid-water camera arrays)*
+**📂 BRUVS_pelagic/** — *Pelagic BRUVS (mid-water camera arrays)*
 
-- 📄 `stations` — String deployment metadata
 - 📄 `rigs` — Individual rig positions and drift
-- 📄 `maxn_by_taxa` — Fish MaxN by species and rig
+- 📄 `stations` — String deployment metadata
+- 📄 `maxn_by_station_taxa` — Fish MaxN by species and rig
 
 **📂 edna/** — *Environmental DNA sampling*
 
 - 📄 `sites` — Collection location metadata
 - 📄 `stations` — Depth-stratified water samples
-- 📄 `detections` — Species detections and read counts
+- 📄 `detections_by_station_taxa` — Species detections and read counts
 
 **📂 sub/** — *Submersible surveys*
 
 - 📄 `sites` — Dive metadata: pilot, observers, conditions
 - 📄 `stations` — Transect segments within dives
-- 📄 `observations` — Species observations along transects
+- 📄 `observations` — Species observations
 
 **📂 dscm/** — *Deep Sea Camera deployments*
 
 - 📄 `stations` — Camera drop metadata: depth, duration
-- 📄 `maxn_by_taxa` — Fish MaxN summaries
+- 📄 `maxn_by_station_taxa` — Fish MaxN summaries
 
 **📂 birds/** — *Seabird transect surveys*
 
 - 📄 `stations` — Transect metadata: vessel vs land-based
 - 📄 `observations` — Bird sightings with counts and behavior
+
 </div>
 </div>
 

@@ -80,7 +80,7 @@ blt_obs_fields <- tribble(
   ~field,              ~type,     ~required, ~description,
   
   # Identifiers
-  "obs_id",            "STRING",  TRUE,      "Unique observation identifier. Format: `{ISO3}_{YEAR}_inverts_{DIVER_INITIALS}_{SEQUENCE}`",
+  "obs_id",            "STRING",  TRUE,      "Unique observation identifier. Format: `{ISO3}_{YEAR}_blt_{DIVER_INITIALS}_{SEQUENCE}`",
   "ps_station_id",     "STRING",  TRUE,      "Station identifier (FK → `uvs.fish_stations`)",
   "exp_id",            "STRING",  TRUE,      "Expedition identifier. Format: `{ISO3}_{YEAR}`",
   
@@ -90,7 +90,7 @@ blt_obs_fields <- tribble(
   "station_label",     "STRING",  TRUE,      "Field-assigned relative stratum (e.g., `shallow`, `deep`)",
   "transect",          "STRING",  TRUE,      "Transect label (A, B, OFF)",
   "transect_length_m", "INTEGER", TRUE,      "Transect length (m). Standard = 20",
-  "transect_width_m",  "STRING",  TRUE,      "Transect width (4m for fish ≥20cm, 2m for fish <20cm)",
+  "transect_width_m",  "INTEGER", TRUE,      "Transect width (4m for fish ≥20cm, 2m for fish <20cm)",
   
   # Taxonomic identity
   "accepted_name",     "STRING",  TRUE,      "Valid scientific name",

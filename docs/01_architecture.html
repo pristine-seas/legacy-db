@@ -6906,7 +6906,7 @@ list-style: none !important;
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./04_lookup_fish_codes.qmd" class="sidebar-item-text sidebar-link">
+  <a href="./03_taxa_info_fish_uvs_codes.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">UVS Fish codes</span></a>
   </div>
 </li>
@@ -6996,14 +6996,14 @@ list-style: none !important;
     A --&gt; C[Reference Datasets]
     
     B --&gt; D[uvs]
-    B --&gt; E[sbruv]
-    B --&gt; F[pbruv]
+    B --&gt; E[BRUVS_seabed]
+    B --&gt; F[BRUVS_pelagic]
     B --&gt; G[edna]
     B --&gt; H[sub]
     B --&gt; I[...]
     
     C --&gt; J[expeditions]
-    C --&gt; K[taxonomy]
+    C --&gt; K[taxa_info]
     C --&gt; L[lookup]
     
     style A fill:#004165,stroke:#fff,color:#fff
@@ -7032,10 +7032,9 @@ list-style: none !important;
 <li>📄 <code>benthos</code> — Benthic organisms: corals, algae, sponges</li>
 <li>📄 <code>inverts</code> — Mobile and sessile invertebrates</li>
 </ul>
-<p><strong>📂 lookup/</strong> — <em>Controlled vocabularies &amp; reference tables</em></p>
+<p><strong>📂 lookup/</strong> — <em>Other lookuptables</em></p>
 <ul>
-<li>📄 <code>habitat_types</code> — Standardized habitat classifications</li>
-<li>📄 <code>exposure_types</code> — Wave exposure categories</li>
+<li>📄 <code>researchers</code> — Information for researchers and expedition particpant.</li>
 </ul>
 </div>
 </div>
@@ -7054,54 +7053,59 @@ list-style: none !important;
 <p><strong>📂 uvs/</strong> — <em>Underwater Visual Survey (SCUBA-based)</em></p>
 <ul>
 <li><p>📄 <code>sites</code> — Dive site metadata: location, conditions, protocols used</p></li>
-<li><p>📄 <code>stations</code> — Depth-stratified sampling units within each site</p></li>
+<li><p>📄 <code>stations_unified</code> — Depth-stratified sampling units within each site joined across all methods (View)</p></li>
 <li><p><strong>Fish Belt Transects</strong></p>
 <ul>
 <li>📄 <code>blt_stations</code> — Fish belt transect metadata: divers, effort, conditions</li>
 <li>📄 <code>blt_observations</code> — Raw fish counts by species, size, and transect</li>
-<li>📄 <code>blt_biomass_by_taxa</code> — Station-level fish biomass summaries</li>
+<li>📄 <code>blt_biomass_by_station_taxa</code> — Station-level fish biomass summaries</li>
 </ul></li>
-<li><p><strong>Benthic Surveys</strong></p>
+<li><p><strong>Benthic Surveys (LPI)</strong></p>
 <ul>
 <li>📄 <code>lpi_stations</code> — Benthic line-point intercept transect metadata</li>
-<li>📄 <code>lpi_counts</code> — Raw benthic point data by morphotaxon</li>
-<li>📄 <code>lpi_cover_by_taxa</code> — Station-level benthic percent cover</li>
+<li>📄 <code>lpi_observations</code> — Raw benthic point data by morphotaxon</li>
+<li>📄 <code>lpi_cover_by_station_taxa</code> — Station-level benthic percent cover</li>
 </ul></li>
-<li><p><strong>Other Protocols</strong></p>
+<li><p><strong>Inverts Surveys</strong></p>
 <ul>
+<li>📄 <code>inverts_observations</code> — Raw invertebrate observations and sizes</li>
 <li>📄 <code>inverts_stations</code> — Mobile invertebrate transect metadata</li>
-<li>📄 <code>inverts_counts</code> — Raw invertebrate observations and sizes</li>
-<li>📄 <code>recruits_stations</code> — Coral recruitment quadrat metadata</li>
+<li>📄 <code>inverts_density_by_station_taxa</code> — Mobile invertebrate transect metadata</li>
+</ul></li>
+<li><p><strong>Coral Recruitment</strong></p>
+<ul>
 <li>📄 <code>recruits_counts</code> — Juvenile coral counts by genus</li>
+<li>📄 <code>recruits_stations</code> — Coral recruitment quadrat metadata</li>
+<li>📄 <code>recruits_density_by_station_taxa</code> — Mobile invertebrate transect metadata</li>
 </ul></li>
 </ul>
-<p><strong>📂 sBRUVS/</strong> — <em>Seabed Baited Remote Underwater Video</em></p>
+<p><strong>📂 BRUVS_seabed/</strong> — <em>Seabed Baited Remote Underwater Video</em></p>
 <ul>
 <li>📄 <code>stations</code> — Camera deployment metadata: location, depth, bait</li>
-<li>📄 <code>maxn_by_taxa</code> — Fish MaxN summaries by species</li>
+<li>📄 <code>maxn_by_station_taxa</code> — Fish MaxN summaries by species</li>
 </ul>
-<p><strong>📂 pBRUVS/</strong> — <em>Pelagic BRUVS (mid-water camera arrays)</em></p>
+<p><strong>📂 BRUVS_pelagic/</strong> — <em>Pelagic BRUVS (mid-water camera arrays)</em></p>
 <ul>
-<li>📄 <code>stations</code> — String deployment metadata</li>
 <li>📄 <code>rigs</code> — Individual rig positions and drift</li>
-<li>📄 <code>maxn_by_taxa</code> — Fish MaxN by species and rig</li>
+<li>📄 <code>stations</code> — String deployment metadata</li>
+<li>📄 <code>maxn_by_station_taxa</code> — Fish MaxN by species and rig</li>
 </ul>
 <p><strong>📂 edna/</strong> — <em>Environmental DNA sampling</em></p>
 <ul>
 <li>📄 <code>sites</code> — Collection location metadata</li>
 <li>📄 <code>stations</code> — Depth-stratified water samples</li>
-<li>📄 <code>detections</code> — Species detections and read counts</li>
+<li>📄 <code>detections_by_station_taxa</code> — Species detections and read counts</li>
 </ul>
 <p><strong>📂 sub/</strong> — <em>Submersible surveys</em></p>
 <ul>
 <li>📄 <code>sites</code> — Dive metadata: pilot, observers, conditions</li>
 <li>📄 <code>stations</code> — Transect segments within dives</li>
-<li>📄 <code>observations</code> — Species observations along transects</li>
+<li>📄 <code>observations</code> — Species observations</li>
 </ul>
 <p><strong>📂 dscm/</strong> — <em>Deep Sea Camera deployments</em></p>
 <ul>
 <li>📄 <code>stations</code> — Camera drop metadata: depth, duration</li>
-<li>📄 <code>maxn_by_taxa</code> — Fish MaxN summaries</li>
+<li>📄 <code>maxn_by_station_taxa</code> — Fish MaxN summaries</li>
 </ul>
 <p><strong>📂 birds/</strong> — <em>Seabird transect surveys</em></p>
 <ul>
