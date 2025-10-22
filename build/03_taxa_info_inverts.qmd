@@ -49,37 +49,49 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `taxa_info.inverts` table provides a standardized reference for all invertebrate taxa observed during Pristine Seas expeditions. It harmonizes scientific names, taxonomic hierarchy, and ecological traits to support robust analysis, reporting, and integration across survey methods.
+## Overview
 
-Each row corresponds to a unique accepted **AphiaID** from the World Register of Marine Species (WoRMS), and includes the scientific name, taxonomic ranks, common names, functional group and others. 
+The `taxa_info.inverts` table provides standardized taxonomy and functional trait classifications for mobile and sessile invertebrates observed during Pristine Seas surveys. It serves as the reference backbone for invertebrate belt transect surveys harmonizing field identifications with authoritative taxonomic sources and capturing ecological roles and human use patterns.
 
-This table supports three core functions:
+::: {.callout-note title="What's Covered" appearance=simple}
+This table includes **mobile and sessile invertebrates**: echinoderms (sea cucumbers, urchins, sea stars), mollusks (giant clams, gastropods), crustaceans (lobsters, crabs), and other motile taxa. Benthic organisms recorded in LPI surveys (e.g., sponges, bryozoans) are documented in `taxa_info.benthos`.
+:::
 
-  - ***Taxonomic resolution*** — reconciles field-recorded names with accepted nomenclature
-  - ***Trait-based analysis*** — enables grouping by functional group, habitat, and ecological traits
-  - ***Cross-dataset integration*** — provides a consistent key (`accepted_aphia_id`) to link observations, field codes, and traits
+---
 
-Taxa originate from underwater visual surveys (UVS), benthic surveys, and regional species checklists compiled from both internal and external sources.
+### Core Functions
 
-------------------------------------------------------------------------
+- ##### Taxonomic Resolution
+    
+    Reconciles field-recorded names (scientific and common) with accepted scientific names. Handles identification to genus or family when species-level ID is uncertain.
+
+- ##### Functional Classification
+    
+    Assigns invertebrates to feeding guilds (e.g., `suspension_feeder`, `herbivore`, `detritivore`) and mobility categories (`sessile`, `motile`). Supports ecological analyses of trophic structure and community composition.
+
+- ##### Human Use
+    
+    Documents human use patterns—from commercial fisheries (e.g., sea cucumbers, lobsters) to subsistence harvests and cultural significance. Enables assessments of fisheries pressure and conservation priority species.
+
+---
 
 ## Data Sources
 
-The table integrates multiple curated sources to ensure taxonomic consistency and trait completeness:
+- ##### Pristine Seas Field Records
+    
+    Species lists derived from invertebrate belt transect surveys and targeted inventories. Records span Pacific, Atlantic, and Indian Ocean expeditions from 2015–2024.
 
-- **Pristine Seas Field Records**  
-  Derived from diver-entered observations, fieldbooks, and expedition species lists across UVS. These are reconciled with accepted WoRMS entries.
+- ##### Regional Species Checklists
+    
+    Curated datasets from Pacific Island nations (SPC) focusing on culturally and commercially important species: giant clams (*Tridacna*, *Hippopus*), sea cucumbers (Holothuriidae), sea urchins (Echinoidea), and gastropods.
 
-- **Regional Invertebrate Checklists**  
-  Curated datasets from Pacific region, focusing on culturally and commercially important species such as giant clams, sea cucumbers, urchins, and gastropods.
+- ##### World Register of Marine Species (WoRMS)
+    
+    Provides the taxonomic backbone: accepted AphiaIDs, scientific names, synonyms, and full hierarchical classification (kingdom → species). Ensures consistency with global marine biodiversity databases.
 
-- **World Register of Marine Species (WoRMS)**  
-  Used as the taxonomic backbone. Each taxon is linked to an accepted AphiaID, with full lineage (kingdom to species) and synonym resolution.
-
-- **Literature and Expert Knowledge**  
-  Supplements functional group assignments, and ecological notes from peer-reviewed sources and expert consultation.
-
-Together, these sources provide a robust, reproducible foundation for invertebrate ecological analysis.
+- ##### Literature and Expert Review
+    
+    Functional trait assignments based on peer-reviewed literature and expert consultation. Human use categories validated against regional fisheries assessments and FAO data.
 
 ------------------------------------------------------------------------
 
@@ -88,8 +100,6 @@ Together, these sources provide a robust, reproducible foundation for invertebra
 ### Taxonomy
 
 These fields define the accepted scientific identity and taxonomic lineage of each record (@tbl-inverts-taxonomy-schema). 
-
-All taxa are matched to an accepted **AphiaID** from WoRMS, ensuring global consistency and traceability. These fields enable spatial and ecological grouping, support taxonomic joins, and serve as the foundation for trait integration.
 
 ```{r eval = T, include = T}
 #| label: tbl-inverts-taxonomy-schema
@@ -277,7 +287,7 @@ bq_table_create(
 
 ```
 
-## Data Processing
+## By the Numbers
 
 ```{r core_fields, eval = FALSE}
 # Following the same pattern as taxonomy_fish.qmd
@@ -404,11 +414,7 @@ write_csv(final_list,
 ```{r}
 final_list <- read_csv( file.path(prj_path, "data/processed/", "taxonomy_inverts_staging.csv")) |> 
   rename(taxon_name = taxon,
-                                   status = name_status)
-final_list |> 
-  group_by(common_name, family) |> 
-  summarize(n = n()) |> 
-  arrange(desc(n))
+         status = name_status)
 ```
 
 ```{r traits}
@@ -429,3 +435,8 @@ bq_table_upload(bq_table("pristine-seas", "taxa_info", "inverts"),
                 create_disposition = "CREATE_NEVER",
                 write_disposition = "WRITE_APPEND")
 ```
+
+
+
+
+

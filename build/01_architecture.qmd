@@ -12,7 +12,15 @@ format:
     number-sections: false
 ---
 
-The **Pristine Seas Science Database** is a modular, analysis-ready system for organizing ecological data collected across more than 40 expeditions worldwide. Its design balances flexibility — to accommodate diverse survey methods — and consistency — to support clean integration, querying, and long-term analysis.
+The **Pristine Seas Science Database** is a modular, analysis-ready system for organizing ecological data collected across more than 40 expeditions worldwide. Its design balances flexibility—to accommodate diverse survey methods—with consistency—to support clean integration, querying, and long-term analysis.
+
+::: {.callout-note title="Design Philosophy" appearance=simple}
+This architecture prioritizes:
+
+- **Traceability**: Every observation links back to spatial and taxonomic references
+- **Flexibility**: New methods integrate seamlessly without restructuring existing data
+- **Analysis-Ready**: Pre-computed summaries enable fast queries while preserving raw data for reproducibility
+:::
 
 ---
 
@@ -57,18 +65,18 @@ These datasets provide a shared scaffold for spatial joins, species trait integr
 
 **📂 expeditions/** — *Spatial backbone & metadata for all field campaigns*
 
-- 📄 `info`  — Expedition registry: dates, vessels, teams, partners
-- 📄 `sites` — Master site registry across all survey methods
+- 📄 `info` — Expedition metadata: dates, regions, vessels, participants, partners
+- 📄 `sites` — Master site registry across all methods (lat/lon, habitat, depth range)
 
 **📂 taxa_info/** — *Standardized species reference data*
 
-- 📄 `fish`    — Fish taxonomy, traits, and life history
-- 📄 `benthos` — Benthic organisms: corals, algae, sponges
-- 📄 `inverts` — Mobile and sessile invertebrates
+- 📄 `fish` — Fish taxonomy (WoRMS), traits (length-weight), trophic groups
+- 📄 `benthos` — Benthic organisms: hard/soft corals, algae, sponges, CCA
+- 📄 `inverts` — Mobile and sessile invertebrates: echinoderms, mollusks, crustaceans
 
-**📂 lookup/** — *Other lookuptables*
+**📂 lookup/** — *Controlled vocabularies and reference tables*
 
-- 📄 `researchers`  — Information for researchers and expedition particpant. 
+- 📄 `researchers` — Team members: roles, affiliations, expedition participation
 
 </div>
 </div>
@@ -82,35 +90,55 @@ Each method has its own dataset (e.g., `uvs`, `pbruv`, `sub`, `edna`) that store
 - `observations` — Primary ecological or environmental records
 - `summaries` — Aggregated station-level metrics
 
+#### Common Method Dataset Structure
+
+While each method has unique requirements, all follow this general pattern:
+
+**Core Tables:**
+
+- `{method}.sites` — Deployment-level metadata (when/where)
+- `{method}.stations` — Sampling units (replicates, strata, depth)
+- `{method}.*_observations` — Raw ecological records
+- `{method}.*_by_station_taxa` — Pre-aggregated summaries
+
+**Key Principles:**
+
+- **Observations are immutable**: Raw data preserved as collected after QA/QC
+- **Stations link everything**: All analyses join through `ps_station_id`
+- **Summaries are derived**: Calculated from observations, can be regenerated
+- **Taxonomy is external**: Most species traits live in `taxa_info.*`, not method tables
+
 <div class="database-tree">
 <div class="tree-section">
 
 **📂 uvs/** — *Underwater Visual Survey (SCUBA-based)*
 
 - 📄 `sites` — Dive site metadata: location, conditions, protocols used
-- 📄 `stations_unified` — Depth-stratified sampling units within each site joined across all methods (View)
+- 📄 `stations_unified` — Unified view of all UVS stations across protocols
 
-- **Fish Belt Transects**
+**Fish Belt Transects**
 
-  - 📄 `blt_stations` — Fish belt transect metadata: divers, effort, conditions
   - 📄 `blt_observations` — Raw fish counts by species, size, and transect
-  - 📄 `blt_biomass_by_station_taxa` — Station-level fish biomass summaries
+  - 📄 `blt_stations` — Fish station metadata: divers, effort, summaries
+  - 📄 `blt_biomass_by_station_taxa` — Station-level fish biomass summaries by taxa
   
-- **Benthic Surveys (LPI)**
+**Benthic Surveys (LPI)**
 
-  - 📄 `lpi_stations` — Benthic line-point intercept transect metadata
   - 📄 `lpi_observations` — Raw benthic point data by morphotaxon
-  - 📄 `lpi_cover_by_station_taxa` — Station-level benthic percent cover
+  - 📄 `lpi_stations` — Benthic transect metadata: divers, effort, summaries
+  - 📄 `lpi_cover_by_station_taxa` — Station-level benthic percent cover by taxa
   
-- **Inverts Surveys**
-  - 📄 `inverts_observations` — Raw invertebrate observations and sizes
-  - 📄 `inverts_stations` — Mobile invertebrate transect metadata
-  - 📄 `inverts_density_by_station_taxa` — Mobile invertebrate transect metadata
+**Invertebrate Surveys**
+
+  - 📄 `inverts_observations` — Raw invertebrate counts and sizes
+  - 📄 `inverts_stations` — Invertebrate transect metadata: divers, effort, summaries
+  - 📄 `inverts_density_by_station_taxa` — Station-level invertebrate density
   
-- **Coral Recruitment**  
-  - 📄 `recruits_counts` — Juvenile coral counts by genus
-  - 📄 `recruits_stations` — Coral recruitment quadrat metadata
-  - 📄 `recruits_density_by_station_taxa` — Mobile invertebrate transect metadata
+**Coral Recruitment**  
+
+  - 📄 `recruits_observations` — Juvenile coral counts by genus
+  - 📄 `recruits_stations` — Coral recruitment quadrat metadata: divers, effort, summaries
+  - 📄 `recruits_density_by_station_taxa` — Station-level coral recruit density by taxa
 
 
 **📂 BRUVS_seabed/** — *Seabed Baited Remote Underwater Video*
@@ -120,9 +148,9 @@ Each method has its own dataset (e.g., `uvs`, `pbruv`, `sub`, `edna`) that store
 
 **📂 BRUVS_pelagic/** — *Pelagic BRUVS (mid-water camera arrays)*
 
-- 📄 `rigs` — Individual rig positions and drift
+- 📄 `rigs` — Individual rig metadata (e.g. positions and drift)
 - 📄 `stations` — String deployment metadata
-- 📄 `maxn_by_station_taxa` — Fish MaxN by species and rig
+- 📄 `maxn_by_station_taxa` — Fish MaxN by species and station
 
 **📂 edna/** — *Environmental DNA sampling*
 
@@ -139,7 +167,7 @@ Each method has its own dataset (e.g., `uvs`, `pbruv`, `sub`, `edna`) that store
 **📂 dscm/** — *Deep Sea Camera deployments*
 
 - 📄 `stations` — Camera drop metadata: depth, duration
-- 📄 `maxn_by_station_taxa` — Fish MaxN summaries
+- 📄 `maxn_by_station_taxa` — MaxN summaries
 
 **📂 birds/** — *Seabird transect surveys*
 
@@ -225,26 +253,33 @@ All data in the Pristine Seas Science Database are structured around a shared, h
 
     - **Subregion**  
       Intermediate unit like an island, atoll, gulf, or reef complex  
-      _e.g.,  Navigator bank, Mussau, Golfo de Tribugá, Utupua_
+      _e.g., Navigator Bank, Mussau, Golfo de Tribugá, Utupua_
 
       - **Locality**  
         Local named feature such as a community, village, islet  
-        _e.g.,  Lolieng, Tasitel_
+        _e.g., Lolieng, Tasitel_
 
         - **Site**  
-          A specific location within the subregion where a survey method (e.g., UVS, BRUVS, eDNA) was used  
+          A specific location within the subregion where a survey method (e.g., UVS, BRUVS, eDNA) was deployed  
           _e.g., `COL_2024_uvs_001`_
 
           - **Station**  
             A discrete sampling unit within a site, corresponding to a specific depth or replicate  
             _e.g., `COL_2024_uvs_001_10m`_
 
+**Key Relationships:**
+
+- One expedition → many sites (across methods)
+- One site → many stations (across depths/replicates)
+- Spatial context cascades: stations inherit their site's region, subregion, and locality
+- Method independence: UVS, BRUVS, and eDNA can occur at the same geographic location as separate sites/stations
+
 ::: {.callout-important title="Standard Identifiers" appearance=simple}
 
 To ensure consistency, traceability, and joinability across all datasets, Pristine Seas uses structured identifiers for sites and stations.
 
 #### **Expedition (`exp_id`)**: `ISO3_YEAR`  
-- Examples: `FJI_2025`, `COL_2022`, 
+- Examples: `FJI_2025`, `COL_2022`, `PNG_2024`
 
 #### **Site (`ps_site_id`)**: `exp_id_method_###`  
 Always use **3-digit padding** for site numbers.
@@ -254,12 +289,46 @@ Always use **3-digit padding** for site numbers.
 #### **Station (`ps_station_id`)**: `ps_site_id_suffix`  
   Depth and replicate suffixes use fixed formats.
 
-  - Examples:  
-    - `FJI_2025_uvs_001_10m` – Underwater visual survey at 10m depth  
-    - `FJI_2025_pbruv_003_r102` – rig 102 of pelagic BRUV deployment 3  
-    - `FJI_2025_dscm_006_300m` – deep sea camera at 300m
+**Suffix Formats by Method:**
+
+- **UVS (depth-stratified)**: `_{depth}m`  
+  Examples: `FJI_2025_uvs_001_5m`, `FJI_2025_uvs_001_10m`, `FJI_2025_uvs_001_20m`
+  
+- **BRUVS pelagic (rig-based)**: `_r{rig_number}`  
+  Examples: `FJI_2025_pbruv_003_r101`, `FJI_2025_pbruv_003_r102`
+  
+- **Deep cameras**: `_{depth}m`  
+  Examples: `FJI_2025_dscm_006_300m`, `FJI_2025_dscm_006_500m`
+
+- **Submersibles (transects)**: `_t{transect_number}`  
+  Examples: `FJI_2025_sub_014_t01`, `FJI_2025_sub_014_t02`
 
 :::
+
+---
+
+## Integration & Joins
+
+### Spatial Joins
+All method datasets link to the spatial backbone:
+
+- `{method}.sites.ps_site_id` → `expeditions.sites.ps_site_id`
+- Inherited fields: `exp_id`, `region`, `subregion`, `locality`
+
+### Taxonomic Joins
+Observations link to trait databases via AphiaID:
+
+- `{method}.*_observations.accepted_aphia_id` → `taxa_info.fish.accepted_aphia_id`
+- `{method}.*_observations.accepted_aphia_id` → `taxa_info.benthos.accepted_aphia_id`
+- `{method}.*_observations.accepted_aphia_id` → `taxa_info.inverts.accepted_aphia_id`
+
+### Effort Standardization
+Station-level summaries include survey effort for density calculations:
+
+- **Fish**: biomass per m² (`biomass_gm2`)
+- **Benthos**: percent cover (`pct_cover`)
+- **Inverts**: density per m² (`density_m2`)
+- **BRUVS**: MaxN (standardized count)
 
 ---
 
@@ -276,6 +345,13 @@ All database objects follow consistent patterns:
 **Identifiers**  
 Self-documenting structure • sortable • joinable  
 *Examples:* `FJI_2025_uvs_001_10m`, `ps_station_id`
+
+**Special Cases:**
+
+- **Acronyms**: Stay uppercase when widely recognized (e.g., `CCA`, `DNA`, `MPA`)
+- **Geographic names**: Preserve proper capitalization (e.g., `Golfo de Tribugá`)
+- **Species names**: Use lowercase except genus initial (e.g., `Acropora cervicornis`)
+- **Boolean prefixes**: Use `is_*`, `has_*`, `in_*` (e.g., `in_mpa`, `has_blt`)
 
 ### Data Standards
 

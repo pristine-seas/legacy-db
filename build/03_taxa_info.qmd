@@ -1,5 +1,5 @@
 ---
-title: "Taxa Information Dataset"
+title: "Taxa Information"
 format: 
   html:
     theme: lux
@@ -8,10 +8,8 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
 ---
-
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
 options(scipen = 999)
 
@@ -42,25 +40,94 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `taxa_info/` dataset is the backbone of biological consistency in the Pristine Seas Science Database. It provides harmonized reference lists and ecological traits for all taxa recorded across expeditions, enabling seamless integration of species-level data across methods, habitats, and years.
+The `taxa_info/` dataset is the taxonomic backbone of the Pristine Seas Science Database. It provides standardized species names, ecological traits, and functional classifications for all organisms recorded across expeditions—enabling consistent identification, trait-based analysis, and cross-method integration.
 
-This shared taxonomy serves three essential roles:
+::: {.callout-note title="Why This Matters" appearance=simple}
+Without standardized taxonomy, the same species recorded as "Epinephelus polyphekadion" in one expedition and "Camouflage grouper" in another cannot be compared. This dataset solves that problem—and adds the ecological context needed for conservation science.
+:::
 
-  - ***Identity resolution*** — Ensures consistent naming using authoritative sources (e.g., WoRMS, Coral Traits)
-  - ***Ecological interpretation*** — Assigns functional and trophic traits for downstream analyses (e.g., predator biomass, herbivore richness)
-  - ***Data integration*** — Supports clean joins between observation tables and trait metadata
+---
 
-Each major taxonomic group is documented in a dedicated table:
+## Three Essential Functions
 
-``` text
+### Identity Resolution
+Maps field identifications to accepted scientific names using authoritative sources (WoRMS, Coral Traits Database, FishBase). Handles synonyms, taxonomic revisions, and regional naming variations.
+
+### Ecological Context
+Assigns trophic groups, functional roles, and life history traits. Enables analyses like "total predator biomass" or "herbivore diversity" without manual trait lookups.
+
+### Data Integration
+Provides the join key (`accepted_aphia_id`) that links observations across all survey methods to a single, authoritative taxonomic reference.
+
+---
+
+## Dataset Structure
+
+Each major taxonomic group maintains its own table, tailored to group-specific traits while following a consistent core schema:
+
+```text
 taxa_info/
-├── fish    # Reef and pelagic fishes from UVS, BRUVS, etc
-├── benthos # Sessile benthic taxa from LPI, recruits, photomosaics (e.g., corals, algae, sponges)
-├── inverts # Sessile and mobile invertebrates
-├── uvs_fish_codes  # Internal field codes for reef fish surveys
+├── fish              # Reef and pelagic fishes (length-weight, trophic group)
+├── benthos           # Sessile taxa (corals, algae, sponges, CCA)
+├── inverts           # Mobile and sessile invertebrates (echinoderms, mollusks)
+└── uvs_fish_codes    # Field code translator for UVS surveys
 ```
 
-All tables follow a standardized schema, centered on aphia_id (WoRMS) as the canonical key. Fields include accepted_name, family, trophic_group, functional_group, and additional group-specific traits.
+---
+
+## Core Schema
+
+All `taxa_info` tables share these foundational fields:
+
+| Field                | Description                                                      |
+|----------------------|------------------------------------------------------------------|
+| `accepted_aphia_id`  | WoRMS AphiaID — the canonical taxonomic key                      |
+| `accepted_name`      | Valid scientific name (*Genus species*)                          |
+| `rank`               | Taxonomic rank (Species, Genus, Family)                          |
+| `kingdom` → `family` | Full taxonomic hierarchy                                         |
+| `common_name`        | Vernacular name(s) when widely used                              |
+| `trophic_group` / `functional_group` | Ecological classification (group-specific) |
+
+**Additional traits** vary by group (e.g., length-weight parameters for fish, growth forms for corals).
+
+---
+
+## Key Principles
+
+### WoRMS as Foundation
+
+All taxa are anchored to the World Register of Marine Species (WoRMS) via `accepted_aphia_id`. This ensures:
+
+- **Global interoperability** with other marine datasets
+- **Automatic updates** as taxonomy evolves
+- **Synonym resolution** across field records and literature
+
+### Expert Curation
+
+While WoRMS provides the taxonomic backbone, ecological traits are curated from:
+
+- Peer-reviewed literature (e.g., Parravicini et al. 2020 for fish trophic groups)
+- Regional expert knowledge (e.g., Pacific giant clam taxonomy)
+- Field validation by expedition scientists
+
+### Hierarchy and Aggregation
+
+Observations at higher taxonomic ranks (genus, family) are explicitly flagged via the `rank` field. This supports flexible aggregation:
+
+- **Species-level** analysis when identification is certain
+- **Genus-level** summaries when needed for incomplete IDs
+- **Family-level** trends for broad ecological patterns
+
+## Table Documentation
+
+Detailed schemas, trait sources, and field definitions for each taxonomic group:
+
+- **[Fish](03_taxa_info_fish.qmd)** — Reef and pelagic fishes with length-weight parameters
+- **[Benthos](03_taxa_info_benthos.qmd)** — Corals, algae, sponges, and other sessile organisms
+- **[Invertebrates](03_taxa_info_inverts.qmd)** — Mobile and sessile invertebrates
+- **[UVS Fish Codes](03_taxa_info_fish_uvs_codes.qmd)** — Field code mapping for underwater visual surveys
+
+---
 
 ```{r}
 if (!bq_dataset_exists(bq_dataset("pristine-seas", "taxa_info"))) {

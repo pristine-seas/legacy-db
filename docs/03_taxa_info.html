@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Taxa Information Dataset – Pristine Seas Science Database</title>
+<title>Taxa Information – Pristine Seas Science Database</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -4428,7 +4428,7 @@ list-style: none !important;
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./04_lookup_fish_codes.qmd" class="sidebar-item-text sidebar-link">
+  <a href="./03_taxa_info_fish_uvs_codes.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">UVS Fish codes</span></a>
   </div>
 </li>
@@ -4457,15 +4457,35 @@ list-style: none !important;
 </nav>
 <div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
-        
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#three-essential-functions" id="toc-three-essential-functions" class="nav-link active" data-scroll-target="#three-essential-functions">Three Essential Functions</a>
+  <ul class="collapse">
+  <li><a href="#identity-resolution" id="toc-identity-resolution" class="nav-link" data-scroll-target="#identity-resolution">Identity Resolution</a></li>
+  <li><a href="#ecological-context" id="toc-ecological-context" class="nav-link" data-scroll-target="#ecological-context">Ecological Context</a></li>
+  <li><a href="#data-integration" id="toc-data-integration" class="nav-link" data-scroll-target="#data-integration">Data Integration</a></li>
+  </ul></li>
+  <li><a href="#dataset-structure" id="toc-dataset-structure" class="nav-link" data-scroll-target="#dataset-structure">Dataset Structure</a></li>
+  <li><a href="#core-schema" id="toc-core-schema" class="nav-link" data-scroll-target="#core-schema">Core Schema</a></li>
+  <li><a href="#key-principles" id="toc-key-principles" class="nav-link" data-scroll-target="#key-principles">Key Principles</a>
+  <ul class="collapse">
+  <li><a href="#worms-as-foundation" id="toc-worms-as-foundation" class="nav-link" data-scroll-target="#worms-as-foundation">WoRMS as Foundation</a></li>
+  <li><a href="#expert-curation" id="toc-expert-curation" class="nav-link" data-scroll-target="#expert-curation">Expert Curation</a></li>
+  <li><a href="#hierarchy-and-aggregation" id="toc-hierarchy-and-aggregation" class="nav-link" data-scroll-target="#hierarchy-and-aggregation">Hierarchy and Aggregation</a></li>
+  </ul></li>
+  <li><a href="#table-documentation" id="toc-table-documentation" class="nav-link" data-scroll-target="#table-documentation">Table Documentation</a></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Taxa Information Dataset</h1>
+<h1 class="title">Taxa Information</h1>
 </div>
 
 
@@ -4482,22 +4502,134 @@ list-style: none !important;
 </header>
 
 
-<p>The <code>taxa_info/</code> dataset is the backbone of biological consistency in the Pristine Seas Science Database. It provides harmonized reference lists and ecological traits for all taxa recorded across expeditions, enabling seamless integration of species-level data across methods, habitats, and years.</p>
-<p>This shared taxonomy serves three essential roles:</p>
-<ul>
-<li><strong><em>Identity resolution</em></strong> — Ensures consistent naming using authoritative sources (e.g., WoRMS, Coral Traits)</li>
-<li><strong><em>Ecological interpretation</em></strong> — Assigns functional and trophic traits for downstream analyses (e.g., predator biomass, herbivore richness)</li>
-<li><strong><em>Data integration</em></strong> — Supports clean joins between observation tables and trait metadata</li>
-</ul>
-<p>Each major taxonomic group is documented in a dedicated table:</p>
+<p>The <code>taxa_info/</code> dataset is the taxonomic backbone of the Pristine Seas Science Database. It provides standardized species names, ecological traits, and functional classifications for all organisms recorded across expeditions—enabling consistent identification, trait-based analysis, and cross-method integration.</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="Why This Matters">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Why This Matters
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Without standardized taxonomy, the same species recorded as “Epinephelus polyphekadion” in one expedition and “Camouflage grouper” in another cannot be compared. This dataset solves that problem—and adds the ecological context needed for conservation science.</p>
+</div>
+</div>
+<hr>
+<section id="three-essential-functions" class="level2">
+<h2 class="anchored" data-anchor-id="three-essential-functions">Three Essential Functions</h2>
+<section id="identity-resolution" class="level3">
+<h3 class="anchored" data-anchor-id="identity-resolution">Identity Resolution</h3>
+<p>Maps field identifications to accepted scientific names using authoritative sources (WoRMS, Coral Traits Database, FishBase). Handles synonyms, taxonomic revisions, and regional naming variations.</p>
+</section>
+<section id="ecological-context" class="level3">
+<h3 class="anchored" data-anchor-id="ecological-context">Ecological Context</h3>
+<p>Assigns trophic groups, functional roles, and life history traits. Enables analyses like “total predator biomass” or “herbivore diversity” without manual trait lookups.</p>
+</section>
+<section id="data-integration" class="level3">
+<h3 class="anchored" data-anchor-id="data-integration">Data Integration</h3>
+<p>Provides the join key (<code>accepted_aphia_id</code>) that links observations across all survey methods to a single, authoritative taxonomic reference.</p>
+<hr>
+</section>
+</section>
+<section id="dataset-structure" class="level2">
+<h2 class="anchored" data-anchor-id="dataset-structure">Dataset Structure</h2>
+<p>Each major taxonomic group maintains its own table, tailored to group-specific traits while following a consistent core schema:</p>
 <pre class="text"><code>taxa_info/
-├── fish    # Reef and pelagic fishes from UVS, BRUVS, etc
-├── benthos # Sessile benthic taxa from LPI, recruits, photomosaics (e.g., corals, algae, sponges)
-├── inverts # Sessile and mobile invertebrates
-├── uvs_fish_codes  # Internal field codes for reef fish surveys</code></pre>
-<p>All tables follow a standardized schema, centered on aphia_id (WoRMS) as the canonical key. Fields include accepted_name, family, trophic_group, functional_group, and additional group-specific traits.</p>
+├── fish              # Reef and pelagic fishes (length-weight, trophic group)
+├── benthos           # Sessile taxa (corals, algae, sponges, CCA)
+├── inverts           # Mobile and sessile invertebrates (echinoderms, mollusks)
+└── uvs_fish_codes    # Field code translator for UVS surveys</code></pre>
+<hr>
+</section>
+<section id="core-schema" class="level2">
+<h2 class="anchored" data-anchor-id="core-schema">Core Schema</h2>
+<p>All <code>taxa_info</code> tables share these foundational fields:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 75%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>accepted_aphia_id</code></td>
+<td>WoRMS AphiaID — the canonical taxonomic key</td>
+</tr>
+<tr class="even">
+<td><code>accepted_name</code></td>
+<td>Valid scientific name (<em>Genus species</em>)</td>
+</tr>
+<tr class="odd">
+<td><code>rank</code></td>
+<td>Taxonomic rank (Species, Genus, Family)</td>
+</tr>
+<tr class="even">
+<td><code>kingdom</code> → <code>family</code></td>
+<td>Full taxonomic hierarchy</td>
+</tr>
+<tr class="odd">
+<td><code>common_name</code></td>
+<td>Vernacular name(s) when widely used</td>
+</tr>
+<tr class="even">
+<td><code>trophic_group</code> / <code>functional_group</code></td>
+<td>Ecological classification (group-specific)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Additional traits</strong> vary by group (e.g., length-weight parameters for fish, growth forms for corals).</p>
+<hr>
+</section>
+<section id="key-principles" class="level2">
+<h2 class="anchored" data-anchor-id="key-principles">Key Principles</h2>
+<section id="worms-as-foundation" class="level3">
+<h3 class="anchored" data-anchor-id="worms-as-foundation">WoRMS as Foundation</h3>
+<p>All taxa are anchored to the World Register of Marine Species (WoRMS) via <code>accepted_aphia_id</code>. This ensures:</p>
+<ul>
+<li><strong>Global interoperability</strong> with other marine datasets</li>
+<li><strong>Automatic updates</strong> as taxonomy evolves</li>
+<li><strong>Synonym resolution</strong> across field records and literature</li>
+</ul>
+</section>
+<section id="expert-curation" class="level3">
+<h3 class="anchored" data-anchor-id="expert-curation">Expert Curation</h3>
+<p>While WoRMS provides the taxonomic backbone, ecological traits are curated from:</p>
+<ul>
+<li>Peer-reviewed literature (e.g., Parravicini et al. 2020 for fish trophic groups)</li>
+<li>Regional expert knowledge (e.g., Pacific giant clam taxonomy)</li>
+<li>Field validation by expedition scientists</li>
+</ul>
+</section>
+<section id="hierarchy-and-aggregation" class="level3">
+<h3 class="anchored" data-anchor-id="hierarchy-and-aggregation">Hierarchy and Aggregation</h3>
+<p>Observations at higher taxonomic ranks (genus, family) are explicitly flagged via the <code>rank</code> field. This supports flexible aggregation:</p>
+<ul>
+<li><strong>Species-level</strong> analysis when identification is certain</li>
+<li><strong>Genus-level</strong> summaries when needed for incomplete IDs</li>
+<li><strong>Family-level</strong> trends for broad ecological patterns</li>
+</ul>
+</section>
+</section>
+<section id="table-documentation" class="level2">
+<h2 class="anchored" data-anchor-id="table-documentation">Table Documentation</h2>
+<p>Detailed schemas, trait sources, and field definitions for each taxonomic group:</p>
+<ul>
+<li><strong><a href="./03_taxa_info_fish.html">Fish</a></strong> — Reef and pelagic fishes with length-weight parameters</li>
+<li><strong><a href="./03_taxa_info_benthos.html">Benthos</a></strong> — Corals, algae, sponges, and other sessile organisms</li>
+<li><strong><a href="./03_taxa_info_inverts.html">Invertebrates</a></strong> — Mobile and sessile invertebrates</li>
+<li><strong><a href="./03_taxa_info_fish_uvs_codes.html">UVS Fish Codes</a></strong> — Field code mapping for underwater visual surveys</li>
+</ul>
+<hr>
 
 
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

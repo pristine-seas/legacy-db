@@ -6946,6 +6946,12 @@ list-style: none !important;
   <li><a href="#method-datasets" id="toc-method-datasets" class="nav-link" data-scroll-target="#method-datasets">Method Datasets</a></li>
   </ul></li>
   <li><a href="#data-model" id="toc-data-model" class="nav-link" data-scroll-target="#data-model">Data Model</a></li>
+  <li><a href="#integration-joins" id="toc-integration-joins" class="nav-link" data-scroll-target="#integration-joins">Integration &amp; Joins</a>
+  <ul class="collapse">
+  <li><a href="#spatial-joins" id="toc-spatial-joins" class="nav-link" data-scroll-target="#spatial-joins">Spatial Joins</a></li>
+  <li><a href="#taxonomic-joins" id="toc-taxonomic-joins" class="nav-link" data-scroll-target="#taxonomic-joins">Taxonomic Joins</a></li>
+  <li><a href="#effort-standardization" id="toc-effort-standardization" class="nav-link" data-scroll-target="#effort-standardization">Effort Standardization</a></li>
+  </ul></li>
   <li><a href="#style-conventions" id="toc-style-conventions" class="nav-link" data-scroll-target="#style-conventions">Style &amp; Conventions</a>
   <ul class="collapse">
   <li><a href="#naming-standards" id="toc-naming-standards" class="nav-link" data-scroll-target="#naming-standards">Naming Standards</a></li>
@@ -6977,7 +6983,25 @@ list-style: none !important;
 </header>
 
 
-<p>The <strong>Pristine Seas Science Database</strong> is a modular, analysis-ready system for organizing ecological data collected across more than 40 expeditions worldwide. Its design balances flexibility — to accommodate diverse survey methods — and consistency — to support clean integration, querying, and long-term analysis.</p>
+<p>The <strong>Pristine Seas Science Database</strong> is a modular, analysis-ready system for organizing ecological data collected across more than 40 expeditions worldwide. Its design balances flexibility—to accommodate diverse survey methods—with consistency—to support clean integration, querying, and long-term analysis.</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="Design Philosophy">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Design Philosophy
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This architecture prioritizes:</p>
+<ul>
+<li><strong>Traceability</strong>: Every observation links back to spatial and taxonomic references</li>
+<li><strong>Flexibility</strong>: New methods integrate seamlessly without restructuring existing data</li>
+<li><strong>Analysis-Ready</strong>: Pre-computed summaries enable fast queries while preserving raw data for reproducibility</li>
+</ul>
+</div>
+</div>
 <hr>
 <section id="core-structure" class="level2">
 <h2 class="anchored" data-anchor-id="core-structure">Core Structure</h2>
@@ -7023,18 +7047,18 @@ list-style: none !important;
 <div class="tree-section">
 <p><strong>📂 expeditions/</strong> — <em>Spatial backbone &amp; metadata for all field campaigns</em></p>
 <ul>
-<li>📄 <code>info</code> — Expedition registry: dates, vessels, teams, partners</li>
-<li>📄 <code>sites</code> — Master site registry across all survey methods</li>
+<li>📄 <code>info</code> — Expedition metadata: dates, regions, vessels, participants, partners</li>
+<li>📄 <code>sites</code> — Master site registry across all methods (lat/lon, habitat, depth range)</li>
 </ul>
 <p><strong>📂 taxa_info/</strong> — <em>Standardized species reference data</em></p>
 <ul>
-<li>📄 <code>fish</code> — Fish taxonomy, traits, and life history</li>
-<li>📄 <code>benthos</code> — Benthic organisms: corals, algae, sponges</li>
-<li>📄 <code>inverts</code> — Mobile and sessile invertebrates</li>
+<li>📄 <code>fish</code> — Fish taxonomy (WoRMS), traits (length-weight), trophic groups</li>
+<li>📄 <code>benthos</code> — Benthic organisms: hard/soft corals, algae, sponges, CCA</li>
+<li>📄 <code>inverts</code> — Mobile and sessile invertebrates: echinoderms, mollusks, crustaceans</li>
 </ul>
-<p><strong>📂 lookup/</strong> — <em>Other lookuptables</em></p>
+<p><strong>📂 lookup/</strong> — <em>Controlled vocabularies and reference tables</em></p>
 <ul>
-<li>📄 <code>researchers</code> — Information for researchers and expedition particpant.</li>
+<li>📄 <code>researchers</code> — Team members: roles, affiliations, expedition participation</li>
 </ul>
 </div>
 </div>
@@ -7048,36 +7072,53 @@ list-style: none !important;
 <li><code>observations</code> — Primary ecological or environmental records</li>
 <li><code>summaries</code> — Aggregated station-level metrics</li>
 </ul>
+<section id="common-method-dataset-structure" class="level4">
+<h4 class="anchored" data-anchor-id="common-method-dataset-structure">Common Method Dataset Structure</h4>
+<p>While each method has unique requirements, all follow this general pattern:</p>
+<p><strong>Core Tables:</strong></p>
+<ul>
+<li><code>{method}.sites</code> — Deployment-level metadata (when/where)</li>
+<li><code>{method}.stations</code> — Sampling units (replicates, strata, depth)</li>
+<li><code>{method}.*_observations</code> — Raw ecological records</li>
+<li><code>{method}.*_by_station_taxa</code> — Pre-aggregated summaries</li>
+</ul>
+<p><strong>Key Principles:</strong></p>
+<ul>
+<li><strong>Observations are immutable</strong>: Raw data preserved as collected after QA/QC</li>
+<li><strong>Stations link everything</strong>: All analyses join through <code>ps_station_id</code></li>
+<li><strong>Summaries are derived</strong>: Calculated from observations, can be regenerated</li>
+<li><strong>Taxonomy is external</strong>: Most species traits live in <code>taxa_info.*</code>, not method tables</li>
+</ul>
 <div class="database-tree">
 <div class="tree-section">
 <p><strong>📂 uvs/</strong> — <em>Underwater Visual Survey (SCUBA-based)</em></p>
 <ul>
-<li><p>📄 <code>sites</code> — Dive site metadata: location, conditions, protocols used</p></li>
-<li><p>📄 <code>stations_unified</code> — Depth-stratified sampling units within each site joined across all methods (View)</p></li>
-<li><p><strong>Fish Belt Transects</strong></p>
+<li>📄 <code>sites</code> — Dive site metadata: location, conditions, protocols used</li>
+<li>📄 <code>stations_unified</code> — Unified view of all UVS stations across protocols</li>
+</ul>
+<p><strong>Fish Belt Transects</strong></p>
 <ul>
-<li>📄 <code>blt_stations</code> — Fish belt transect metadata: divers, effort, conditions</li>
 <li>📄 <code>blt_observations</code> — Raw fish counts by species, size, and transect</li>
-<li>📄 <code>blt_biomass_by_station_taxa</code> — Station-level fish biomass summaries</li>
-</ul></li>
-<li><p><strong>Benthic Surveys (LPI)</strong></p>
+<li>📄 <code>blt_stations</code> — Fish station metadata: divers, effort, summaries</li>
+<li>📄 <code>blt_biomass_by_station_taxa</code> — Station-level fish biomass summaries by taxa</li>
+</ul>
+<p><strong>Benthic Surveys (LPI)</strong></p>
 <ul>
-<li>📄 <code>lpi_stations</code> — Benthic line-point intercept transect metadata</li>
 <li>📄 <code>lpi_observations</code> — Raw benthic point data by morphotaxon</li>
-<li>📄 <code>lpi_cover_by_station_taxa</code> — Station-level benthic percent cover</li>
-</ul></li>
-<li><p><strong>Inverts Surveys</strong></p>
+<li>📄 <code>lpi_stations</code> — Benthic transect metadata: divers, effort, summaries</li>
+<li>📄 <code>lpi_cover_by_station_taxa</code> — Station-level benthic percent cover by taxa</li>
+</ul>
+<p><strong>Invertebrate Surveys</strong></p>
 <ul>
-<li>📄 <code>inverts_observations</code> — Raw invertebrate observations and sizes</li>
-<li>📄 <code>inverts_stations</code> — Mobile invertebrate transect metadata</li>
-<li>📄 <code>inverts_density_by_station_taxa</code> — Mobile invertebrate transect metadata</li>
-</ul></li>
-<li><p><strong>Coral Recruitment</strong></p>
+<li>📄 <code>inverts_observations</code> — Raw invertebrate counts and sizes</li>
+<li>📄 <code>inverts_stations</code> — Invertebrate transect metadata: divers, effort, summaries</li>
+<li>📄 <code>inverts_density_by_station_taxa</code> — Station-level invertebrate density</li>
+</ul>
+<p><strong>Coral Recruitment</strong></p>
 <ul>
-<li>📄 <code>recruits_counts</code> — Juvenile coral counts by genus</li>
-<li>📄 <code>recruits_stations</code> — Coral recruitment quadrat metadata</li>
-<li>📄 <code>recruits_density_by_station_taxa</code> — Mobile invertebrate transect metadata</li>
-</ul></li>
+<li>📄 <code>recruits_observations</code> — Juvenile coral counts by genus</li>
+<li>📄 <code>recruits_stations</code> — Coral recruitment quadrat metadata: divers, effort, summaries</li>
+<li>📄 <code>recruits_density_by_station_taxa</code> — Station-level coral recruit density by taxa</li>
 </ul>
 <p><strong>📂 BRUVS_seabed/</strong> — <em>Seabed Baited Remote Underwater Video</em></p>
 <ul>
@@ -7086,9 +7127,9 @@ list-style: none !important;
 </ul>
 <p><strong>📂 BRUVS_pelagic/</strong> — <em>Pelagic BRUVS (mid-water camera arrays)</em></p>
 <ul>
-<li>📄 <code>rigs</code> — Individual rig positions and drift</li>
+<li>📄 <code>rigs</code> — Individual rig metadata (e.g. positions and drift)</li>
 <li>📄 <code>stations</code> — String deployment metadata</li>
-<li>📄 <code>maxn_by_station_taxa</code> — Fish MaxN by species and rig</li>
+<li>📄 <code>maxn_by_station_taxa</code> — Fish MaxN by species and station</li>
 </ul>
 <p><strong>📂 edna/</strong> — <em>Environmental DNA sampling</em></p>
 <ul>
@@ -7105,7 +7146,7 @@ list-style: none !important;
 <p><strong>📂 dscm/</strong> — <em>Deep Sea Camera deployments</em></p>
 <ul>
 <li>📄 <code>stations</code> — Camera drop metadata: depth, duration</li>
-<li>📄 <code>maxn_by_station_taxa</code> — Fish MaxN summaries</li>
+<li>📄 <code>maxn_by_station_taxa</code> — MaxN summaries</li>
 </ul>
 <p><strong>📂 birds/</strong> — <em>Seabird transect surveys</em></p>
 <ul>
@@ -7169,6 +7210,7 @@ color: #1D3557;
 <hr>
 </section>
 </section>
+</section>
 <section id="data-model" class="level2">
 <h2 class="anchored" data-anchor-id="data-model">Data Model</h2>
 <p>All data in the Pristine Seas Science Database are structured around a shared, hierarchical spatial model. This enables standardized grouping, filtering, and integration across methods, expeditions, and geographies.</p>
@@ -7183,14 +7225,14 @@ Broad geographic or administrative area<br>
 <ul>
 <li><p><strong>Subregion</strong><br>
 Intermediate unit like an island, atoll, gulf, or reef complex<br>
-<em>e.g., Navigator bank, Mussau, Golfo de Tribugá, Utupua</em></p>
+<em>e.g., Navigator Bank, Mussau, Golfo de Tribugá, Utupua</em></p>
 <ul>
 <li><p><strong>Locality</strong><br>
 Local named feature such as a community, village, islet<br>
 <em>e.g., Lolieng, Tasitel</em></p>
 <ul>
 <li><p><strong>Site</strong><br>
-A specific location within the subregion where a survey method (e.g., UVS, BRUVS, eDNA) was used<br>
+A specific location within the subregion where a survey method (e.g., UVS, BRUVS, eDNA) was deployed<br>
 <em>e.g., <code>COL_2024_uvs_001</code></em></p>
 <ul>
 <li><strong>Station</strong><br>
@@ -7201,6 +7243,13 @@ A discrete sampling unit within a site, corresponding to a specific depth or rep
 </ul></li>
 </ul></li>
 </ul></li>
+</ul>
+<p><strong>Key Relationships:</strong></p>
+<ul>
+<li>One expedition → many sites (across methods)</li>
+<li>One site → many stations (across depths/replicates)</li>
+<li>Spatial context cascades: stations inherit their site’s region, subregion, and locality</li>
+<li>Method independence: UVS, BRUVS, and eDNA can occur at the same geographic location as separate sites/stations</li>
 </ul>
 <div class="callout callout-style-simple callout-important callout-titled" title="Standard Identifiers">
 <div class="callout-header d-flex align-content-center">
@@ -7216,7 +7265,7 @@ Standard Identifiers
 <section id="expedition-exp_id-iso3_year" class="level4">
 <h4 class="anchored" data-anchor-id="expedition-exp_id-iso3_year"><strong>Expedition (<code>exp_id</code>)</strong>: <code>ISO3_YEAR</code></h4>
 <ul>
-<li>Examples: <code>FJI_2025</code>, <code>COL_2022</code>,</li>
+<li>Examples: <code>FJI_2025</code>, <code>COL_2022</code>, <code>PNG_2024</code></li>
 </ul>
 </section>
 <section id="site-ps_site_id-exp_id_method_" class="level4">
@@ -7229,20 +7278,52 @@ Standard Identifiers
 <section id="station-ps_station_id-ps_site_id_suffix" class="level4">
 <h4 class="anchored" data-anchor-id="station-ps_station_id-ps_site_id_suffix"><strong>Station (<code>ps_station_id</code>)</strong>: <code>ps_site_id_suffix</code></h4>
 <p>Depth and replicate suffixes use fixed formats.</p>
+<p><strong>Suffix Formats by Method:</strong></p>
 <ul>
-<li>Examples:
-<ul>
-<li><code>FJI_2025_uvs_001_10m</code> – Underwater visual survey at 10m depth<br>
-</li>
-<li><code>FJI_2025_pbruv_003_r102</code> – rig 102 of pelagic BRUV deployment 3<br>
-</li>
-<li><code>FJI_2025_dscm_006_300m</code> – deep sea camera at 300m</li>
-</ul></li>
+<li><p><strong>UVS (depth-stratified)</strong>: <code>_{depth}m</code><br>
+Examples: <code>FJI_2025_uvs_001_5m</code>, <code>FJI_2025_uvs_001_10m</code>, <code>FJI_2025_uvs_001_20m</code></p></li>
+<li><p><strong>BRUVS pelagic (rig-based)</strong>: <code>_r{rig_number}</code><br>
+Examples: <code>FJI_2025_pbruv_003_r101</code>, <code>FJI_2025_pbruv_003_r102</code></p></li>
+<li><p><strong>Deep cameras</strong>: <code>_{depth}m</code><br>
+Examples: <code>FJI_2025_dscm_006_300m</code>, <code>FJI_2025_dscm_006_500m</code></p></li>
+<li><p><strong>Submersibles (transects)</strong>: <code>_t{transect_number}</code><br>
+Examples: <code>FJI_2025_sub_014_t01</code>, <code>FJI_2025_sub_014_t02</code></p></li>
 </ul>
 </section>
 </div>
 </div>
 <hr>
+</section>
+<section id="integration-joins" class="level2">
+<h2 class="anchored" data-anchor-id="integration-joins">Integration &amp; Joins</h2>
+<section id="spatial-joins" class="level3">
+<h3 class="anchored" data-anchor-id="spatial-joins">Spatial Joins</h3>
+<p>All method datasets link to the spatial backbone:</p>
+<ul>
+<li><code>{method}.sites.ps_site_id</code> → <code>expeditions.sites.ps_site_id</code></li>
+<li>Inherited fields: <code>exp_id</code>, <code>region</code>, <code>subregion</code>, <code>locality</code></li>
+</ul>
+</section>
+<section id="taxonomic-joins" class="level3">
+<h3 class="anchored" data-anchor-id="taxonomic-joins">Taxonomic Joins</h3>
+<p>Observations link to trait databases via AphiaID:</p>
+<ul>
+<li><code>{method}.*_observations.accepted_aphia_id</code> → <code>taxa_info.fish.accepted_aphia_id</code></li>
+<li><code>{method}.*_observations.accepted_aphia_id</code> → <code>taxa_info.benthos.accepted_aphia_id</code></li>
+<li><code>{method}.*_observations.accepted_aphia_id</code> → <code>taxa_info.inverts.accepted_aphia_id</code></li>
+</ul>
+</section>
+<section id="effort-standardization" class="level3">
+<h3 class="anchored" data-anchor-id="effort-standardization">Effort Standardization</h3>
+<p>Station-level summaries include survey effort for density calculations:</p>
+<ul>
+<li><strong>Fish</strong>: biomass per m² (<code>biomass_gm2</code>)</li>
+<li><strong>Benthos</strong>: percent cover (<code>pct_cover</code>)</li>
+<li><strong>Inverts</strong>: density per m² (<code>density_m2</code>)</li>
+<li><strong>BRUVS</strong>: MaxN (standardized count)</li>
+</ul>
+<hr>
+</section>
 </section>
 <section id="style-conventions" class="level2">
 <h2 class="anchored" data-anchor-id="style-conventions">Style &amp; Conventions</h2>
@@ -7255,6 +7336,13 @@ Standard Identifiers
 <p><strong>Identifiers</strong><br>
 Self-documenting structure • sortable • joinable<br>
 <em>Examples:</em> <code>FJI_2025_uvs_001_10m</code>, <code>ps_station_id</code></p>
+<p><strong>Special Cases:</strong></p>
+<ul>
+<li><strong>Acronyms</strong>: Stay uppercase when widely recognized (e.g., <code>CCA</code>, <code>DNA</code>, <code>MPA</code>)</li>
+<li><strong>Geographic names</strong>: Preserve proper capitalization (e.g., <code>Golfo de Tribugá</code>)</li>
+<li><strong>Species names</strong>: Use lowercase except genus initial (e.g., <code>Acropora cervicornis</code>)</li>
+<li><strong>Boolean prefixes</strong>: Use <code>is_*</code>, <code>has_*</code>, <code>in_*</code> (e.g., <code>in_mpa</code>, <code>has_blt</code>)</li>
+</ul>
 </section>
 <section id="data-standards" class="level3">
 <h3 class="anchored" data-anchor-id="data-standards">Data Standards</h3>

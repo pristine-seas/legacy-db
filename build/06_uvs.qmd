@@ -133,8 +133,6 @@ uvs.sites_fields |>
   gt_theme_nytimes()
 ```
 
-
-
 ::: {.callout-tip title="Controlled vocabulary"}
 
 **`Habitat`**

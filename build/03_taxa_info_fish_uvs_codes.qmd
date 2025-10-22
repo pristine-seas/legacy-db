@@ -1,5 +1,5 @@
 ---
-title: "Field Codes"
+title: "UVS Fish Field Codes"
 format: 
   html:
     theme: lux
@@ -8,8 +8,8 @@ format:
     toc: true 
     toc-depth: 3
     toc-location: right
-    number-sections: true
-    number-depth: 3
+    number-sections: false
+    number-depth: 2
 ---
 
 ```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
@@ -44,17 +44,53 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-This table maps shorthand taxon codes used during underwater visual surveys (UVS) to authoritative taxonomic identifiers and names. It serves as a translation layer between diver-entered field codes and the canonical taxonomy in `taxa_info.fish`.
+## Overview
 
-Each row corresponds to a unique `taxon_code` used in the field, whether referring to an accepted species, a synonym, or a higher-level taxon (genus or family). This mapping enables consistent, traceable integration of UVS data with modern taxonomic standards and trait metadata.
+The `taxa_info.uvs_fish_codes` table maps shorthand field codes used during underwater visual surveys to authoritative taxonomic identifiers and names. It serves as the translation layer between diver-entered codes and the canonical taxonomy in `taxa_info.fish`, enabling consistent integration of UVS data with modern taxonomic standards and trait metadata.
 
-Why it matters
+::: {.callout-note title="What's Covered" appearance=simple}
+This table contains **field codes for reef fishes** observed during belt transect surveys. Each code corresponds to a species, genus, or family recorded by divers, along with its resolved WoRMS taxonomy and FishBase SpecCode for cross-referencing.
+:::
 
-  - **Legacy harmonization**: Links historical field entries to accepted names and identifiers
-  - **Soft joins**: Enables flexible, code-to-species mapping across datasets
-  - **Traceability**: Maintains original diver intent while supporting global taxonomy
+---
 
-This table captures both the field-level identity (what divers recorded) and the accepted scientific classification (based on WoRMS and FishBase), enabling robust reconciliation and trait-based analysis.
+### Core Functions
+
+- ##### Field-to-Database Translation
+    
+    Converts compact diver-entered codes (e.g., `AC.TRIS`) to full scientific names (*Acanthurus tristis*) with validated AphiaIDs and trait metadata.
+
+- ##### Legacy Harmonization
+  
+    Links historical field entries to current accepted taxonomy, handling synonyms, taxonomic revisions, and name changes over 40+ expeditions.
+
+- ##### Traceability & QA
+    
+    Maintains both original field identity and accepted classification, enabling audit trails and data quality checks across decades of survey data.
+
+---
+
+## Data Sources
+
+- ##### Pristine Seas Field Records
+    
+    Field codes derived from UVS fish belt transect datasheets spanning Pacific, Atlantic, and Indian Ocean expeditions from 2015–2024.
+
+- ##### Akiona et al. (2025) Pacific Fish Database
+    
+    Comprehensive Pacific reef fish species list with length-weight parameters, providing taxonomic coverage for regional survey targets.
+
+- ##### World Register of Marine Species (WoRMS)
+    
+    Taxonomic backbone for AphiaID resolution, synonym handling, and name validation. Ensures global interoperability.
+
+- ##### FishBase
+    
+    Provides SpecCodes for cross-referencing with the world's largest fish database, enabling integration with life history and trait data.
+
+---
+
+## Table Schema
 
 ```{r eval = T, include = T}
 #| label: tbl-fish-codes
@@ -92,9 +128,9 @@ uvs_fish_codes_fields |>
   gt_theme_nytimes()
 ```
 
-#### How are codes generated?
+## Field Code Convention
 
-`taxon_code` is the primary join key across all UVS fish datasets in the Pristine Seas Database. These short, deterministic codes are optimized for diver entry — concise, unambiguous, and easy to write underwater.
+`taxon_code` is the primary join key to link raw field observations to accepted taxonomy. These codes are optimized for underwater data entry — concise, deterministic, and unambiguous.
 
 ::: {.callout-important title="Taxon Code Logic"}
 

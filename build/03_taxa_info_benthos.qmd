@@ -49,34 +49,48 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
-The `taxa_info.benthos` table provides a standardized reference for all taxa observed during Line Point Intercept surveys and other shallow benthic protocols during Pristine Seas expeditions. It harmonizes scientific names, taxonomic hierarchy, and ecological traits to support robust analysis, reporting, and integration across survey methods.
 
-Each row corresponds to a unique accepted **AphiaID** from the World Register of Marine Species (WoRMS), and includes the scientific name, taxonomic ranks, common names, functional group and others. 
+## Overview 
 
-This table supports three core functions:
+The `taxa_info.benthos` table provides standardized taxonomy and functional trait classifications for all benthic organisms observed in Pristine Seas surveys. It serves as the reference backbone for Line Point Intercept (LPI) surveys and coral recruitment assessments, harmonizing field identifications with authoritative taxonomic sources and assigning ecological roles.
 
-  - ***Taxonomic resolution*** — reconciles field-recorded names with accepted nomenclature
-  - ***Trait-based analysis*** — enables grouping by functional group, habitat, and ecological traits (pending)
-  - ***Cross-dataset integration*** — provides a consistent key (`accepted_aphia_id`) to link observations, field codes, and traits
+::: {.callout-note title="What's Covered" appearance=simple}
+This table includes **sessile benthic taxa**: hard and soft corals, macroalgae, turf algae, crustose coralline algae (CCA), cyanobacteria, sponges, and other invertebrates. Mobile invertebrates (e.g., sea cucumbers, urchins) are documented in `taxa_info.inverts`.
+:::
 
-------------------------------------------------------------------------
+---
+
+### Core Functions
+
+- ##### Taxonomic Resolution
+    
+    Reconciles field-recorded morphotaxa (e.g., "Acropora branching", "Brown macroalgae") with accepted scientific names. Handles identification to genus or family when species-level ID is uncertain.
+
+- ##### Functional Classification
+  
+    Assigns benthic organisms to functional groups (e.g., `hard_coral`, `macroalgae`, `cca`, `turf`) based on ecological role and morphology. Supports analyses of reef composition, percent cover by functional group, and habitat condition.
+
+- ##### Cross-Dataset Integration
+    
+    Links observations across survey methods through `accepted_aphia_id`, enabling comparisons of coral cover from LPI surveys, coral recruitment quadrats, and photomosaics.
+
+---
 
 ## Data Sources
 
-The table integrates multiple curated sources to ensure taxonomic consistency and trait completeness:
+- ##### Pristine Seas Field Records
+    
+    Morphotaxa derived from diver field sheets, and LPI point intercept classifications. Records span Pacific, Caribbean, and Atlantic expeditions from 2015–2024.
 
-- **Pristine Seas Field Records**  
-  Derived from diver-entered observations, fieldbooks, and expedition species lists across UVS. These are reconciled with accepted WoRMS entries.
+- ##### World Register of Marine Species (WoRMS)
+    
+    Provides the taxonomic backbone: accepted AphiaIDs, scientific names, synonyms, and full hierarchical classification (kingdom → species). Ensures consistency with global marine biodiversity databases.
 
-- **World Register of Marine Species (WoRMS)**  
-  Used as the taxonomic backbone. Each taxon is linked to an accepted AphiaID, with full lineage (kingdom to species) and synonym resolution.
+- ##### Literature and Expert Review
+    
+    Functional group assignments follow Kike Ballesteros legacy data with validation by expedition ecologists.
 
-- **Literature and Expert Knowledge**  
-  Supplements functional group assignments, and ecological notes from peer-reviewed sources and expert consultation.
-
-Together, these sources provide a robust, reproducible foundation for ecological analysis.
-
-```{r}
+```{r eval = F}
 plw_lpi_taxa <- readxl::read_xlsx(file.path(ps_paths$expeditions, "PLW-2024", "data/primary/raw/benthos/PLW_2024_lpi_fieldsheet_Quim_final.xlsx"),
                           sheet         = "transects",
                           range         = "B7:B128",
@@ -281,8 +295,6 @@ benthos_taxa <- benthos_taxa |>
 
 These fields define the accepted scientific identity and taxonomic lineage of each record (@tbl-lpi-taxonomy-schema). 
 
-All taxa are matched to an accepted **AphiaID** from WoRMS, ensuring global consistency and traceability. These fields enable spatial and ecological grouping, support taxonomic joins, and serve as the foundation for trait integration.
-
 ```{r eval = T, include = T}
 #| label: tbl-lpi-taxonomy-schema
 #| tbl-cap: "Taxonomic lineage fields for benthic taxa in the Pristine Seas Database."
@@ -412,26 +424,63 @@ benthos_taxa |>
 
 ### Functional groups
 
-We classify benthic organisms recorded in our surveys into functional groups, reflecting their ecological roles and growth forms. This system allows for consistent summaries of benthic cover and comparisons across sites.
+Benthic taxa are classified into standardized functional groups based on morphology, ecology, and taxonomic identity:
 
-- `functional_group`  
-  Broad ecological category assigned based on expert knowledge of morphology, life history, and functional traits. One of:
+::: {.grid}
 
-  - `hard_coral`: Living scleractinian corals forming reef framework and colonies.
-  - `cca` : Crustose coralline algae (Corallinales, Sporolithales, Hapalidiaceae); calcified red algae that form rigid crusts and contribute to reef cementation
-  - `cyanobacteria`: Cyanobacterial mats and films, often opportunistic and associated with nutrient enrichment
-  - `soft_coral`: Octocorals including sea fans, sea whips, and fleshy soft corals; provide structural habitat but do not build reef framework.
-  - `sponges`: Poriferan colonies and structures; important in bioerosion, nutrient cycling, and benthic–pelagic coupling.
-  - `algae_erect`: Erect or foliose macroalgae (greens, browns, and reds) including siphonous greens (Caulerpa, Halimeda), fleshy browns (Dictyota, Sargassum), and blade-forming reds (Laurencia, Schizymenia).
-  - `algae_encrusting`: Non-coralline encrusting algae such as Peyssonnelia, Ralfsiaceae, and encrusting Lobophora; form thin crusts over substrate without significant vertical relief.
-  - `turf`: Low-growing mats (<1–2 cm) of filamentous and juvenile algae, often mixed with cyanobacteria, diatoms, and detritus; functionally distinct from erect macroalgae.
-  - `eam`: Endolithic algal matrix: microalgae and boring forms living within carbonate substrate, often visible as green or red bands in eroded coral skeletons.
-  - `sediment|rubble|barren`: Non-living substrate categories including unconsolidated sand or silt, loose rubble, and bare rock with little or no biological cover.
-  - `other`: All other benthic invertebrates not captured above (e.g., non-scleractinian cnidarians, hydrozoans, ascidians, bryozoans, echinoderms, molluscs, annelids, foraminifera)
+::: {.g-col-12 .g-col-lg-4}
 
-```{r eval = T, include = T}
+#### Corals
+
+- `hard_coral` — Scleractinian reef-building corals
+- `soft_coral` — Octocorals and gorgonians
+
+#### Macroalgae
+
+- `algae_erect` — Erect fleshy macroalgae (Caulerpa, Halimeda, Sargassum)
+- `algae_encrusting` — Low-growing encrusting forms (Peyssonnelia, Ralfsia)
+- `kelp` — Large brown algae (Laminariales, Fucales)
+
+:::
+
+::: {.g-col-12 .g-col-lg-4}
+
+#### Algal Turfs & Films
+
+- `cca` — Crustose coralline algae
+- `turf` — Short filamentous algal turfs (<1 cm)
+- `cyanobacteria` — Cyanobacterial mats and films
+
+#### Seagrass
+
+- `seagrass` — Marine flowering plants (Zostera, Thalassia, Posidonia)
+
+:::
+
+::: {.g-col-12 .g-col-lg-4}
+
+#### Sessile Invertebrates
+
+- `sponges` — Porifera
+- `bryozoans` — Colonial bryozoans
+- `ascidians` — Tunicates and sea squirts
+- `hydrozoans` — Fire corals and hydrocorals
+- `other_cnidarians` — Anemones, zoanthids, corallimorphs
+
+#### Abiotic Substrate
+
+- `sand` — Unconsolidated sediment
+- `rubble` — Coral rubble and fragments
+- `rock` — Bare rock or pavement
+
+:::
+
+:::
+
+
+```{r eval = F, include = F}
 #| label: tbl-lpi-functional-schema
-#| tbl-cap: "Schema for functional traits in `taxonomy.benthos`."
+#| tbl-cap: "Schema for functional traits in `taxa_info.benthos`."
 
 functional_group_schema <- tribble(
   ~field,            ~type,    ~required, ~description,
@@ -505,7 +554,7 @@ benthos_taxa <- benthos_taxa %>%
 
 ### Conservation Status (IUCN)
 
-The `taxonomy.benthos` table includes fields derived from the IUCN Red List to support biodiversity assessments and conservation planning. Each species is matched to its most recent listing (SIS ID) and assigned a standardized category (e.g., LC, NT, VU, EN, CR)
+The `taxa_info.benthos` table includes fields derived from the IUCN Red List to support biodiversity assessments and conservation planning. Each species is matched to its most recent listing (SIS ID) and assigned a standardized category (e.g., LC, NT, VU, EN, CR)
 
 ```{r}
 iucn_schema <- tribble(
@@ -588,26 +637,15 @@ benthos_taxa |>
   write_csv(file.path(prj_path, "data/output/taxa_info.benthos.csv"))
 ```
 
-## Summary
+## By The Numbers
 
 ```{r include = T, eval = T}
 benthos_taxa <-  read_csv(file.path(prj_path, "data/output/taxa_info.benthos.csv"))
 ```
 
-Overall, the `taxonomy.benthos` table contains `r nrow(benthos_taxa)` entries, representing `r length(unique(benthos_taxa$accepted_name))` unique taxa across `r length(unique(benthos_taxa$family))` families (@fig-richness-treemap). The majority of records are hard corals, with `r length(unique(benthos_taxa$accepted_name[benthos_taxa$functional_group == "hard_coral"]))` taxa.
+The `taxa_info.benthos` table contains `r nrow(benthos_taxa)` entries, representing `r length(unique(benthos_taxa$accepted_name))` unique taxa across `r length(unique(benthos_taxa$family))` families (@fig-richness-treemap). The majority of records are hard corals, with `r length(unique(benthos_taxa$accepted_name[benthos_taxa$functional_group == "hard_coral"]))` taxa.
 
-```{r include = T, eval = T}
-#| label: fig-missingness
-#| fig-cap: "Missingness in the benthos taxonomy table"
-#| fig-width: 10
-#| fig-height: 7
-
-benthos_taxa |> 
-  arrange(family) |> 
-  visdat::vis_miss()
-```
-
-### By Functional Group
+### Taxonomic Composition
 
 ```{r include = T, eval = T}
 #| label: fig-richness-treemap

@@ -13,89 +13,206 @@ format:
 
 The **Pristine Seas Science Database** is a centralized system for ecological data collected across more than a decade of scientific expeditions led by National Geographic Pristine Seas. It enables high-integrity, reproducible research on marine biodiversity and informs global ocean conservation policy.
 
+::: {.callout-tip title="At a Glance" appearance=simple}
+**40+ expeditions** • **All major ocean basins** • **Multiple survey methods** • **Standardized taxonomy** • **Analysis-ready**
+:::
+
 ------------------------------------------------------------------------
 
 ## Why This Matters
 
 Conservation begins with knowledge. The Pristine Seas Science Database is a globally unique resource that answers foundational questions about ocean health, biodiversity, and ecosystem change.
 
-Spanning all major ocean basins across **40+ expeditions**, it brings together standardized data from Arctic fjords to tropical reefs — from coastal bays to deep-sea trenches and pelagic zones. Its strength lies in **breadth** and **integration**: seabird surveys to submersible dives, eDNA to benthic cover — all unified by shared spatial and taxonomic frameworks.
+Spanning all major ocean basins across **40+ expeditions**, it brings together standardized data from Arctic fjords to tropical reefs—from coastal bays to deep-sea trenches and pelagic zones. Its strength lies in **breadth** and **integration**: seabird surveys to submersible dives, eDNA to benthic cover—all unified by shared spatial and taxonomic frameworks.
 
-### The system enables:
+### This database enables:
 
 - **Fast, reproducible analysis** across sites, regions, and years  
 - **Cross-method synthesis** through modular yet consistent structure  
-- **Scalable science** that informs conservation, policy, and decision-making
+- **Scalable science** that informs conservation, policy, and decision-making  
+- **Global comparisons** of pristine and impacted marine ecosystems
 
 ------------------------------------------------------------------------
 
-##  Key Features
+## Key Features
 
-### Modular by Method
-Each survey protocol — from reef fish and benthic cover to eDNA, BRUVS, and submersibles — maintains its own standardized schema while integrating seamlessly with the whole.
+::: {.grid}
 
-### Spatially Anchored
-Built on a hierarchical spatial model: `expedition → region → subregion → site → station`. This structure enables robust spatial integration and filtering across all datasets.
+::: {.g-col-12 .g-col-md-6}
+### 🔬 Modular by Method
+Each survey protocol—from reef fish and benthic cover to eDNA, BRUVS, and submersibles—maintains its own standardized schema while integrating seamlessly with the whole.
 
-### Taxonomically Standardized
+### 🌍 Spatially Anchored
+Built on a hierarchical spatial model: **expedition → region → subregion → site → station**. This structure enables robust spatial integration and filtering across all datasets.
+:::
+
+::: {.g-col-12 .g-col-md-6}
+### 🐟 Taxonomically Standardized
 Centralized taxonomy with harmonized species names, ecological traits, and functional groups. Based on WoRMS with expert curation for regional accuracy.
 
-### Analysis-Ready
+### ⚡ Analysis-Ready
 Tidy-format tables, clear join keys, and native organization in Google BigQuery make the system efficient for large-scale ecological analyses.
+:::
 
-### Built for Collaboration
+:::
+
+### 🤝 Built for Collaboration
 Transparent, well-documented, and modular. Designed for reuse, extension, and shared scientific workflows across institutions.
 
 ------------------------------------------------------------------------
 
 ## Getting Started
 
-1. **Browse the documentation** using the sidebar navigation
-2. **Start with [Architecture](01_architecture.qmd)** to understand the system structure
-3. **Explore [Method Datasets](05_methods.qmd)** for specific survey protocols
-4. **Review [Taxa Info](03_taxa_info.qmd)** for species standardization
-5. **Query data** via the [BigQuery Console](https://console.cloud.google.com/bigquery)
+### Quick Navigation
+
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-6}
+**📐 Understand the Structure**
+
+1. [Architecture](01_architecture.qmd) — System design and organization
+2. [Expeditions](02_expeditions.qmd) — Spatial backbone and metadata
+3. [Taxa Info](03_taxa_info.qmd) — Species standardization
+
+:::
+
+::: {.g-col-12 .g-col-md-6}
+**🔍 Explore the Data**
+
+4. [Method Datasets](05_methods.qmd) — Survey protocol overview
+5. [UVS Dataset](06_uvs.qmd) — Underwater visual surveys
+6. [BigQuery Console](https://console.cloud.google.com/bigquery) — Query interface
+
+:::
+
+:::
 
 ### Common Applications
 
-- Species richness and diversity analysis
-- Biomass assessments by trophic group
-- Temporal trends in coral cover
-- Multi-method data integration
-- Conservation priority identification
+From baseline assessments to policy-relevant metrics, this database supports research that matters:
+
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-4}
+**Community Ecology**
+
+- Biodiversity baselines in remote ecosystems
+- Body size distributions and fishing impacts
+- Food web structure and trophic cascades
+:::
+
+::: {.g-col-12 .g-col-md-4}
+**Conservation Science**
+
+- Shark and apex predator abundance
+- Reef health and resilience indicators
+- MPA performance and recovery trajectories
+:::
+
+::: {.g-col-12 .g-col-md-4}
+**Comparative Analysis**
+
+- Pristine vs. impacted ecosystem contrasts
+- Depth gradient patterns across oceans
+- Cross-basin biodiversity synthesis
+:::
+
+:::
 
 ------------------------------------------------------------------------
 
 ## FAIR Data Principles
 
-The database adheres to FAIR data principles, ensuring all records are:
+Built to global standards for open science:
 
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-3}
 **Findable**  
-Unique identifiers (`ps_site_id`, `aphia_id`) and rich metadata enable discovery and indexing
+Persistent identifiers and standardized metadata
+:::
 
+::: {.g-col-12 .g-col-md-3}
 **Accessible**  
-Hosted in Google BigQuery with open protocols and tools for querying and download
+Cloud-hosted with SQL query access
+:::
 
+::: {.g-col-12 .g-col-md-3}
 **Interoperable**  
-Tidy data principles, SI units, ISO 8601 dates, and controlled vocabularies
+Tidy data, SI units, ISO standards
+:::
 
+::: {.g-col-12 .g-col-md-3}
 **Reusable**  
-Comprehensive documentation, versioning, and modular design support transparency and replication
+Documented, versioned, reproducible
+:::
+
+:::
 
 ------------------------------------------------------------------------
 
 ## Technical Foundation
 
-The database is built on:
+Built on proven tools for scalable, reproducible marine science:
 
-- **Google BigQuery** for scalable data storage and querying
-- **R/RStudio** for data processing and analysis
-- **Quarto** for documentation
-- **GitHub** for version control
-- **WoRMS API** for taxonomic standardization
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-6}
+**Infrastructure**
+
+- **Google BigQuery** — Petabyte-scale data warehouse
+- **WoRMS** — Authoritative taxonomic backbone
+- **GitHub** — Open-source code and workflows
+:::
+
+::: {.g-col-12 .g-col-md-6}
+**Analysis Stack**
+
+- **R/Tidyverse** — Statistical computing and data pipelines
+- **SQL** — Efficient queries across millions of records
+- **Quarto** — Literate programming and documentation
+:::
+
+:::
 
 ------------------------------------------------------------------------
 
-## Learn More
+## Connect With Us
 
-For questions about the database, contact the Pristine Seas data team or explore our [GitHub repository](https://github.com/pristine-seas/legacy-db).
+**Questions about the data?** Reach out to the Pristine Seas science team at [marine.data.science@ngs.org](mailto:marine.data.science@ngs.org)
+
+**Ready to collaborate?** We partner with researchers, institutions, and conservation organizations worldwide. Let's discuss how this database can support your work.
+
+**Explore the code:** Visit our [GitHub repository](https://github.com/pristine-seas/legacy-db) for data pipelines, analysis templates, and quality control workflows.
+
+---
+
+::: {.callout-note title="Citation" appearance=minimal}
+When using data from the Pristine Seas Science Database, please cite:
+
+National Geographic Pristine Seas (2025). *Pristine Seas Science Database: A global repository of marine ecological survey data.* Available at: https://github.com/pristine-seas/legacy-db
+:::
+
+<style>
+.grid {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.g-col-12 h3 {
+  margin-top: 0;
+  color: #004165;
+  font-size: 1.2rem;
+}
+
+.callout-tip {
+  background-color: #f0f9ff;
+  border-left: 4px solid #006C9B;
+}
+
+.callout-note {
+  background-color: #f6f8fa;
+  border-left: 4px solid #748692;
+  font-size: 0.9em;
+}
+</style>

@@ -49,9 +49,15 @@ bq_connection <- DBI::dbConnect(bigrquery::bigquery(),
                                 project = project_id)
 ```
 
+## Overview
+
 The `taxa_info.fish` table provides a standardized reference for all fish taxa observed during Pristine Seas expeditions. It harmonizes scientific names, taxonomic hierarchy, and ecological traits to support robust analysis, reporting, and integration across survey methods.
 
 Each row corresponds to a unique accepted **AphiaID** from the World Register of Marine Species (WoRMS), and includes the scientific name, taxonomic ranks, common names, trophic group, length–weight parameters, and habitat classification.
+
+---
+
+### Core Functions
 
 This table supports three core functions:
 
@@ -61,28 +67,31 @@ This table supports three core functions:
 
 Taxa originate from underwater visual surveys (UVS), BRUV deployments, and regional species checklists compiled from both internal and external sources.
 
-------------------------------------------------------------------------
+---
 
 ## Data Sources
 
 The table integrates multiple curated sources to ensure taxonomic consistency and trait completeness:
 
-- **Pristine Seas Field Records**  
-  Derived from diver-entered codes, fieldbooks, and expedition species lists across UVS, BRUVS, and other survey methods. These are reconciled with accepted WoRMS entries.
+- ##### Pristine Seas Field Records
+    
+    Derived from diver-entered codes, fieldbooks, and expedition species lists across UVS, BRUVS, and other survey methods. These are reconciled with accepted WoRMS entries.
 
-- **Akiona et al., 2025**  
-  A curated dataset of Pacific reef fishes, their length–weight parameters, and trophic classification, developed by researchers at Scripps Institution of Oceanography. This dataset provides key life history traits (e.g., maximum length, *a* and *b* coefficients) and has been manually corrected and standardized for integration.
+- #####  Akiona et al., 2025
+    
+    A curated dataset of Pacific reef fishes, their length–weight parameters, and trophic classification, developed by researchers at Scripps Institution of Oceanography. This dataset provides key life history traits (e.g., maximum length, *a* and *b* coefficients) and has been manually corrected and standardized for integration.
   
-- **Parravicini et al., 2020**
-  A global gut content data synthesis leveraging machine learning to delineate trophic guilds of tropical reef fish. 
+- ##### Parravicini et al., 2020
+    
+    A global gut content data synthesis leveraging machine learning to delineate trophic guilds of tropical reef fish. 
 
-- **World Register of Marine Species (WoRMS)**  
-  Used as the taxonomic backbone. Each taxon is linked to an accepted AphiaID, with full lineage (kingdom to species) and synonym resolution.
+- ##### World Register of Marine Species (WoRMS)  
+    
+    Used as the taxonomic backbone. Each taxon is linked to an accepted AphiaID, with full lineage (kingdom to species) and synonym resolution.
 
-- **FishBase (via `rfishbase`)**  
-  Supplements trait fields such as trophic level, common names, and ecological notes, and fills gaps not covered by Akiona.
-
-Together, these sources provide a robust, reproducible foundation for trait-based ecological analysis.
+- ##### FishBase  
+    
+    Supplements trait fields such as trophic level, common names, and ecological notes, and fills gaps not covered by Akiona.
 
 ------------------------------------------------------------------------
 
@@ -90,9 +99,7 @@ Together, these sources provide a robust, reproducible foundation for trait-base
 
 ### Taxonomy
 
-These fields define the accepted scientific identity and taxonomic lineage of each record (@tbl-taxonomy-schema). Only valid names are stored here; upstream synonym handling is managed through the `uvs_fish_codes` table.
-
-All taxa are matched to an accepted **AphiaID** from WoRMS, ensuring global consistency and traceability. These fields enable spatial and ecological grouping, support taxonomic joins, and serve as the foundation for trait integration.
+These fields define the accepted scientific identity and taxonomic lineage of each record (@tbl-taxonomy-schema). 
 
 ```{r eval = T, include = T}
 #| label: tbl-taxonomy-schema
@@ -650,7 +657,7 @@ fish_taxa |>
   write_csv(file.path(prj_path, "data/output/taxa_info.fish.csv"))
 ```
 
-## Summary
+## By the Numbers
 
 ```{r include = T, eval = T}
 fish_taxa <-  read_csv(file.path(prj_path, "data/output/taxa_info.fish.csv"))
@@ -671,7 +678,7 @@ fish_taxa |>
 
 Our database has excellent coverage for all core identity fields, including taxonomy and length-weight parameters. However, we still have work to do to fill gaps in trophic traits, habitat associations, and fisheries importance (@fig-missingness)
 
-### Taxa by Family
+### Taxonomic Composition
 
 ```{r include = T, eval = T}
 #| label: fig-richness-treemap
@@ -724,7 +731,7 @@ The best represented families include (@fig-taxa-by-fam-trophic):
   - Damselfishes (family: Pomacentridae) with `r length(unique(fish_taxa$accepted_name[fish_taxa$family == "Pomacentridae"]))` species
   - Cardinalfishes (family: Apogonidae) with `r length(unique(fish_taxa$accepted_name[fish_taxa$family == "Apogonidae"]))` species.
 
-### Taxa by Trophic Group
+### Trophic Group
 
 Most species in the dataset are classified as Lower-carnivores, with `r length(unique(fish_taxa$accepted_name[fish_taxa$trophic_group == "Lower-carnivore"]))` species, followed by `r length(unique(fish_taxa$accepted_name[fish_taxa$trophic_group == "Planktivore"]))` planktivores and `r length(unique(fish_taxa$accepted_name[fish_taxa$trophic_group == "Herbivore/Detritivore"]))` herbivores/detritivores. The dataset also includes `r length(unique(fish_taxa$accepted_name[fish_taxa$trophic_group == "Top-predator"]))` top predators—such as groupers, snappers, and jacks—and `r length(unique(fish_taxa$accepted_name[fish_taxa$trophic_group == "Shark"]))` sharks.
 
@@ -761,6 +768,7 @@ taxa_info.fish |>
   labs(x = "", y = "", title = "Number of Species by Family and Trophic group", fill = "")+
   theme(plot.title.position = "plot")
 ```
+
 ```{r}
 taxa_info.fish |> 
   filter(rank == "species") |> 

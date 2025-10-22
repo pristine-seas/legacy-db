@@ -50,14 +50,16 @@ website:
       - text: "Taxa Info"
         file: 03_taxa_info.qmd
         contents:
-          - text: "Fish"
-            file: 03_taxa_info_fish.qmd
-          - text: "UVS Fish codes"
-            file: 03_taxa_info_fish_uvs_codes.qmd
-          - text: "Inverts"
-            file: 03_taxa_info_inverts.qmd 
           - text: "Benthos"
             file: 03_taxa_info_benthos.qmd
+          - text: "Fish"
+            file: 03_taxa_info_fish.qmd
+            contents:
+              - text: "UVS field codes"
+                file: 03_taxa_info_fish_uvs_codes.qmd
+          - text: "Inverts"
+            file: 03_taxa_info_inverts.qmd 
+          
       - text: "Lookup Tables"
         file: 04_lookup.qmd
           
