@@ -1081,9 +1081,10 @@ cover_by_station_group |>
   geom_col(aes(site, pct_cover, fill = functional_group))+
   facet_grid(depth_strata ~ region, scales = "free")+
   scale_fill_manual(values = ps_colors("functional_groups"))+
-  labs(x = NULL, y = "Benthic composition (% of station total)",
+  labs(x = NULL, 
+       y = "Benthic composition (% of station total)",
        fill = "Functional group",
-       title = "Benthic Cover by Site",
+       title = paste(exp_id, ":","Benthic Cover by Site"),
        subtitle = "Composition by depth strata")
 
 ggsave(filename = file.path(figures_out, paste0(exp_id, "_lpi_cover_by_site.png")),
@@ -1105,7 +1106,7 @@ cover_by_station_group |>
   labs(x = NULL, 
        y = "Benthic composition (% of station total)",
        fill = "Functional group",
-       title = "Benthic Cover by Subregion",
+       title = paste(exp_id, ":", "Benthic Cover by Subregion"),
        subtitle = "Composition by depth strata")
 
 ggsave(filename = file.path(figures_out, paste0(exp_id, "_lpi_cover_by_subregion.png")),
@@ -1151,7 +1152,7 @@ lpi_stations |>
              ncol = 3) +
   labs(x = NULL, 
        y = "Percent Cover (%)",
-       title = "Reef Benthic Composition Across Depth Strata",
+       title = paste(exp_id, ":", "Reef Benthic Composition Across Depth Strata"),
        subtitle = "Distribution of functional group cover by depth strata • Boxes show median and quartiles • Points represent individual stations") +
   scale_fill_manual(values = ps_colors("depth_strata"))
 
@@ -1176,7 +1177,7 @@ lpi_stations |>
   stat_summary(fun = median, geom = "crossbar",
                width = 0.5, linewidth = 0.4, color = "black") +
   facet_wrap(~region, scales = "free_x", ncol = 4) +
-  labs(title = "Hard Coral Cover by Subregions",
+  labs(title = paste(exp_id, ":", "Hard Coral Cover by Subregions"),
        caption = "Each dot represents a survey station • Black diamonds show subregion averages • Gray bars indicate median values",
        x = NULL,
        y = "Hard Coral Cover (%)",
@@ -1287,7 +1288,7 @@ plot_df |>
   # Labels with clear narrative
   labs(x = NULL, 
        y = "Percent Cover (%, log scale)", 
-       title    = "Dominant Coral Taxa Show Distinct Depth Preferences and Cover Variability",
+       title    = paste(exp_id, ":", "Dominant Coral Taxa Show Distinct Depth Preferences and Cover Variability"),
        subtitle = "Top 12 taxa by median abundance • Bold lines show median • Diamonds show mean • Taxa ordered by overall abundance",
        caption  = "Note: Y-axis uses log scale to visualize the wide range of cover values (0.01% to 100%)") +
   paletteer::scale_fill_paletteer_d("ggsci::default_igv") +

@@ -1,0 +1,231 @@
+---
+title: "Expedition Sites"
+date: today
+format: 
+  html:
+    theme: minty
+    self-contained: true
+    code-fold: true
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+execute:
+  fig-width: 10
+---
+
+```{r setup, message = F, warning = F, fig.width = 10, fig.height = 10, echo = F}
+options(scipen = 999)
+
+# Load libraries
+
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(PristineSeasR2)
+library(hms)
+library(pointblank)
+library(sf)
+library(mapview)
+library(gt)
+library(bigrquery)
+library(basemaps)
+library(ggrepel)
+library(showtext)
+library(ggspatial)
+
+# =============================================================================
+# Expedition Configuration
+# =============================================================================
+
+exp_id <- "CHL_2020"
+
+exp_config <- list(exp_id      = exp_id,
+                   date_bounds = c(as.Date("2020-02-22"), as.Date("2020-03-07")))  
+
+
+# Setup paths and BQ auth
+
+ps_paths <- PristineSeasR2::get_drive_paths()
+
+bigrquery::bq_auth(email = "marine.data.science@ngs.org")
+
+bq_connection <- DBI::dbConnect(bigrquery::bigquery(), project = "pristine-seas")
+
+legacy_path <- file.path(ps_paths$science, "legacy data/Kawesqar_Chilean_Fjords/")
+```
+
+## Overview
+
+This script processes and validates **Underwater Visual Survey (UVS) site metadata** for the expedition **`r exp_id`**. 
+
+**Workflow**: Import → Standardize → QA/QC → Visualize → Export → Upload
+
+This process ensures data integrity prior to analysis and database ingestion.
+
+## 1. Import and Standardize Fieldbook Data
+
+```{r uvs-import}
+# 1. Import Underwater Visual Surveys (UVS) fieldbook
+
+uvs_sites <- read_xls(file.path(legacy_path, "GIS", "Kewasqar_metadata_final.xls")) |> 
+  clean_names() |> 
+  rename(latitude  = lat,
+         longitude = long,
+         locality  = location,
+         site      = station,
+         notes     = comments) |> 
+  distinct(date, time, latitude, longitude, exposure, locality, site, notes) |> 
+  mutate(exp_id    = exp_id,
+         method    = "uvs",
+         date      = lubridate::ymd(date),
+         time = hms::as_hms(time),
+         exposure  = str_to_lower(exposure),
+         region    = "Kawesqar",
+         subregion = str_to_title(locality), 
+         locality  = str_to_title(locality),
+         habitat   = "kelp_forest",
+         in_mpa    = FALSE,
+         site_name = NA_character_,
+         team_lead = "Alan Friedlander",
+         # Standardize site IDs to match database format (3-digit padding)
+         ps_site_id =  paste0(exp_id,"_uvs_", str_pad(site, 3, pad = "0"))) |> 
+  # Arrange columns in logical order
+  select(ps_site_id, exp_id, method, region, subregion, locality, 
+         date, time, latitude, longitude, habitat, exposure, site_name, in_mpa, team_lead, notes)
+
+uvs_sites$exposure <- str_replace(uvs_sites$exposure, "protected", "sheltered")
+uvs_sites$exposure <- str_replace(uvs_sites$exposure, "semi-exposed", "exposed")
+
+uvs_sites$exposure[uvs_sites$locality == "Peninsula Benson"] <- "sheltered"
+
+uvs_sites <- uvs_sites |> filter(ps_site_id != "CHL_2020_uvs_000")
+
+# Create regions lookup from actual data for validation
+
+regions_lookup_table <- uvs_sites |> 
+  distinct(region, subregion, locality) 
+
+valid_regions <- unique(regions_lookup_table$region)
+valid_subregions <- unique(regions_lookup_table$subregion)
+
+unique(regions_lookup_table$locality)
+```
+
+We conducted a total of `r nrow(uvs_sites)` UVS surveys across `r length(unique(uvs_sites$region))` regions and `r length(unique(uvs_sites$subregion))` subregions. The data includes `r sum(uvs_sites$in_mpa, na.rm = TRUE)` sites within Marine Protected Areas (MPAs). The first site was surveyed on `r min(uvs_sites$date)` and the last on `r max(uvs_sites$date)`.
+
+## 2. QA/QC and Validation
+
+```{r uvs_qaqc}
+# 2.QA/QC using pointblank
+
+uvs_sites_qaqc <- uvs_sites |> 
+  create_agent(label = "UVS sites QA/QC", tbl_name = "uvs_sites_raw") |> 
+  # Ensure each site ID is unique
+  rows_distinct(ps_site_id,
+                label = "Unique site IDs",
+                actions = action_levels(stop_at = 0.001)) |> 
+  # Enforce non-missing values for critical columns
+  rows_complete(columns = vars(ps_site_id, latitude, longitude, date),
+                label = "Complete rows for key fields",
+                actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |>
+  # Habitat and exposure validation against allowed vocab
+  col_vals_in_set(columns = vars(habitat),
+                  set = allowed_vocab$uvs_habitats,
+                  label = "Valid habitat values",
+                  actions = action_levels(stop_at = 0.1)) |>
+  col_vals_in_set(columns = vars(exposure),
+                  set = allowed_vocab$exposure,
+                  label = "Valid exposure values",
+                  actions = action_levels(stop_at = 0.1)) |>
+  # Region validation against lookup table
+  col_vals_in_set(columns = vars(region),
+                  set = valid_regions,
+                  label = "Region in lookup table",
+                  actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |>
+  col_vals_in_set(columns = vars(subregion), 
+                  set = valid_subregions,
+                  label = "Subregion in lookup table",
+                  actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |>
+  # Date within expedition range
+  col_vals_between(columns = vars(date),
+                   left = exp_config$date_bounds[1],
+                   right = exp_config$date_bounds[2], 
+                   label = "Date within expedition period",
+                   actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |> 
+  # Critical NAs
+  col_vals_not_null(columns = vars(latitude, longitude),
+                    label = "Coordinates are not missing",
+                    actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |>
+  col_vals_not_null(columns = vars(date),
+                    label = "Date is not missing", 
+                    actions = action_levels(warn_at = 0.01, stop_at = 0.05)) |> 
+  interrogate()
+
+
+# Display QA/QC results
+uvs_sites_qaqc
+```
+
+
+Validation checks confirmed that all site IDs are unique and coordinates fall within the expedition bounds. 
+
+```{r uvs-missing-data}
+#| fig-cap: "Missing data in UVS sites fieldbook"
+
+naniar::vis_miss(uvs_sites)
+```
+
+## 3. Visualize
+
+The interactive map below displays unique UVS sites with metadata-rich popups.
+
+```{r uvs-map}
+# Interactive visual map
+
+uvs_sites_sf <- uvs_sites |>
+  #filter(subregion %in% c("Is. Carlos Iii","Isla Carlos Iii") )|>
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) |>
+  distinct(ps_site_id, region, subregion, locality, habitat, exposure, in_mpa, geometry)
+
+mapview::mapview(uvs_sites_sf,
+                 zcol = "exposure",
+                 legend = TRUE,
+                 map.types = "Esri.WorldImagery",
+                 layer.name = "in MPA",
+                 popup = leafpop::popupTable(uvs_sites_sf, 
+                                             zcol = c("ps_site_id", "region", "subregion", "locality", "habitat", "exposure", "in_mpa"))) |> 
+  leafem::addMouseCoordinates() |> 
+  leaflet.extras::addFullscreenControl()
+```
+
+## 4. Summary and Export
+
+Of the `r nrow(uvs_sites)` sites, `r sum(uvs_sites$in_mpa, na.rm = TRUE)` are located within MPAs. Surveys covered `r length(unique(uvs_sites$habitat))` habitat types.
+
+```{r}
+#| label: tbl-uvs-sites-by-habitat
+#| tbl-cap: "Summary of UVS survey effort by region, exposure, and habitat."
+
+uvs_sites |> 
+  group_by(region, locality, exposure) |>
+  summarize(n_surveys = n(),
+            .groups = "drop") |> 
+  pivot_wider(names_from = exposure, values_from = n_surveys, values_fill = 0) |> 
+  gt::gt(groupname_col = "leg") |> 
+  gt::tab_options(row_group.as_column = T,
+                  table.width = pct(80),
+                  table.font.size = 12,
+                  table.border.top.style = "solid",
+                  table.border.top.width = px(1),
+                  table.border.top.color = "black",
+                  heading.align = "center",
+                  column_labels.font.weight = "bold")
+```
+
+```{r eval = F}
+bq_table_upload(bq_table("pristine-seas", "uvs", "sites"),
+                values = uvs_sites,
+                create_disposition = "CREATE_NEVER",
+                write_disposition  = "WRITE_APPEND")
+```
+

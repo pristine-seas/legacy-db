@@ -1,0 +1,906 @@
+---
+title: "Invertebrate Surveys - Data Pipeline"
+subtitle: "CHL-2020 Expedition"
+date: today
+format: 
+  html:
+    theme: minty
+    self-contained: true
+    code-fold: show
+    toc: true 
+    toc-depth: 3
+    toc-location: right
+    html-table-processing: none
+execute:
+  warning: false
+  message: false
+---
+```{r setup, include=FALSE}
+options(scipen = 999)
+
+# Format inline numbers with comma separators
+knitr::knit_hooks$set(inline = function(x) {
+  if (!is.numeric(x)) return(as.character(x))
+  format(x, big.mark = ",", scientific = FALSE)
+})
+
+# Load required packages
+library(sf)
+library(hms)
+library(readxl)
+library(janitor)
+library(lubridate)
+library(gt)
+library(pointblank)
+library(tidyverse)
+library(bigrquery)
+library(leaflet)
+library(leaflet.extras)
+library(worrms)
+library(furrr)
+library(ggtext)
+library(scales)
+library(PristineSeasR2)
+
+# ---- Parameters -----------------------------------------------------------
+exp_id   <- "CHL_2020"
+
+ps_paths <- PristineSeasR2::get_drive_paths()
+
+prj_path <- file.path(ps_paths$projects, "legacy-db")
+
+# ---- Auth & Connection ----------------------------------------------------
+bigrquery::bq_auth(email = "marine.data.science@ngs.org")
+bq_connection <- DBI::dbConnect(bigrquery::bigquery(), project = "pristine-seas")
+
+set_theme(PristineSeasR2::theme_pristineseas())
+
+data_out <- file.path(prj_path, "data/output/uvs")
+
+figures_out <- file.path(prj_path, "figures/uvs")
+
+legacy_path <- file.path(ps_paths$science, "legacy data/Kawesqar_Chilean_Fjords/")
+```
+
+# Overview
+
+Para los invertebrados sésiles y móviles, el número de individuos se estimó en 1 m a cada lado de la línea del transecto (50 m2 de área muestreada). Para los organismos coloniales (esponjas, algunos cnidarios, briozoos y algunos tunicados) se contaron colonias, en lugar de individuos. Solo se enumeraron los invertebrados no crípticos
+(> 1 cm)
+
+# 1. Data Ingestion
+
+## Reference Tables
+
+```{r load_references}
+# UVS sites (provides spatial hierarchy and site metadata)
+uvs_sites <- tbl(bq_connection, "uvs.sites") |> 
+  filter(exp_id == !!exp_id) |> 
+  collect()
+
+# LPI stations (provides station list and depth strata reference)
+lpi_stations <- tbl(bq_connection, "uvs.lpi_stations") |> 
+  filter(exp_id == !!exp_id) |> 
+  collect() |> 
+  select(ps_station_id, ps_site_id, exp_id, region, subregion, locality, 
+         habitat, exposure, depth_m, depth_strata)
+
+# Invertebrate taxonomy reference
+inverts_taxa_ref <- tbl(bq_connection, "taxa_info.inverts") |> 
+  filter(!is.na(accepted_name)) |> 
+  collect()
+
+cat("✓ Loaded",      nrow(uvs_sites), "UVS sites\n")
+cat("  Regions:",    paste(unique(uvs_sites$region), collapse = ", "), "\n")
+cat("  Subregions:", paste(unique(uvs_sites$subregion), collapse = ", "), "\n\n")
+cat("✓ Loaded",      nrow(lpi_stations), "LPI stations\n\n")
+cat("✓ Loaded",      nrow(inverts_taxa_ref), "invertebrate taxa\n")
+```
+
+## Field Observations
+
+```{r}
+transects_raw <- readxl::read_xlsx(path = file.path(legacy_path, "Benthos/Inventaris Kawésqar.xlsx"),
+                                   range = "F1:BC2",
+                                   col_names = FALSE,
+                                   .name_repair = "minimal") |>
+  t() |> 
+  as_tibble(.name_repair = "minimal") |>
+  set_names(c("sample", "depth_m")) 
+
+transects_raw <- transects_raw |> 
+  separate(sample, into = c("site", "transect"), sep = "\\.") |> 
+  mutate(transect = LETTERS[as.numeric(transect)],
+         site_num       = str_extract(site, "\\d+") |> str_pad(3, pad = "0"),
+         ps_site_id     = paste(exp_id, "uvs", site_num, sep = "_"),
+         exp_id         = exp_id,
+         survey_type    = "uvs",
+         method         = "inverts",
+         diver          = "Kike Ballesteros",
+         transect_length_m = 25,
+         transect_width_m  = 2) |> 
+  select(exp_id, ps_site_id, diver, transect, transect_length_m, transect_width_m)
+
+# Add depths from fish data
+
+fish_transect_depths <- read_xlsx(file.path(legacy_path, "Benthos/Cape_Horn_Kawesqar_kelp_density.xlsx"), sheet = "Kawesqar") |> 
+  janitor::clean_names() |> 
+  mutate(depth_m           = round(depth),
+         transect          = LETTERS[transect],
+         ps_site_id        = paste(exp_id, "uvs", str_pad(station, 3, pad = "0"), sep = "_")) |> 
+  distinct(ps_site_id, transect, depth_m)
+
+transects_raw <- transects_raw |> 
+  left_join(fish_transect_depths) 
+
+transects_raw$depth_m[transects_raw$ps_site_id == "CHL_2020_uvs_001"] <- 11
+
+transects_raw$depth_m[transects_raw$ps_site_id == "CHL_2020_uvs_002"] <- 6
+
+transects_raw <- transects_raw |> 
+  mutate(transect_id = paste(ps_site_id, transect, sep = "_"))
+
+transects_raw |> 
+  get_dupes(transect_id)
+
+transects <- transects_raw |> 
+  mutate(depth_strata = stratify(depth_m),
+         ps_station_id = paste(ps_site_id, 
+                               station_suffix(depth_strata), sep = "_")) |> 
+  relocate(ps_station_id, .after = ps_site_id) |> 
+  relocate(depth_strata, .after = depth_m) 
+```
+
+# 2. Data Transformation
+
+```{r}
+obs_raw <- readxl::read_xlsx(path = file.path(legacy_path, "Benthos/Inventaris Kawésqar.xlsx"),
+                             range = "D6:BC223",
+                             col_names = FALSE,
+                             .name_repair = "minimal")
+
+obs_raw <- obs_raw |> 
+  set_names(c("morphotaxon", "field_name", transects_raw$transect_id)) 
+
+observations <- obs_raw |>
+  mutate(across(all_of(transects_raw$transect_id), as.character)) |> 
+  pivot_longer(cols = -c(morphotaxon, field_name),
+               names_to  = "transect_id",
+               values_to = "count") |> 
+  mutate(count = readr::parse_number(count),  # safely parse numeric
+         .after = field_name) |> 
+  filter(!is.na(count)) |> 
+  left_join(transects, by = "transect_id") |>
+  mutate(obs_id = paste(exp_id, "inverts", 
+                        "KB",
+                        paste0(transect_width_m, "m"),
+                        str_pad(row_number(), 4, pad = "0"), 
+                        sep = "_")) |> 
+  select(obs_id, exp_id, ps_site_id, ps_station_id, diver, transect, depth_m, depth_strata,
+         transect_length_m, transect_width_m, morphotaxon, field_name, count)
+```
+
+---
+
+# 3. Taxonomy Resolution
+
+```{r}
+corrections <- c(# Genus 
+                 "Antothoe" = "Anthothoe",
+                 "fontaini" = "fontainii",
+                 "Arosia"   = "Arossia",
+                 "boweni"   = "bowenii",
+                 "Dialula" = "Diaulula",
+                 "spinosulum" = "spinosulus",
+                 "Symplectophycus" = "Symplectoscyphus",
+                 "subdichotomous" = "subdichotomus")
+
+observations <- observations |> 
+  mutate(morphotaxon = str_replace_all(morphotaxon, corrections))
+```
+
+## Extract Unique Taxa
+
+```{r}
+field_taxa <- observations |> 
+  group_by(morphotaxon) |> 
+  summarize(n_obs = sum(count, na.rm = T)) |> 
+  mutate(taxon_clean = morphotaxon |>
+           str_remove(regex("\\blike.*", ignore_case = TRUE)) |>          # remove "like..." and everything after
+           str_remove(regex("\\bsp(p)?\\.?\\b.*", ignore_case = TRUE)) |> # remove "sp.", "spp.", etc.
+           str_remove(regex("\\bcf\\.|aff\\.", ignore_case = TRUE)) |>    # remove "cf.", "aff."
+           str_remove_all("[\\?\\(\\)]") |>                               # remove question marks and parens
+           str_remove_all("\\*") |> 
+           str_squish() |> 
+           str_to_sentence())  |> 
+  mutate(taxon_clean = bdc::bdc_clean_names(taxon_clean)$names_clean)
+
+field_taxa |> filter(taxon_clean != morphotaxon)
+
+field_taxa$taxon_clean[field_taxa$morphotaxon == "Cladodactyla crocea croceoides"] <- "Cladodactyla crocea var. croceoides"
+field_taxa$taxon_clean[field_taxa$taxon_clean == "Haliclona caduca"] <- "Haliclona (Reniera) caduca"
+field_taxa$taxon_clean[field_taxa$taxon_clean == "Clathria mytilifila"] <- "Clathria (Microciona) mytilifila"
+field_taxa$taxon_clean[field_taxa$taxon_clean == "Haliclona porcelana"] <- "Haliclona (Reniera) porcelana"
+field_taxa$taxon_clean[field_taxa$morphotaxon == "Fusitriton cancellatum"] <- "Fusitriton magellanicus"
+field_taxa$taxon_clean[field_taxa$morphotaxon == "Fissurella picta + oriens"] <- "Fissurella"
+```
+
+```{r}
+names_to_aphiaid <- inverts_taxa_ref |> 
+  select(accepted_aphia_id, taxon_name, accepted_name) |> 
+  pivot_longer(cols = c(taxon_name, accepted_name), 
+               names_to = "name_type", 
+               values_to = "lookup_name") |> 
+  filter(!is.na(lookup_name)) |> 
+  distinct(accepted_aphia_id, lookup_name)
+
+# Join field taxa with existing taxonomy
+taxa_matched <- field_taxa |> 
+  left_join(names_to_aphiaid, by = c("taxon_clean" = "lookup_name"))
+
+taxa_in_db <- taxa_matched |> 
+  filter(!is.na(accepted_aphia_id)) |> 
+  left_join(inverts_taxa_ref |> 
+              distinct(accepted_aphia_id, accepted_name, rank, family, common_name),
+            by = "accepted_aphia_id")
+
+new_taxa <- taxa_matched |> 
+  filter(is.na(accepted_aphia_id))
+
+cat("  ✓ Matched:", nrow(taxa_in_db), "taxa\n")
+cat("  ⚠ Missing:", nrow(new_taxa), "taxa\n\n")
+```
+
+## New Taxa
+
+```{r new_taxa}
+new_taxa <- taxa_matched |> 
+  filter(is.na(accepted_aphia_id))
+
+clean_names <- new_taxa$taxon_clean |> 
+  unique() |> 
+  na.omit()  # drops NA
+
+batches <- split(clean_names, ceiling(seq_along(clean_names) / 100))
+
+# === 3. Query WoRMS in batches
+
+worms_raw <- purrr::map_dfr(batches, ~worrms::wm_records_names(.x)) |> 
+  select(taxon_clean = scientificname, 
+         rank,
+         aphia_id = AphiaID, 
+         name_status = status, 
+         accepted_name = valid_name, 
+         accepted_aphia_id = valid_AphiaID) 
+
+dupes <- worms_raw |> 
+  get_dupes(taxon_clean)
+
+deduped <- dupes |> 
+  filter(name_status == "accepted"| accepted_aphia_id == 386329) |> 
+  select(-dupe_count) |> 
+  distinct()
+
+worms_raw <- worms_raw |> 
+  anti_join(dupes) |> 
+  bind_rows(deduped) |> 
+  select(taxon_clean, aphia_id, rank, name_status, accepted_name, accepted_aphia_id) |> 
+  distinct()
+
+get_taxonomic_ranks <- function(id) {
+  tryCatch(
+    {worrms::wm_classification(id) |>
+        select(rank, scientificname) |>
+        pivot_wider(names_from = rank, values_from = scientificname) |>
+        mutate(accepted_aphia_id = id)
+      },
+    error = function(e) {
+      tibble(accepted_aphia_id = id)
+    })}
+
+library(furrr)
+
+taxonomy_ranks <- future_map_dfr(worms_raw$accepted_aphia_id,
+                                 get_taxonomic_ranks,
+                                 .options = furrr_options(seed = TRUE)) |>
+  clean_names() |>
+  select(accepted_aphia_id, kingdom, phylum, class, order, family, genus)
+
+worms_final <- worms_raw |> 
+  left_join(distinct(taxonomy_ranks), by = "accepted_aphia_id")
+
+new_taxa <- new_taxa |> 
+  select(-accepted_aphia_id) |> 
+  left_join(distinct(worms_final))
+
+new_taxa$rank[new_taxa$taxon_clean == "Haliclona (Reniera) porcelana"] <- "species"
+new_taxa$name_status[new_taxa$taxon_clean == "Haliclona (Reniera) porcelana"] <- "in press"
+new_taxa$accepted_name[new_taxa$taxon_clean == "Haliclona (Reniera) porcelana"] <- "Haliclona (Reniera) porcelana"
+new_taxa$kingdom[new_taxa$taxon_clean == "Haliclona (Reniera) porcelana"] <- "Animalia"
+new_taxa$phylum[new_taxa$taxon_clean == "Haliclona (Reniera) porcelana"] <- "Porifera"
+new_taxa$class[new_taxa$taxon_clean == "Haliclona (Reniera) porcelana"] <- "Demospongiae"
+new_taxa$order[new_taxa$taxon_clean == "Haliclona (Reniera) porcelana"] <- "Haplosclerida"
+new_taxa$family[new_taxa$taxon_clean == "Haliclona (Reniera) porcelana"] <- "Chalinidae"
+new_taxa$genus[new_taxa$taxon_clean == "Haliclona (Reniera) porcelana"] <- "Haliclona"
+
+new_taxa <- new_taxa %>%
+  mutate(common_name = case_when(
+
+    # === ECHINODERMS =======================================================
+    genus == "Acanthaster"                                ~ "Crown-of-thorns starfish",
+    class == "Asteroidea"                                 ~ "Sea stars",
+    class == "Ophiuroidea"                                ~ "Brittle stars",
+    class == "Echinoidea"                                 ~ "Sea urchins",
+    class == "Holothuroidea"                              ~ "Sea cucumbers",
+    class == "Crinoidea"                                  ~ "Feather stars",
+
+    # === BIVALVES ==========================================================
+    family %in% c("Tridacnidae")                          ~ "Giant clams",
+    family %in% c("Pteriidae")                            ~ "Pearl oysters",
+    family %in% c("Spondylidae")                          ~ "Foam oysters",
+    family %in% c("Arcidae", "Noetiidae")                 ~ "Ark clam",
+    class == "Bivalvia"                                   ~ "Bivalves",
+
+    # === GASTROPODS ========================================================
+    family == "Conidae"                                   ~ "Cone snail",
+    family == "Harpidae"                                  ~ "Vase snails",
+    family %in% c("Strombidae", "Lobatus")                ~ "Conchs",
+    genus == "Cerithium"                                  ~ "Ceriths",
+    genus == "Charonia"                                   ~ "Triton snails",
+    genus %in% c("Turbo", "Astralium")                    ~ "Turban snails",
+    family == "Trochidae"                                 ~ "Top shells",
+    order == "Nudibranchia"                               ~ "Nudibranchs",
+    family == "Pleurobranchidae"                          ~ "Sea slugs",
+    family %in% c("Nacellidae", "Fissurellidae", "Tegulidae",
+                  "Calliostomatidae", "Calyptraeidae", "Velutinidae")   ~ "Sea snails",
+    class == "Gastropoda"                                 ~ "Sea snails",
+
+    # === CHITONS & BRACHIOPODS ============================================
+    class == "Polyplacophora" |
+      family %in% c("Chitonidae", "Mopaliidae", "Callochitonidae")      ~ "Chitons",
+    phylum == "Brachiopoda" | family == "Terebratellidae"               ~ "Brachiopods",
+
+    # === CEPHALOPODS =======================================================
+    genus %in% c("Octopus", "Enteroctopus")               ~ "Octopus",
+    class == "Cephalopoda"                                ~ "Octopus",   # keep same group name for all cephalopods
+
+    # === CNIDARIANS ========================================================
+    order == "Actiniaria"                                 ~ "Sea anemones",
+    genus %in% c("Stichodactyla", "Heteractis")           ~ "Carpet sea anemones",
+    class == "Octocorallia"                               ~ "Soft corals",
+    class == "Hydrozoa" |
+      family %in% c("Symplectoscyphidae", "Lafoeidae", "Plumulariidae", "Sertularellidae") ~ "Hydroids",
+
+    # === PORIFERA ==========================================================
+    phylum == "Porifera"                                  ~ "Sponges",
+
+    # === WORMS =============================================================
+    phylum %in% c("Annelida", "Sipuncula", "Echiura", "Nemertea", "Platyhelminthes") ~ "Worms",
+
+    # === CRUSTACEANS =======================================================
+    family %in% c("Penaeidae")                            ~ "Penaeid shrimps",
+    family %in% c("Palaemonidae", "Alpheidae", "Hippolytidae") ~ "Shrimps",
+    family %in% c("Stenopodidae")                         ~ "Boxer shrimps",
+    family %in% c("Paguridae", "Diogenidae")              ~ "Hermit crabs",
+    family %in% c("Palinuridae")                          ~ "Spiny lobsters",
+    family %in% c("Scyllaridae")                          ~ "Slipper lobsters",
+    family %in% c("Portunidae")                           ~ "Swimming crabs",
+    family %in% c("Trapeziidae", "Tetralidae")            ~ "Coral crabs",
+    family %in% c("Xanthidae")                            ~ "Xanthid crabs",
+    family %in% c("Lithodidae", "Munididae", "Campylonotidae",
+                  "Hymenosomatidae", "Epialtidae", "Eurypodiidae", "Elminiidae") ~ "Crabs",
+    order == "Stomatopoda"                                ~ "Mantis shrimp",
+    order == "Decapoda"                                   ~ "Crabs",
+    class == "Cirripedia" | family == "Balanidae"         ~ "Barnacles",
+
+    # === OTHER ARTHROPODS ================================================
+    class == "Pycnogonida"                                ~ "Sea spiders",
+    order == "Amphipoda"                                  ~ "Amphipods",
+    order == "Isopoda"                                    ~ "Isopods",
+
+    # === COLONIAL FILTER FEEDERS ==========================================
+    phylum == "Bryozoa"                                   ~ "Bryozoans",
+    class == "Ascidiacea"                                 ~ "Tunicates",
+
+    # === DEFAULT ===========================================================
+    TRUE                                                  ~ "Unclassified"
+  ))
+```
+
+```{r}
+# Combine all resolved taxa
+inverts_taxa_final <- bind_rows(taxa_in_db, new_taxa) |> 
+  arrange(desc(n_obs)) |> 
+  mutate(rank = str_to_lower(rank))
+
+# Check for unresolved
+unresolved <- inverts_taxa_final |> 
+  filter(is.na(accepted_name))
+
+if (nrow(unresolved) > 0) {
+  cat("⚠ WARNING:", nrow(unresolved), "taxa remain unresolved:\n")
+  print(unresolved |> select(morphotaxon, n_obs))
+  cat("\n")
+}
+```
+
+## Join Taxonomy to Observations
+
+```{r join_taxonomy}
+inverts_obs_final <- observations |> 
+  mutate(notes = NA_character_) |> 
+  left_join(inverts_taxa_final |> 
+              select(morphotaxon, accepted_name, accepted_aphia_id, rank, family, common_name),
+            by = "morphotaxon") |> 
+  select(obs_id, ps_station_id, exp_id, diver, depth_m, transect, 
+         transect_length_m, transect_width_m, 
+         morphotaxon, accepted_name, accepted_aphia_id, rank, family, common_name,
+         count, notes)
+
+# Final check
+unresolved_obs <- inverts_obs_final |> 
+  filter(is.na(accepted_name))
+
+if (nrow(unresolved_obs) > 0) {
+  cat("⚠ WARNING:", nrow(unresolved_obs), "observations with unresolved taxonomy\n\n")
+} else {
+  cat("✓ All observations have resolved taxonomy\n\n")
+}
+```
+
+
+# 4. Summarize Density
+
+## By Transect
+
+```{r}
+density_by_transect_taxa <- inverts_obs_final |>
+  mutate(survey_area_m2 = transect_length_m * transect_width_m) |>
+  # STEP 1: Aggregate within each diver × width × taxon
+  group_by(ps_station_id, transect, diver, transect_width_m, survey_area_m2, morphotaxon, accepted_name) |>
+  summarise(total_count   = sum(count, na.rm = TRUE),
+            .groups = "drop") |> 
+  # STEP 2: Collapse across divers and widths within each taxon
+  group_by(ps_station_id, transect, morphotaxon, accepted_name) |>
+  summarise(divers              = paste(unique(diver), collapse = " | "),
+            total_count         = sum(total_count, na.rm = TRUE),
+            survey_area_m2      = sum(survey_area_m2, na.rm = TRUE),
+            density_m2          = total_count / survey_area_m2,
+            .groups = "drop") |> 
+  relocate(divers, .after = transect) 
+
+density_check <- density_by_transect_taxa |> 
+  group_by(ps_station_id, transect) |>
+  summarise(density_sum    = round(sum(density_m2),4),
+            total_count    = sum(total_count),
+            survey_area_m2 = sum(unique(survey_area_m2)), # What is the right area? its not possible to know
+            density        = round(total_count/survey_area_m2, 4)) |> 
+  ungroup()
+  
+density_check |> 
+  filter(density_sum != density)
+
+transect_summary <- density_by_transect_taxa |> 
+  group_by(ps_station_id, transect) |> 
+  summarize(n_taxa           = n_distinct(accepted_name),
+            total_count      = sum(total_count),
+            density_m2       = round(sum(density_m2),4),
+            .groups = "drop") |> 
+  arrange(ps_station_id)
+
+transects <- transects |> 
+  left_join(transect_summary) |> 
+  arrange(ps_station_id)
+```
+
+## By Station
+
+```{r}
+stations <- transects |> 
+  group_by(ps_site_id, ps_station_id, depth_strata) |> 
+  summarize(depth_m        = mean(depth_m),
+            divers         = paste(sort(unique(unlist(str_split(diver, " \\| ")))), collapse = " | "),
+            n_transects    = n_distinct(transect),
+            survey_dist_m  = sum(transect_length_m),
+            survey_area_m2 = sum(transect_width_m*transect_length_m),
+            total_count    = sum(total_count),
+            avg_density_m2 = mean(density_m2)) |> 
+  ungroup() |> 
+  left_join(density_by_transect_taxa |> 
+              group_by(ps_station_id) |> 
+              summarize(n_taxa = n_distinct(accepted_name[total_count > 0]))) |> 
+  replace_na(list(n_taxa = 0)) |> 
+  relocate(n_taxa, .after = survey_area_m2) |> 
+  mutate(notes = NA_character_) 
+```
+
+```{r}
+density_by_transect_taxa_complete <- density_by_transect_taxa |>
+  group_by(ps_station_id) |>
+  complete(nesting(transect),
+           morphotaxon = unique(cur_data()$morphotaxon),  # <— this is the correct local version
+           fill = list(total_count         = 0,
+                       density_m2          = 0,
+                       survey_area_m2 = 50,
+                       divers = "Kike Ballesteros")) |> 
+  distinct(ps_station_id, transect, morphotaxon, divers,
+           total_count, survey_area_m2,
+           density_m2 ) |>
+  ungroup()
+
+# Aggregate to station
+
+density_by_station_taxa <- density_by_transect_taxa_complete |>
+  group_by(ps_station_id, morphotaxon) |>
+  summarise(divers               = paste(unique(unlist(str_split(divers, " \\| "))), collapse = " | "),
+            n_transects          = n_distinct(transect),
+            total_count          = sum(total_count, na.rm = TRUE),
+            survey_area_m2       = sum(survey_area_m2, na.rm = TRUE),
+            avg_density_m2       = total_count / survey_area_m2,
+            .groups = "drop") |>
+  select(ps_station_id, divers, n_transects, survey_area_m2, morphotaxon, total_count, avg_density_m2)
+```
+
+```{r}
+# Combine with the LPI stations to get full station metadata
+
+inverts_stations <- stations |> 
+  left_join(uvs_sites |> select(-notes))|> 
+  select(ps_station_id, ps_site_id, exp_id, region, subregion, habitat, exposure, 
+         depth_strata, depth_m, divers, n_transects, 
+         n_taxa, total_count, survey_area_m2, avg_density_m2)
+
+density_by_station_taxa <- inverts_stations |> 
+  select(-n_taxa, -total_count, -survey_area_m2, -avg_density_m2) |>
+  inner_join(density_by_station_taxa) |> 
+  left_join(inverts_taxa_final |> 
+              select(morphotaxon, accepted_name, accepted_aphia_id, rank, family, common_name),
+            by = "morphotaxon") |>
+  select(ps_station_id, ps_site_id, exp_id, region, subregion, habitat, exposure, 
+         depth_strata, depth_m, divers, n_transects, 
+         morphotaxon, accepted_name, accepted_aphia_id, rank, family, common_name, total_count, survey_area_m2, avg_density_m2)
+
+# density_by_station_taxa |> 
+#   group_by(ps_station_id) |>
+#   summarize(cal_density        = sum(total_count)/unique(survey_area_m2),
+#             sum_avg_density_m2 = sum(avg_density_m2)) |> 
+#   filter(round(cal_density) != round(sum_avg_density_m2))
+```
+
+## 4.1. Summarize Test diameters
+
+```{r}
+urchin_sizes <- read_xlsx(file.path(legacy_path, "Benthos/Kelp Holdast & Sea Urchin data_Pelayo.xlsx"),
+          sheet = "Urchins", 
+          skip = 1) |> 
+  janitor::clean_names() |> 
+  filter(species == "Lexochinus albus") |> 
+  mutate(diver             = "Pelayo Salinas",
+         ps_site_id        = paste(exp_id, "uvs", str_pad(station, 3, pad = "0"), sep = "_"),) |> 
+  select(ps_site_id, diver, species, test_diameter_mm)
+  
+
+urchin_sizes$species <- "Loxechinus albus"
+
+urchin_sizes_by_station <- urchin_sizes |> 
+  group_by(ps_site_id, species) |>
+  summarize(n_measured = n(),
+            avg_diameter_mm = round(mean(test_diameter_mm, na.rm = TRUE),1),
+            .groups = "drop")
+
+density_by_station_taxa <- density_by_station_taxa |> 
+  left_join(urchin_sizes_by_station, 
+            by = c("ps_site_id", "accepted_name" = "species"))
+```
+
+```{r}
+transects |> 
+  summarize(mean(n_taxa))
+```
+
+# 5. QA/QC Validation
+
+## Transect Checks
+
+```{r qaqc_transects}
+agent_transects <- transects |> 
+  mutate(survey_area_m2 = transect_length_m * transect_width_m) |>
+  create_agent(label = "Invertebrate Transects QA/QC",
+               tbl_name = "inverts_transects") |> 
+  # Core fields must be complete
+  rows_complete(columns = vars(diver, survey_area_m2, n_taxa, total_count, density_m2),
+                label = "No missing core fields",
+                actions = action_levels(stop_at = 0.01)) |> 
+  # Zero inverts transects 
+  col_vals_gt(columns = vars(total_count),
+              value = 0,
+              na_pass = TRUE,
+              label = "Zero inverts?",
+              actions = action_levels(warn_at = 0.01)) |>
+  # Reasonable density values
+  col_vals_lt(columns = vars(density_m2),
+              value = 100,
+              label = "Density within reasonable range",
+              actions = action_levels(warn_at = 0.01)) |> 
+  # Survey effort was standard
+  col_vals_equal(columns = vars(survey_area_m2),
+                   value = 50, 
+                   label = "Standard survey area",
+                   actions = action_levels(warn_at = 0.1)) |> 
+  interrogate()
+
+agent_transects
+```
+
+## Station Checks
+
+```{r qaqc_stations}
+agent_stations <- inverts_stations |> 
+  create_agent(label = "Invertebrate Stations QA/QC",
+               tbl_name = "inverts_stations") |> 
+  # Station IDs must be unique
+  rows_distinct(columns = vars(ps_station_id),
+                label = "Unique station IDs",
+                actions = action_levels(stop_at = 0.001)) |> 
+  # Stations with no effort
+  rows_complete(columns = vars(n_transects),
+                label = "No missing core fields",
+                actions = action_levels(stop_at = 0.01)) |>  
+  # Stations should have 1 transect 
+  col_vals_equal(columns = vars(n_transects),
+                 value = 1,
+                 label = "Expected number of transects",
+                 actions = action_levels(warn_at = 0.1)) |>
+  interrogate()
+
+agent_stations
+```
+
+## Observation Checks
+
+```{r qaqc_observations}
+agent_obs <- inverts_obs_final |> 
+  create_agent(label = "Invertebrate Observations QA/QC",
+               tbl_name = "inverts_observations") |> 
+  # Counts must be positive
+  col_vals_gt(columns = vars(count),
+              value = 0,
+              label = "Positive counts",
+              actions = action_levels(stop_at = 0.01)) |> 
+  # Core fields must be complete
+  rows_complete(columns = vars(ps_station_id, depth_m, count),
+                label = "No missing core fields",
+                actions = action_levels(stop_at = 0.01)) |> 
+  # Taxonomy must be resolved
+  rows_complete(columns = vars(accepted_name, accepted_aphia_id),
+                label = "Resolved taxonomy",
+                actions = action_levels(stop_at = 0.001)) |> 
+  interrogate()
+
+agent_obs
+```
+
+---
+
+# 6. Summary Statistics
+
+```{r summary_stats}
+#| label: tbl-summary
+#| tbl-cap: "Invertebrate survey effort by region and depth strata"
+
+inverts_stations |> 
+  group_by(region, depth_strata) |> 
+  summarise(n_stations      = n(),
+            mean_taxa       = round(mean(n_taxa), 1),
+            mean_inverts    = round(mean(total_count), 1),
+            mean_density    = round(mean(avg_density_m2), 3),
+            .groups = "drop") |> 
+  pivot_wider(names_from  = depth_strata,
+              values_from = c(n_stations, mean_taxa, mean_inverts, mean_density),
+              values_fill = 0)  |> 
+  gt(groupname_col = "region") |> 
+  tab_spanner(label = "Stations", columns = starts_with("n_stations")) |> 
+  tab_spanner(label = "Mean Taxa", columns = starts_with("mean_taxa")) |> 
+  tab_spanner(label = "Mean Count", columns = starts_with("mean_inverts")) |> 
+  tab_spanner(label = "Density (m⁻²)", columns = starts_with("mean_density")) |> 
+  cols_label(region = "region",
+             n_stations_shallow         = "Shallow",
+             n_stations_supershallow    = "Supershallow",
+             mean_taxa_shallow          = "Shallow",
+             mean_taxa_supershallow     = "Supershallow",
+             mean_inverts_shallow       = "Shallow",
+             mean_inverts_supershallow  = "Supershallow",
+             mean_density_shallow       = "Shallow",
+             mean_density_supershallow  = "Supershallow") |> 
+  tab_options(table.font.size = 12, row_group.as_column = TRUE)
+```
+
+```{r taxa_summary}
+#| label: tbl-taxa
+#| tbl-cap: "Top 10 invertebrate taxa by frequency"
+
+taxa_summary <- density_by_station_taxa |> 
+  select(ps_station_id, accepted_name, avg_density_m2) |> 
+  complete(nesting(ps_station_id),
+           nesting(accepted_name),
+           fill = list(avg_density_m2 = 0)) |> 
+  group_by(accepted_name) |> 
+  summarize(freq_obs     = round(n_distinct(ps_station_id[avg_density_m2 > 0])/length(unique(stations$ps_station_id)),3),
+            mean_density = round(mean(avg_density_m2), 2),
+            .groups = "drop") 
+
+inverts_obs_final |> 
+  group_by(accepted_name) |> 
+  summarize(count = sum(count)) |> 
+  arrange(desc(count)) |> 
+  slice_head(n = 10) |> 
+  left_join(taxa_summary) |> 
+  gt() |> 
+  cols_label(accepted_name = "Scientific Name",
+             count             = "Total Count",
+             freq_obs      = "Fraction Stations Observed",
+             mean_density  = "Mean Density (m⁻²)") |> 
+  fmt_number(columns = c(mean_density), decimals = 2) |> 
+  tab_options(table.font.size = 12)
+```
+
+---
+
+# 7. Map
+
+```{r map}
+#| label: fig-map
+#| fig-cap: "Invertebrate survey sites with mean density"
+
+# Create site-level summaries
+sites_sf <- inverts_stations |> 
+  group_by(ps_site_id) |> 
+  summarize(divers       = paste(unique(divers), collapse = "/"),
+            strata       = paste(unique(paste0(depth_strata, " (", depth_m, "m)")), 
+                                collapse = "\n"),
+            n_stations   = n_distinct(ps_station_id),
+            mean_taxa    = round(mean(n_taxa), 1),
+            mean_count   = round(mean(total_count), 1),
+            mean_density = round(mean(avg_density_m2), 2),
+            .groups = "drop") |> 
+  left_join(uvs_sites |> 
+              select(ps_site_id, region, subregion, locality, habitat, 
+                     exposure, latitude, longitude),
+            by = "ps_site_id") |> 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+
+# Create interactive map
+mapview::mapview(sites_sf,
+                 zcol = "mean_count",
+                 legend = TRUE,
+                 map.types = "Esri.WorldImagery",
+                 layer.name = "Inverts/m²",
+                 popup = leafpop::popupTable(sites_sf,
+                                             zcol = c("ps_site_id", "strata", "divers", 
+                                                      "habitat", "exposure", "mean_taxa",
+                                                      "mean_count", "mean_density"))) |> 
+  leafem::addMouseCoordinates() |> 
+  addFullscreenControl()
+```
+
+---
+
+# 8. Exploratory Visualizations
+
+## Regional Patterns
+
+```{r fig_regional_density}
+#| label: fig-regional-density
+#| fig-cap: "Regional patterns in invertebrate density by depth stratum"
+#| fig-width: 12
+#| fig-height: 8
+
+fig1_data <- inverts_stations |>
+  mutate(depth_strata = factor(depth_strata,
+                               levels = c("supershallow", "shallow", "deep"))) |>
+  group_by(region, subregion, depth_strata) |>
+  summarize(mean_density = mean(avg_density_m2, na.rm = TRUE),
+            se_density = sd(avg_density_m2, na.rm = TRUE) / sqrt(n()),
+            n_stations = n(),
+            .groups = "drop") |>  
+  drop_na(depth_strata)
+
+fig1_data |> 
+  ggplot(aes(x = subregion, y = mean_density, fill = depth_strata)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7, 
+           color = "white", linewidth = 0.3) +
+  geom_errorbar(aes(ymin = mean_density - se_density, 
+                    ymax = mean_density + se_density),
+                position = position_dodge(width = 0.8),
+                width = 0.25, linewidth = 0.5) +
+  geom_text(aes(label = sprintf("n=%d", n_stations), 
+                y = mean_density + se_density),
+            position = position_dodge(width = 0.8),
+            vjust = -0.5, size = 2.5, color = "grey40") +
+  scale_fill_manual(values = ps_colors(palette = "depth_strata"), name = "") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15)), labels = comma) +
+  facet_wrap(~ region, scales = "free_x", ncol = 3) +
+  labs(title = paste(exp_id, ":","Regional Patterns in Invertebrate Density"),
+       subtitle = "Mean inverts/m² (±SE) across subregions and depth strata",
+       x = "", y = "Mean Density (inverts/m²)") 
+
+ggsave(filename = file.path(figures_out, paste0(exp_id, "_inverts_regional_density.png")),
+       width = 14, height = 7, dpi = 300, bg = "white")
+```
+
+## Taxonomic Composition
+
+```{r fig_taxonomic_composition}
+#| label: fig-taxonomic-composition
+#| fig-cap: "Regional variation in invertebrate taxonomic composition"
+#| fig-width: 12
+#| fig-height: 8
+
+# Get top groups
+top_groups <- density_by_station_taxa |>
+  filter(total_count > 0) |> 
+  group_by(common_name) |>
+  summarize(total = sum(total_count), 
+            .groups = "drop") |>
+  arrange(desc(total)) |>
+  slice_head(n = 10) |>
+  pull(common_name)
+
+fig2_data <- density_by_station_taxa |> 
+  filter(total_count > 0) |> 
+  mutate(group = if_else(common_name %in% top_groups, common_name, "Other")) |>
+  group_by(region, subregion, group) |>
+  summarize(total_inverts = sum(total_count), .groups = "drop") |>
+  group_by(region, subregion) |>
+  mutate(total_per_subregion = sum(total_inverts),
+         prop = total_inverts / total_per_subregion,
+         pct_label = if_else(prop > 0.08, sprintf("%.0f%%", prop * 100), "")) |>
+  ungroup() |>
+  mutate(subregion_label = paste0(subregion, "\n(n=", total_per_subregion, ")"))
+
+ggplot(fig2_data, aes(x = subregion_label, y = prop, fill = group)) +
+  geom_col(position = "stack", color = "white", linewidth = 0.3) +
+  geom_text(aes(label = pct_label),
+            position = position_stack(vjust = 0.5),
+            color = "white", fontface = "bold", size = 3) +
+  paletteer::scale_fill_paletteer_d(palette = "rcartocolor::Vivid", name = "Common name") +
+  scale_y_continuous(labels = percent, expand = expansion(mult = c(0, 0.02))) +
+  facet_wrap(~ region, scales = "free_x", ncol = 3) +
+  labs(title = paste(exp_id, ":","Regional Variation in Invertebrate Taxonomy"),
+       subtitle = "Relative abundance of dominant groups across subregions",
+       caption = "Total invert count shown in parentheses",
+       x = "",
+       y = "Proportion of Invertebrates") 
+
+ggsave(filename = file.path(figures_out, paste0(exp_id, "_inverts_taxonomic_composition.png")),
+       width = 14, height = 7, dpi = 300, bg = "white")
+```
+
+---
+
+# 9. Export & Upload
+
+```{r}
+inverts_stations |> 
+  write_csv(file.path(data_out, paste0(exp_id, "_uvs_inverts_stations.csv")))
+
+density_by_station_taxa |> 
+  write_csv(file.path(data_out, paste0(exp_id, "_uvs_inverts_density_by_station_taxa.csv")))
+
+inverts_obs_final |> 
+  write_csv(file.path(data_out, paste0(exp_id, "_uvs_inverts_observations.csv")))
+```
+
+
+```{r}
+inverts_st <- read_csv(file.path(data_out, paste0(exp_id, "_uvs_inverts_stations.csv"))) |> select(ps_station_id, n_taxa)
+kelp_st <- read_csv(file.path(data_out, paste0(exp_id, "_uvs_kelp_stations.csv")))|> select(ps_station_id, kelp_density_m2 = avg_density_m2)
+blt_st <- read_csv(file.path(data_out, paste0(exp_id, "_uvs_blt_stations.csv"))) |> select(ps_station_id, fish_biomass_m2 = avg_biomass_gm2)
+
+tmp <- inverts_st |> 
+  full_join(kelp_st) |> 
+  full_join(blt_st)
+
+tmp |> 
+  summarize(across(everything(), ~sum(mean(.x, na.rm = TRUE))))
+```
+
