@@ -115,7 +115,7 @@ transects <- read_xlsx(file.path(legacy_path, "Benthos/Cape_Horn_Kawesqar_kelp_d
          depth_m           = round(depth),
          transect          = LETTERS[transect],
          ps_site_id        = paste(exp_id, "uvs", str_pad(station, 3, pad = "0"), sep = "_"),
-         transect_width_m  = 2) |> 
+         transect_width_m  = 1) |> 
   select(exp_id, ps_site_id, diver, depth_m, transect, transect_length_m, transect_width_m)
 
 transects$depth_m[transects$ps_site_id == "CHL_2020_uvs_002"] <- 6
@@ -392,7 +392,7 @@ agent_transects <- transects |>
               actions = action_levels(warn_at = 0.01)) |> 
   # Survey effort was standard
   col_vals_equal(columns = vars(survey_area_m2),
-                   value = 50, 
+                   value = 25, 
                    label = "Standard survey area",
                    actions = action_levels(warn_at = 0.1)) |> 
   interrogate()
@@ -414,9 +414,9 @@ agent_stations <- kelp_stations |>
   rows_complete(columns = vars(n_transects),
                 label = "No missing core fields",
                 actions = action_levels(stop_at = 0.01)) |> 
-  # Stations should have 1 transect 
+  # Stations should have 2 transect 
   col_vals_equal(columns = vars(n_transects),
-                 value = 1,
+                 value = 2,
                  label = "Expected number of transects",
                  actions = action_levels(warn_at = 0.1)) |>
   interrogate()

@@ -37,7 +37,7 @@ library(ggtext)
 library(PristineSeasR2)
 
 # ---- Parameters -----------------------------------------------------------
-exp_id   <- "CHL_2020"
+exp_id   <- "CRI_2019"
 
 ps_paths <- PristineSeasR2::get_drive_paths()
 
@@ -53,7 +53,7 @@ data_out <- file.path(prj_path, "data/output/uvs")
 
 figures_out <- file.path(prj_path, "figures/uvs")
 
-legacy_path <- file.path(ps_paths$science, "legacy data/Kawesqar_Chilean_Fjords/")
+legacy_path <- file.path(ps_paths$science, "legacy data/Costa_Rica_Osa/")
 ```
 
 # Overview
@@ -87,42 +87,26 @@ cat("✓ Loaded", nrow(fish_taxa_lut), "fish taxa\n")
 ## Fieldbooks
 
 ```{r}
-raw_fish_obs <- read_xlsx(file.path(legacy_path, "Fish/Metadata_Fish_Kaweskar_V4.xlsx")) |> 
-  clean_names() |> 
-  select(diver, site = station, transect, depth_m, taxon_code = species, count = number, avg_tl_cm = avg)
+raw_fish_obs <- read_xlsx(file.path(legacy_path, "Fish/Osa_fish_data_combined_revised_6Nov25.xlsx")) |> 
+  clean_names() 
 
-taxa_codes <- read_xlsx(file.path(legacy_path, "Fish/Kewasqar_fish_codes_MH.xlsx")) |> 
-  clean_names() |> 
-  distinct(taxon_code = taxa_codes, species_name, trophic_group = trophic, lw_a = a, lw_b = b, lw_source = l_w_ref)
+fish_obs <- raw_fish_obs |> 
+  mutate(exp_id = exp_id,
+         site = str_replace(station, "(\\d+)$", ~ str_pad(.x, 3, pad = "0")),
+         ps_site_id = paste(exp_id, "uvs", str_pad(site, 3, pad = "0"), sep = "_"),
+         transect_length_m = 25,
+         station_label = depth_strata,
+         obs_id            = paste(exp_id,"fish", diver, str_pad(row_number(), 3, pad = "0"), sep = "_")) |> 
+    mutate(diver = case_when(diver == "AMF" ~ "Alan Friedlander",
+                           diver == "PSL" ~ "Pelayo Salinas",
+                           diver == "BNE" ~ "Beatriz Naranjo")) |> 
+  select(obs_id, exp_id, ps_site_id, diver, depth_m, station_label, transect, transect_length_m, taxon_code = species,  count = number, length_cm = avg, )
 
-taxa_codes$species_name[taxa_codes$taxon_code == "Austrolicus depressiceps"] <- "Austrolycus depressiceps"
+fish_obs <- fish_obs |> 
+  replace_na(list(transect = "Off"))
 ```
 
 # 2. Data Transformation
-
-```{r}
-fish_obs <- raw_fish_obs |> 
-  mutate(exp_id = exp_id,
-         site = str_replace(site, "(\\d+)$", ~ str_pad(.x, 3, pad = "0")),
-         ps_site_id = paste(exp_id, "uvs", str_pad(site, 3, pad = "0"), sep = "_"),
-         transect_length_m = 25,
-         transect_width    = 2,
-         obs_id            = paste(exp_id,"fish", diver, str_pad(row_number(), 3, pad = "0"), sep = "_")) |> 
-  select(obs_id, exp_id, ps_site_id, diver, depth_m, transect, transect_length_m, transect_width, taxon_code, length_cm = avg_tl_cm,  count)
-
-transect_depths <- read_xlsx(file.path(legacy_path, "Benthos/Cape_Horn_Kawesqar_kelp_density.xlsx"), sheet = "Kawesqar") |> 
-  janitor::clean_names() |> 
-  mutate(depth_m           = round(depth),
-         transect          = LETTERS[transect],
-         ps_site_id        = paste(exp_id, "uvs", str_pad(station, 3, pad = "0"), sep = "_")) |> 
-  distinct(ps_site_id, transect, depth_m)
-
-fish_obs <- fish_obs |> 
-  select(-depth_m) |> 
-  left_join(transect_depths, by = c("ps_site_id", "transect"))
-
-fish_obs$depth_m[fish_obs$ps_site_id == "CHL_2020_uvs_001"] <- 11
-```
 
 ```{r}
 # --- Derive transect- and station-level metadata ------------------------------
@@ -130,55 +114,101 @@ fish_obs$depth_m[fish_obs$ps_site_id == "CHL_2020_uvs_001"] <- 11
 
 ## Aggregate transects ---------------------------------------------------------
 transects <- fish_obs |> 
-  group_by(ps_site_id, diver, transect, transect_length_m, transect_width) |> 
+  group_by(ps_site_id, diver, transect, station_label, transect_length_m) |> 
   summarise(avg_depth_m = round(mean(depth_m, na.rm = TRUE), 0),
-            .groups = "drop") |> 
-  mutate(transect_area_m2 = transect_length_m * transect_width)  
+            .groups = "drop")
 
 ## Aggregate stations ----------------------------------------------------------
 
 stations <- transects |> 
-  group_by(ps_site_id,  diver) |>
-  summarise(n_transects     = n(),
+  group_by(ps_site_id, station_label) |>
+  summarise(divers          = paste(unique(diver), collapse = " | "),
+            n_transects     = n(),
             avg_depth_m     = round(mean(avg_depth_m, na.rm = TRUE), 0),
             survey_dist_m   = sum(transect_length_m, na.rm = TRUE),
-            survey_area_m2  = sum(transect_area_m2, na.rm = TRUE),
             .groups = "drop") |> 
-  mutate(depth_strata = stratify(avg_depth_m),
-         ps_station_id = paste0(ps_site_id, "_", station_suffix(depth_strata))) |> 
+  mutate(depth_strata   = if_else(avg_depth_m >= 30, "superdeep", stratify(avg_depth_m)),
+         ps_station_id  = if_else(avg_depth_m < 30,
+                                  paste(ps_site_id, station_suffix(depth_strata), sep = "_"),
+                                  paste(ps_site_id, "30m", sep = "_"))) |> 
   select(ps_station_id, ps_site_id, depth_m = avg_depth_m, 
-         depth_strata, divers = diver, n_transects, survey_dist_m, survey_area_m2)
+         depth_strata, divers, n_transects, survey_dist_m, station_label)
 
 # Assign station IDs and strata
 
 fish_obs <- fish_obs |> 
   left_join(stations |> 
-              distinct(ps_station_id, ps_site_id, depth_strata),
-            by = c("ps_site_id")) |> 
+              distinct(ps_station_id, ps_site_id, depth_strata, station_label),
+            by = c("ps_site_id", "station_label")) |> 
   relocate(ps_station_id, .after = ps_site_id) |> 
-  relocate(depth_strata, .after = ps_station_id)
+  relocate(depth_strata, .after = ps_station_id) |> 
+  select(-station_label) 
+
+stations <- stations |> select(-station_label)
 ```
 
 # 3. Taxonomy Resolution
 
-Match observed species with the reference taxonomy database and identify any issues (observed lengths > max lengths).
+From codes to species 
+
+```{r}
+fish_codes <- read_xlsx(file.path(legacy_path, "Fish/Osa_fish_CODES.xlsx")) |> 
+  clean_names() |> 
+  select(taxon_code = species, taxon = fish_base_name, family)
+
+fish_codes$taxon[fish_codes$taxon_code == "LU.ARGE"] <- "Lutjanus argentiventris"
+fish_codes$taxon[fish_codes$taxon_code == "HA.MELA"] <- "Halichoeres melanotis"
+
+fish_obs <- fish_obs |> 
+  left_join(fish_codes |> 
+              select(taxon_code, taxon), by = "taxon_code") |> 
+  relocate(taxon, .after = taxon_code)
+
+fish_obs |> 
+  filter(is.na(taxon)) |> 
+  count(diver, taxon_code, sort = T)
+```
 
 ```{r}
 fish_taxa <- fish_obs |> 
-  distinct(taxon_code) |> 
-  left_join(taxa_codes |> 
-              select(taxon_code, taxon = species_name)) |> 
-  mutate(taxon_clean = bdc::bdc_clean_names(taxon)$names_clean)
+  mutate(taxon = bdc::bdc_clean_names(taxon)$names_clean) |> 
+  count(taxon_code, taxon, sort = T)
 
-clean_names <- fish_taxa$taxon_clean |> 
-  unique() |> 
-  na.omit()  # drops NA
+# Create name-to-AphiaID mapping
 
-batches <- split(clean_names, ceiling(seq_along(clean_names) / 100))
+names_to_aphiaID <- fish_taxa_lut |> 
+  select(accepted_aphia_id, taxon_name, accepted_name) |>
+  pivot_longer(cols = c("taxon_name", "accepted_name"), names_to = "orig_col", values_to = "lookup_name") |>
+  filter(!is.na(lookup_name)) |>
+  distinct(accepted_aphia_id, lookup_name) 
 
-# === 3. Query WoRMS in batches
+fish_taxa <- fish_taxa |> 
+  left_join(names_to_aphiaID, 
+            by = c("taxon" = "lookup_name")) 
+```
 
-worms_raw <- purrr::map_dfr(batches, ~worrms::wm_records_names(.x)) |> 
+## Taxa in DB
+
+```{r}
+taxa_in_db <- fish_taxa |> 
+  filter(!is.na(accepted_aphia_id)) |> 
+  left_join(fish_taxa_lut |> 
+              distinct(accepted_aphia_id, accepted_name, rank, tl_max, lw_a, lw_b, ltl_ratio, trophic_group, family),
+            by = c("accepted_aphia_id" = "accepted_aphia_id"))
+```
+
+## New taxa
+
+```{r}
+# New taxa not in reference database
+new_taxa <- fish_taxa |> 
+  filter(is.na(accepted_aphia_id), !is.na(taxon)) |> 
+  distinct(taxon)
+
+# 1. Get Worms Identifiers and taxonomic info
+
+new_taxa_worms <- purrr::map_dfr(new_taxa$taxon, ~worrms::wm_records_names(.x)) |> 
+  mutate(rank = str_to_lower(rank)) |> 
   select(taxon_clean = scientificname, 
          rank,
          aphia_id = AphiaID, 
@@ -199,26 +229,66 @@ get_taxonomic_ranks <- function(id) {
 
 library(furrr)
 
-taxonomy_ranks <- future_map_dfr(worms_raw$accepted_aphia_id,
+taxonomy_ranks <- future_map_dfr(new_taxa_worms$accepted_aphia_id,
                                  get_taxonomic_ranks,
                                  .options = furrr_options(seed = TRUE)) |>
   clean_names() |>
   select(accepted_aphia_id, kingdom, phylum, class, order, family, genus)
 
-worms_final <- worms_raw |> 
+new_taxa_worms <- new_taxa_worms |> 
   left_join(distinct(taxonomy_ranks), by = "accepted_aphia_id")
 
-fish_taxa <- fish_taxa |> 
-  left_join(worms_final)
+# 2. Get Fishbase Identifiers
 
-fish_taxa <- fish_taxa |> 
-  left_join(taxa_codes |> 
-              select(trophic_group, taxon_code, lw_a, lw_b))
+library(rfishbase)
 
-fish_taxa$trophic_group <- "lower_carnivore"
+fb_taxa <- load_taxa() |> 
+  distinct(Species, SpecCode) |> 
+  rename(fb_spec_code = SpecCode)
+
+new_taxa <- new_taxa_worms |> 
+  left_join(fb_taxa, by = c("accepted_name" = "Species")) 
+
+# 3. Common names
+
+fb_species_db <- rfishbase::species() 
+
+common_names <- fb_species_db |> 
+  distinct(fb_spec_code = SpecCode, 
+           common_name = FBname) |> 
+  filter(!is.na(common_name)) 
+
+common_fams <- read_csv(file.path(prj_path, "data/raw/taxonomy/fish/fish_common_families.csv")) |> 
+  clean_names()
+
+additional_common_names <- read_csv(file.path(prj_path, "data/raw/taxonomy/fish/fish_common_names_missing.csv")) |> 
+  clean_names() 
+
+new_taxa <- new_taxa |> 
+  left_join(common_fams) |> 
+  left_join(common_names) |> 
+  left_join(additional_common_names, 
+            by = c("accepted_name" = "scientific_name")) |> 
+  mutate(common_name = coalesce(common_name, common_name_manual)) |>
+  select(-common_name_manual) 
+
+new_taxa$common_family[new_taxa$order == "Blenniiformes" & is.na(new_taxa$common_family)] <- "combtooth blennies"
+
+## Trophic groups
+
+mermaid_fish_lut <- read_xlsx(file.path(prj_path, "data/raw/taxonomy/mermaid_attributes.xlsx"),
+          sheet = "Fish Species") |> 
+  clean_names() |> 
+  select(name, trophic_group) 
+  
+new_taxa |> 
+  left_join(mermaid_fish_lut, by = c("accepted_name" = "name")) |> 
+  count(trophic_group, sort = T)
 ```
 
 ## Join Taxonomy to Observations
+
+Match observed species with the reference taxonomy database and identify any issues.
 
 ```{r}
 fish_obs <- fish_obs |> 
