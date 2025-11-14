@@ -39,7 +39,7 @@ library(ggtext)
 library(PristineSeasR2)
 
 # ---- Parameters -----------------------------------------------------------
-exp_id   <- "FRA_2016"
+exp_id   <- "ECU_2015"
 
 ps_paths <- PristineSeasR2::get_drive_paths()
 
@@ -55,10 +55,10 @@ data_out <- file.path(prj_path, "data/output/uvs")
 
 figures_out <- file.path(prj_path, "figures/uvs")
 
-legacy_path <- file.path(ps_paths$science, "legacy data/Clipperton/")
+legacy_path <- file.path(ps_paths$science, "legacy data/Galapagos/")
 
 exp_config <- list(exp_id      = exp_id,
-                   date_bounds = c(as.Date("2016-03-01"), as.Date("2016-03-30")))
+                   date_bounds = c(as.Date("2015-12-01"), as.Date("2015-12-31")))
 ```
 
 ## Overview
@@ -73,47 +73,38 @@ This process ensures data integrity prior to analysis and database ingestion.
 
 
 ```{r}
-uvs_sites <- read_xls(file.path(legacy_path, "GIS", "Clipperton_sites.xls")) |> 
+uvs_sites <- read_xlsx(file.path(legacy_path, "GIS", "Metadata_Galapagos.xlsx"),
+                      sheet = "Dives") |> 
   clean_names() |> 
   rename(latitude  = lat,
          longitude = long,
          site      = station,
-         region    = reef) |> 
-  distinct()
+         subregion  = reef)
 
 uvs_sites <- uvs_sites |> 
   mutate(exp_id    = exp_id,
          method    = "uvs",
          date      = lubridate::ymd(date),
-         habitat   = "fore_reef",
-         exposure  = if_else(site %in% c(4,6,7,8,10,11,14), "windward", "leeward"), # from Clipperton_coral_cover_2016_Nat_Geo.xlsx
-         region    = str_to_sentence(region),
-         subregion = region,
-         locality  = NA_character_,
-         in_mpa    = FALSE,
-         mpa_notes = NA_character_,
+         time      = hms::as_hms(time),
+         habitat   = "rocky_reef",
+         exposure  = "unknown",
+         region    = "Galapagos",
+         locality  = subregion,
+         in_mpa    = TRUE,
+         mpa_notes = "Galapagos National Park",
          team_lead = "Alan Friedlander",
          site_name = locality,
          ps_site_id =  paste0(exp_id, "_uvs_", str_pad(site, 3, pad = "0"))) |> 
-  filter(date != "2016-03-18") |> 
   select(ps_site_id, exp_id, method, region, subregion, locality, 
-         date, latitude, longitude, habitat, exposure, site_name, in_mpa, mpa_notes, team_lead)
+         date, time, latitude, longitude, habitat, exposure, site_name, in_mpa, mpa_notes, team_lead)
 
-uvs_times <- read_xlsx(file.path(legacy_path, "FISH", "Transect_time.xlsx")) |> 
-  clean_names() |> 
-  filter(!is.na(station))
-
-uvs_times$time[uvs_times$station == 9] <- as_hms("14:50:00")
-uvs_times$time[uvs_times$station == 8] <- as_hms("11:30:00")
-
-uvs_times <- uvs_times |> 
-  mutate(time = as_hms(time),
-         ps_site_id =  paste0(exp_id, "_uvs_", str_pad(station, 3, pad = "0"))) |> 
-  distinct(ps_site_id, time)
-
-uvs_sites <- uvs_sites |>
-  left_join(uvs_times, by = "ps_site_id") |> 
-  relocate(time, .after = date)
+uvs_sites <- uvs_sites |> 
+  mutate(subregion = case_when(str_detect(locality, "Wolf") ~ "Wolf",
+                               str_detect(locality, "Darwin") ~ "Darwin",
+                               str_detect(locality, "Isabela") ~ "Isabela",
+                               locality == "Roca Rodonda" ~ "Isabela",
+                               locality == "Seymour" ~ "Santa Cruz",
+                               TRUE ~ subregion)) 
 
 regions_lookup_table <- uvs_sites |> 
   distinct(region, subregion) 
