@@ -227,30 +227,3 @@ bq_table_upload(bq_table("pristine-seas", "uvs", "sites"),
                 create_disposition = "CREATE_NEVER",
                 write_disposition  = "WRITE_APPEND")
 ```
-
-```{r}
-all_sites <- tbl(bq_connection, "uvs.sites") |> 
-  filter(!is.na(exp_id)) |> 
-  collect()
-```
-
-```{r}
-all_sites_sites_sf <- all_sites |>
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) |>
-  mutate(exp_id = factor(exp_id)) |> 
-  distinct(exp_id, geometry)
-pal <- as.character(paletteer::paletteer_d("ggsci::category20_d3"))
-
-mapview::mapview(all_sites_sites_sf,
-                 zcol        = "exp_id",
-                 legend      = TRUE,
-                 map.types   = "Esri.WorldImagery",
-                 layer.name  = "exp_id",
-                 col.regions = pal,
-                 at          = levels(all_sites_sites_sf$exp_id),
-                 popup       = leafpop::popupTable(all_sites_sites_sf, 
-                                                   zcol = "exp_id")) |>
-  leafem::addMouseCoordinates() |>
-  leaflet.extras::addFullscreenControl()
-```
-
