@@ -1,0 +1,1813 @@
+---
+title: "Fish BLT - Data Pipeline"
+date: today
+params:
+  transects_per_station: 6          # Expected diver-transects per station (2 divers x 3 transects)
+  transects_per_diver: 3            # Expected transects per diver per station
+  standard_transect_length_m: 25    # Transect length (m); 2009 ran a single 25 m line throughout
+  max_depth_m: 30                   # Deepest plausible BLT depth (m); beyond this is superdeep
+  length_tolerance_cm: 5            # Slack allowed over a species' known max length before capping
+  belt_width_wide_m: 4              # Wide belt, for fish >= large_fish_cm. NESTED: it contains the narrow belt
+  belt_width_narrow_m: 2            # Narrow belt, for everything smaller
+  large_fish_cm: 20                 # Length at or above which a fish is counted on the wide belt
+format:
+  html:
+    theme: minty
+    self-contained: true
+    code-fold: true
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    html-table-processing: none
+execute:
+  echo: true
+  warning: false
+  message: false
+  fig-width: 10
+  fig-height: 8
+---
+
+```{r setup}
+# Load setup
+
+source(here::here("ingest/SLI-2009/00_SLI_2009_setup.R"))
+
+# -- Params (script-specific) --------------------------------------------------
+method      <- "uvs"   # survey method code, matches database convention
+protocol    <- "blt"
+
+transects_per_station      <- params$transects_per_station
+transects_per_diver        <- params$transects_per_diver
+standard_transect_length_m <- params$standard_transect_length_m
+max_depth_m                <- params$max_depth_m
+length_tolerance_cm        <- params$length_tolerance_cm
+belt_width_wide_m          <- params$belt_width_wide_m
+belt_width_narrow_m        <- params$belt_width_narrow_m
+large_fish_cm              <- params$large_fish_cm
+
+# Four divers worked the belts in 2009, all in one workbook. Jenn Caselle appears
+# in this year alone; the other three carry through the later expeditions.
+fish_divers <- tibble::tribble(
+  ~initials, ~diver,
+  "AMF",     "Alan Friedlander",
+  "BJZ",     "Brian Zgliczynski",
+  "JEC",     "Jenn Caselle",
+  "SAS",     "Stuart Sandin")
+
+# -- Paths (script-specific) --------------------------------------------------
+
+uvs_sites_path <- file.path(data_out, paste0(exp_id, "_uvs_sites.csv"))
+fieldbook_path <- file.path(data_in, "Southern_Line_Islands_2009-03_Fish_Data_ALL_QC.xlsx")
+
+stopifnot("UVS sites file not found — has 01_pipe_uvs_sites.qmd been run?" = file.exists(uvs_sites_path),
+          "Fish workbook not found" = file.exists(fieldbook_path))
+```
+
+# Overview
+
+This notebook processes and validates **Belt Transect (BLT)** fish survey data collected during the Pristine Seas **`r as.character(exp_year)`** expedition to the **Southern Line Islands, `r exp_country`**.
+
+Building on the validated site metadata from the first workflow, it:
+
+- parses and harmonizes the four divers' records, which arrive in a single workbook;
+- resolves field taxon codes to accepted names and attaches trophic and length–weight traits;
+- converts counts and lengths into density and biomass; and
+- runs a series of structural, taxonomic, and ecological validation checks.
+
+The workflow produces three curated, database-ready datasets:
+
+- `blt_observations`: One row per observation, with resolved taxonomy and per-fish biomass.
+- `blt_biomass_by_station_taxa`: One row per station × taxon, with density and biomass.
+- `blt_stations`: One row per station, summarizing effort, richness, biomass, and trophic composition.
+
+Each dataset is validated against its schema and written to the expedition's Google Drive folder as ``output/uvs/`r exp_id`_uvs_<name>.csv``, ready for ingestion into the corresponding `uvs.<name>` table in BigQuery.
+
+::: {.callout-note}
+This is an **iterative curation workflow**, not a hands-off pipeline. Every expedition needs expert review and a few manual corrections — the validation output exists to tell you where to look before anything is published.
+:::
+
+::: {.callout-important collapse="true"}
+## Legacy expedition — what differs from the standard pipeline
+SLI `r as.character(exp_year)` was a joint Pristine Seas / SIO **100 Island Challenge** cruise, and its fish data reached us already curated. The survey design is the standard one; the records arrive differently:
+
+- **One workbook, four divers.** AMF, BJZ, JEC and SAS all worked the belts, in a single QC'd table rather than a fieldbook each. Jenn Caselle appears in this year alone; the other three carry through the later expeditions.
+- **Names come with the workbook.** Its `CODES` sheet resolves every field code to a name, so §3 matches names to the reference taxonomy rather than resolving codes through the shared registry.
+- **One depth, one line length.** Every row reads `depth_stratum` 10 and `transect_type` `25mx4m_x2m` — a single 10 m stratum on a single 25 m line, expedition-wide. Each site therefore yields exactly one station, and 2021's 15 m work and 30 m lines have no counterpart here.
+- **No terminal-phase records.** The `tp_size` and `tp_no` columns exist but are empty throughout, so `terminal_phase` is `FALSE` by construction.
+- **No off-transect records.** Every row is `QUAN` on transect A, B or C. The `OFF`/`PRES` codes exist in the workbook's legend but never in its data, and the ingestion asserts it.
+- **No notes.** The workbook has no notes column at all; `notes` is created empty to satisfy the schema.
+:::
+
+::: {.callout-warning collapse="true"}
+## Lengths are 5-cm class labels, not measurements
+Every size in this workbook is a multiple of five: tallies were binned in the field to 5-cm TL classes labelled by their **upper edge**, so a recorded `10` is the 6–10 cm class, not a 10 cm fish.
+
+The class is carried as a range — `min_tl_cm = size - 4`, `max_tl_cm = size` — so its midpoint falls out of the mean the pipeline already takes, with no special-case arithmetic. That midpoint is `size - 2`, which is what the original SLI series computed as `(trunc((L - 0.1)/5) + 1) * 5 - 2`. Reading the label at face value would overstate every fish by 2 cm, and weight scales with roughly the cube of length.
+
+The belt follows that corrected length too, so a record written as the `20` class counts as 18 cm and sits on the narrow belt. That class genuinely straddles the boundary — a 20 cm fish swum on the wide belt and a 17 cm one on the narrow were both written down as `20`, and no rule recovers the truth. Applying the midpoint everywhere at least makes the same choice in 2021 and 2023, which keeps density comparable across the series.
+:::
+
+::: {.callout-note collapse="true"}
+## Belt widths — what the report's 8 m and 4 m mean
+The survey report describes an 8-m strip for fish ≥ `r params$large_fish_cm` cm and a 4-m strip for those below it. Those are the **paired divers' combined** widths — the wide strip is two 4-m swaths separated by 1 m, one per diver — so per diver it is `r params$belt_width_wide_m` m and `r params$belt_width_narrow_m` m, which is what this pipeline uses. The workbook's own `transect_type`, `25mx4m_x2m`, encodes exactly that geometry.
+
+Station totals reconcile: six diver-transects of 25 m give 150 m of line, so `150 x 4 = 600 m²` for large-bodied fish and `150 x 2 = 300 m²` for small — the areas the report states as `3 x 25 x 8` and `3 x 25 x 4`. And every diver-station pair records both size classes across the full range, confirming the divers split the *swath*, not the size classes.
+:::
+
+# 1. Data Ingestion
+
+## Reference Tables
+
+Two anchor tables are loaded: the UVS sites, giving spatial hierarchy, habitat and exposure; and the fish taxonomy reference, carrying trophic group and length–weight parameters. The shared taxon-code registry is not needed — this workbook ships resolved names beside its codes.
+
+```{r load_references}
+#| message: true
+
+uvs_sites <- read_csv(uvs_sites_path, show_col_types = FALSE)
+
+# Fish taxonomy reference
+fish_taxa_lut <- tbl(bq_connection, "taxa_info.fish") |>
+  filter(!is.na(accepted_name)) |>
+  collect()
+
+cli::cli_inform(c(
+  v = "Data loaded successfully:",
+  "*" = "{nrow(uvs_sites)} UVS site{?s} across {n_distinct(uvs_sites$region)} region{?s} and {n_distinct(uvs_sites$subregion)} subregion{?s}",
+  "*" = "{nrow(fish_taxa_lut)} fish taxa from the lookup table"
+))
+```
+
+## Fieldbook
+
+The workbook is read once and standardized to our schema: names taken from its own `CODES` sheet, 5-cm class labels expanded to ranges, transect length parsed from `transect_type`, and station names matched to the validated site table.
+
+```{r parse_fieldbooks}
+#| message: true
+
+fish_raw <- read_xlsx(fieldbook_path, sheet = "Data") |>
+  clean_names() |>
+  mutate(date = as.Date(date))
+
+# -- Taxon names ---------------------------------------------------------------
+# The `vlookup` column that later years use to carry a resolved name beside every
+# code is empty in 2009, so names come from the workbook's own CODES sheet.
+code_lookup <- read_xlsx(fieldbook_path, sheet = "CODES") |>
+  clean_names() |>
+  filter(!is.na(new_name)) |>
+  distinct(taxon_code = new_name, taxon_name = taxon)
+
+stopifnot("A taxon code resolves to more than one name" =
+            !any(duplicated(code_lookup$taxon_code)))
+
+# -- Site IDs ------------------------------------------------------------------
+# 2009 needs no alias resolution: the fish and metadata station lists match one
+# for one, and `site_name` in the site table is the bare station name.
+site_lookup <- uvs_sites |> distinct(station_id = site_name, ps_site_id)
+
+raw_obs <- fish_raw |>
+  left_join(site_lookup, by = "station_id") |>
+  left_join(code_lookup, by = c("species" = "taxon_code")) |>
+  left_join(fish_divers, by = c("diver" = "initials")) |>
+  mutate(exp_id            = exp_id,
+         obs_id            = paste(exp_id, "fish", diver,
+                                   str_pad(row_number(), 5, pad = "0"), sep = "_"),
+         station_label     = paste0(depth_stratum, "m"),
+         depth_m           = as.numeric(depth_stratum),
+         transect          = str_to_upper(str_trim(transect)),
+         # `transect_type` reads "25mx4m_x2m" on every row — length, wide belt,
+         # narrow belt. Parsed rather than assumed, and asserted below.
+         transect_length_m = parse_number(transect_type),
+         # Tallies were binned in the field to 5-cm TL classes labelled by their
+         # upper edge, so a recorded "10" is the 6-10 cm class. The class is
+         # carried as a range, which makes its midpoint — the length the original
+         # SLI series used, (trunc((L-0.1)/5)+1)*5-2, i.e. L-2 — fall out of the
+         # pipeline's existing mean-of-min-and-max rather than a magic number.
+         size_cm   = as.numeric(size),
+         min_tl_cm = size_cm - 4, max_tl_cm = size_cm,
+         count     = as.numeric(number),
+         taxon_code = species,
+         # no terminal-phase records in 2009: `tp_size` and `tp_no` are empty
+         terminal_phase = FALSE,
+         notes = NA_character_) |>
+  rename(diver_initials = diver, diver = diver.y) |>
+  select(obs_id, exp_id, ps_site_id, diver, diver_initials, date, depth_m, station_label,
+         transect, transect_length_m, taxon_code, taxon_name,
+         min_tl_cm, max_tl_cm, count, terminal_phase, notes)
+
+unresolved <- raw_obs |> filter(is.na(taxon_name)) |> count(taxon_code, name = "n_obs")
+
+stopifnot(
+  "obs_id is not unique"                = !any(duplicated(raw_obs$obs_id)),
+  "A station name matched no site"      = !any(is.na(raw_obs$ps_site_id)),
+  "A diver code matched no diver"       = !any(is.na(raw_obs$diver)),
+  "Transect length is not 25 m"         = all(raw_obs$transect_length_m == standard_transect_length_m),
+  # A single 10 m stratum expedition-wide. Everything downstream assumes one
+  # station per site, so a second depth appearing here must be handled, not absorbed.
+  "Depth is not 10 m throughout"        = all(raw_obs$depth_m == 10),
+  # Every row carries a size, so the class range below is always complete and
+  # never inverted — the later pipeline steps take both as given.
+  "A record has no size"                = !any(is.na(raw_obs$max_tl_cm)),
+  # 2009 carries only on-transect quantitative records; OFF/PRES exist in the
+  # code list but never in the data, and would inflate density if they appeared
+  "Non-quantitative records present"    = all(fish_raw$data_type == "QUAN"),
+  "No terminal-phase columns expected"  = all(is.na(fish_raw$tp_no)))
+
+obs_by_diver <- raw_obs |> count(diver, name = "n_obs")
+
+cli::cli_inform(c(
+  v = "Parsed {nrow(raw_obs)} observation{?s} from {nrow(obs_by_diver)} diver{?s}:",
+  setNames(sprintf("%s: %s observation%s", obs_by_diver$diver, scales::comma(obs_by_diver$n_obs),
+                   ifelse(obs_by_diver$n_obs == 1, "", "s")),
+           rep("*", nrow(obs_by_diver))),
+  "i" = "{nrow(unresolved)} code{?s} with no name in the CODES sheet ({sum(unresolved$n_obs)} observation{?s}), named in the corrections chunk of \u00a73: {unresolved$taxon_code}"
+))
+```
+
+# 2. Data Transformation
+
+First, we restrict observations to sites already validated in the UVS site table, dropping any test dives or off-protocol entries excluded upstream.
+
+```{r remove_bad_sites_if_any}
+#| message: true
+
+n_obs_before <- nrow(raw_obs)
+
+excluded <- raw_obs |>
+  filter(!ps_site_id %in% uvs_sites$ps_site_id) |>
+  distinct(ps_site_id) |>
+  pull()
+
+raw_obs <- raw_obs |> filter(ps_site_id %in% uvs_sites$ps_site_id)
+
+n_dropped <- n_obs_before - nrow(raw_obs)
+
+if (n_dropped == 0) {
+  cli::cli_alert_success("No observations needed dropping — every site already matched the validated UVS site table.")
+} else {
+  cli::cli_alert_warning("Dropped {n_dropped} observation{?s} from {length(excluded)} site{?s} not present in the validated UVS site table: {paste(excluded, collapse = ', ')}.")
+}
+```
+
+## Belt Assignment
+
+The pipelines for 2021 and 2023 open here with two repairs — inverted `min`/`max` ranges, and records carrying only one of the pair. Neither can arise in 2009: both bounds are derived from a single `size` column that the ingestion has already asserted is never missing, so the range is always complete and `size - 4` is always below `size`.
+
+What remains is the belt. **The class midpoint decides which belt a fish is counted on: `r params$belt_width_narrow_m` m for fish under `r params$large_fish_cm` cm, `r params$belt_width_wide_m` m at or above it.** The wide belt is a broader swath along the same line, so it contains the narrow one.
+
+```{r assign_belts}
+#| message: true
+
+blt_observations <- raw_obs |>
+  # Both bounds are always present here, so the midpoint is a plain mean — the
+  # NA-tolerant rowMeans() the later years need has nothing to tolerate.
+  mutate(length_cm = (min_tl_cm + max_tl_cm) / 2,
+         # The belt follows that midpoint, so a record written as the "20" class
+         # counts as 18 cm and sits on the narrow belt. Same rule as SLI 2021 and
+         # 2023, which keeps density comparable across the series.
+         transect_width_m = if_else(length_cm >= large_fish_cm,
+                                    belt_width_wide_m, belt_width_narrow_m)) |>
+  select(-min_tl_cm, -max_tl_cm) |>
+  relocate(length_cm, .after = count) |>
+  relocate(transect_width_m, .after = transect_length_m)
+```
+
+## Transects and Stations
+
+A station comprises the transects swum at the same site and depth — `r params$transects_per_diver` per diver, and since sites were normally worked by a diver pair, `r params$transects_per_station` in total. With one depth throughout, each site yields exactly one station. Transects are extracted from the observations and aggregated, averaging depth and assigning a standardized stratum.
+
+```{r aggregate_transects_stations}
+#| message: true
+
+transects <- blt_observations |>
+  group_by(ps_site_id, diver, station_label, transect, transect_length_m) |>
+  summarise(avg_depth_m = round(mean(depth_m, na.rm = TRUE), 0), .groups = "drop")
+
+stations <- transects |>
+  group_by(ps_site_id, station_label) |>
+  summarise(divers        = paste0(sort(unique(diver)), collapse = " | "),
+            avg_depth_m   = round(mean(avg_depth_m, na.rm = TRUE), 0),
+            # n() not n_distinct(transect): each row is already one diver-transect, and
+            # both divers label theirs A/B/C — counting distinct labels would merge them
+            # and halve the effort at a shared station.
+            n_transects   = n(),
+            survey_dist_m = sum(transect_length_m),
+            # The two belts are NESTED — the wide belt is a broader swath along the same
+            # line, so it contains the narrow one. The area searched is the wide belt
+            # alone, not the sum. Density and biomass are unaffected either way: each
+            # observation is divided by its own belt's area upstream, never by this column.
+            survey_area_m2 = survey_dist_m * belt_width_wide_m,
+            .groups = "drop") |>
+  mutate(depth_strata  = stratify_sli(avg_depth_m),
+         ps_station_id = paste0(ps_site_id, "_", station_suffix(depth_strata)))
+
+# A station with no depth yields NaN -> stratify() NA -> station_suffix() NA, which
+# paste0() would silently render as "..._NA" in the primary key. Stop instead.
+bad_strata <- stations |> filter(is.na(depth_strata) | str_detect(ps_station_id, "_NA$"))
+
+if (nrow(bad_strata) > 0) {
+  cli::cli_abort(c("{nrow(bad_strata)} station{?s} could not be assigned a depth stratum.",
+                   x = "ps_station_id would carry the literal string \"NA\": {unique(bad_strata$ps_station_id)}",
+                   i = "Check depth_m in the fieldbook for {unique(bad_strata$ps_site_id)}."))
+}
+
+stations <- stations |>
+  select(ps_station_id, ps_site_id, depth_m = avg_depth_m, depth_strata, divers,
+         station_label, n_transects, survey_dist_m, survey_area_m2)
+
+cli::cli_inform(c(
+  v = "Stations built:",
+  "*" = "{nrow(stations)} station{?s} across {n_distinct(stations$ps_site_id)} site{?s}",
+  "*" = "{nrow(transects)} diver-transect{?s}; {sum(stations$survey_dist_m)} m surveyed",
+  "*" = "strata: {paste(sort(unique(stations$depth_strata)), collapse = ', ')}"
+))
+```
+
+```{r assign_station_ids}
+#| message: true
+
+blt_observations <- blt_observations |>
+  left_join(stations |> select(ps_station_id, ps_site_id, station_label, depth_strata),
+            by = c("ps_site_id", "station_label")) |>
+  relocate(ps_station_id, .after = ps_site_id) |>
+  relocate(depth_strata, .after = ps_station_id)
+
+stopifnot("Observations left without a station ID" = !any(is.na(blt_observations$ps_station_id)))
+
+cli::cli_alert_success("Station IDs assigned to all {nrow(blt_observations)} observation{?s} (this expedition has no off-transect records).")
+```
+
+# 3. Taxonomy Resolution
+
+The workbook's `CODES` sheet already resolves every field code to a name, so there is no code resolution to do. This section matches those names against the fish reference table, attaches rank, family, trophic group and length–weight parameters, and folds the enriched taxonomy back into the observations.
+
+## Manual corrections
+
+Name-level fixes are applied here as whole-word replacements. **Nothing is corrected automatically** — taxonomic resolution is a curation decision, so anything the reference table does not match is reported by the database check below and left for review rather than silently mapped onto a near neighbour.
+
+```{r manual_corrections}
+corrections <- c("Cirripectes species" = "Cirripectes",
+                 "Thalassoma species" = "Thalassoma",
+                 "Acanthurus achilles_x_nigricans" = "Acanthurus achilles x nigricans")
+
+if (length(corrections) > 0) {
+  # wrap each pattern in word boundaries so a fix only ever changes the intended token
+  corrections_whole_word <- setNames(corrections, paste0("\\b", names(corrections), "\\b"))
+  blt_observations <- blt_observations |>
+    mutate(taxon_name = str_replace_all(taxon_name, corrections_whole_word))
+}
+
+blt_observations$taxon_name[blt_observations$taxon_code == "DECA.SP"] <- "Decapterus"
+blt_observations$taxon_name[blt_observations$taxon_code == "CIRH.SP"] <- "Cirrhilabrus"
+```
+
+```{r tally_taxa}
+fish_taxa <- blt_observations |>
+  count(taxon_code, taxon = taxon_name, wt = count, name = "n_fish", sort = TRUE)
+```
+
+## Database Match
+
+Names are matched against the fish reference table on either `taxon_name` or `accepted_name`, since a field name may already be recorded as a synonym. They are matched as written — the corrections above are the only place a name is altered.
+
+```{r match_taxonomy}
+#| message: true
+
+names_to_aphia <- fish_taxa_lut |>
+  select(accepted_aphia_id, taxon_name, accepted_name) |>
+  pivot_longer(cols = c(taxon_name, accepted_name),
+               names_to = "name_source", values_to = "lookup_name") |>
+  filter(!is.na(lookup_name)) |>
+  distinct(accepted_aphia_id, lookup_name)
+
+fish_taxa <- fish_taxa |>
+  left_join(names_to_aphia, by = c("taxon" = "lookup_name"))
+
+new_taxa <- fish_taxa |> filter(is.na(accepted_aphia_id))
+
+if (nrow(new_taxa) > 0) {
+  cli::cli_alert_warning("{nrow(new_taxa)} taxa not in our reference database:")
+  print(new_taxa |> select(taxon, n_fish) |> light_gt())
+  stop("Add these taxa before proceeding.", call. = FALSE)
+} else {
+  cli::cli_alert_success("All {nrow(fish_taxa)} taxa matched our reference database.")
+}
+```
+
+### New Taxa
+
+Unmatched names (if any) are queried against the [WoRMS](https://www.marinespecies.org/) database to resolve their identity and pull taxonomic hierarchy. Common names, trophic traits, and length–weight parameters are attached before the new taxa are appended to the reference table. The chunk is set `eval = F` and run by hand only when the match above flags new taxa; rerun the pipeline afterward so the additions are picked up.
+
+```{r resolve_new_taxa, eval = F}
+#| message: true
+
+# 1. Get WoRMS and FishBase identifiers for each new taxon.
+#    This runs first because the taxon codes below are rank-dependent, and rank
+#    comes from WoRMS.
+worms_raw <- worrms::wm_records_names(new_taxa$taxon) |>
+  bind_rows() |>
+  mutate(rank = str_to_lower(rank)) |>
+  select(taxon_name       = scientificname,
+         rank,
+         aphia_id          = AphiaID,
+         status,
+         accepted_name     = valid_name,
+         accepted_aphia_id = valid_AphiaID)
+
+fb_taxa <- rfishbase::load_taxa() |>
+  distinct(Species, fb_spec_code = SpecCode)
+
+new_taxa <- worms_raw |>
+  left_join(fb_taxa, by = c("accepted_name" = "Species"))
+
+# 2. Build a taxon code for each new taxon, following the registry's conventions:
+#      species -> first 2 letters of the genus + first 4 of the epithet  (AB.STEL)
+#      genus   -> first 4 letters of the genus + ".SP"                   (ABUD.SP)
+#      family  -> first 4 letters of the family + ".SPP"                 (ACAN.SPP)
+#    Codes must be unique across the shared registry, so anything that clashes is
+#    reported and halts the chunk for manual disambiguation — the convention is to
+#    lengthen the epithet (AC.LEUC -> AC.LEUCOS), as the existing entries do.
+new_codes <- new_taxa |>
+  distinct(taxon_name, accepted_name, rank) |>
+  mutate(taxon_code = str_to_upper(
+    case_when(rank == "species" ~ str_c(str_sub(word(accepted_name, 1), 1, 2), ".", str_sub(word(accepted_name, 2), 1, 4)),
+              rank == "genus"   ~ str_c(str_sub(word(accepted_name, 1), 1, 4), ".SP"),
+              TRUE              ~ str_c(str_sub(word(accepted_name, 1), 1, 4), ".SPP"))))
+
+existing_codes <- tbl(bq_connection, "taxa_info.uvs_fish_codes") |>
+  filter(!is.na(taxon_code)) |>
+  collect()
+
+# clashes with a code already in the registry
+registry_clash <- new_codes |>
+  inner_join(existing_codes |> distinct(taxon_code, registry_name = taxon_name),
+             by = "taxon_code")
+
+# two new taxa in this batch generating the same code
+batch_clash <- new_codes |>
+  get_dupes(taxon_code)
+
+if (nrow(registry_clash) > 0) {
+  cli::cli_alert_warning("{nrow(registry_clash)} new code{?s} already used in the registry:")
+  cli::cli_ul(paste0(registry_clash$taxon_code, " — ", registry_clash$accepted_name,
+                     "  (registry: ", registry_clash$registry_name, ")"))
+}
+
+if (nrow(batch_clash) > 0) {
+  cli::cli_alert_warning("{n_distinct(batch_clash$taxon_code)} code{?s} generated more than once in this batch:")
+  cli::cli_ul(paste0(batch_clash$taxon_code, " — ", batch_clash$accepted_name))
+}
+
+if (nrow(registry_clash) > 0 || nrow(batch_clash) > 0) {
+  stop("Assign disambiguated codes before proceeding (lengthen the epithet, e.g. AC.LEUC -> AC.LEUCOS).", call. = FALSE)
+} else {
+  cli::cli_alert_success("All {nrow(new_codes)} new taxon code{?s} {?is/are} unique against the registry and within the batch.")
+}
+
+# 3. Get kingdom-through-family hierarchy for each resolved AphiaID
+taxonomy_ranks <- new_taxa |>
+  distinct(accepted_aphia_id) |>
+  filter(!is.na(accepted_aphia_id)) |>
+  pull(accepted_aphia_id) |>
+  get_taxonomic_ranks(ranks = c("kingdom", "phylum", "class", "order", "family"))
+
+new_taxa <- new_taxa |>
+  left_join(taxonomy_ranks, by = "accepted_aphia_id")
+
+# 4. Get common names from FishBase
+fb_species_db <- rfishbase::species()
+
+common_names <- fb_species_db |>
+  distinct(fb_spec_code = SpecCode, common_name = FBname) |>
+  filter(!is.na(common_name))
+
+common_fams <- read_csv(file.path(ps_paths$projects, "legacy-db", "data/raw/taxonomy/fish/fish_common_families.csv"),
+                        show_col_types = FALSE) |>
+  clean_names()
+
+new_taxa <- new_taxa |>
+  left_join(common_fams, by = "family") |>
+  left_join(common_names, by = "fb_spec_code")
+
+# 5. Get trophic guild/group classifications (Parravicini et al. + Akiona et al.)
+trophic_guilds <- read_csv(file.path(ps_paths$projects, "legacy-db", "data/raw/taxonomy/fish/Parravicini_et_al_pbio.3000702.s004.csv")) |>
+  clean_names() |>
+  mutate(taxon_name = str_replace_all(species, "_", " ")) |>
+  select(family, taxon_name, trophic_guild = trophic_guild_predicted_text) |>
+  mutate(trophic_guild = str_to_lower(trophic_guild) |>
+           str_replace_all("-", "_") |>
+           str_replace_all(" ", "_") |>
+           str_replace_all("/", " | "))
+
+akiona_df <- readxl::read_excel(file.path(ps_paths$projects, "legacy-db", "data/raw/taxonomy/fish/Akiona_et_al_bb29484643_1_1.xlsx"),
+                                sheet = "Length-Weight Parameter Table") |>
+  clean_names() |>
+  mutate(taxon = str_replace_all(taxon, "Plectorhincus", "Plectorhinchus"),
+         taxon = str_replace_all(taxon, "nagasakensis", "nagasakiensis"),
+         taxon = case_when(taxon == "Pristiapogon trimaculatus" ~ "Pristicon trimaculatus",
+                           TRUE ~ taxon)) |>
+  mutate(taxon = str_squish(taxon),
+         taxon = str_remove_all(taxon, "\\bspecies\\b"),
+         taxon = str_trim(taxon)) |>
+  filter(!str_detect(taxon, " x ")) |>
+  distinct(taxon, trophic_group = trophic_classification, lw_a = a,  lw_b = b,  ltl_ratio = source_length_to_total_length_ratio,
+           lw_type = source_length_type) |>
+  mutate(trophic_group = str_to_lower(trophic_group) |>
+           str_replace("-", "_") |>
+           str_replace("/", " | "))
+
+new_taxa <- new_taxa |>
+  left_join(trophic_guilds |>
+              distinct(taxon_name, trophic_guild), by = c("accepted_name" = "taxon_name")) |>
+  left_join(akiona_df |>
+              distinct(taxon, trophic_group),
+            by = c("accepted_name" = "taxon"))
+
+# 6. Get length-weight parameters: prefer Akiona et al. values, falling
+#    back to FishBase estimates only where Akiona has no match
+new_taxa <- new_taxa |>
+  left_join(akiona_df |>
+              mutate(lw_source = "Akiona et al. (2025)") |>
+              select(accepted_name = taxon, lw_a, lw_b, ltl_ratio, lw_type, lw_source),
+            by = "accepted_name")
+
+n_missing_lw <- nrow(new_taxa |> filter(is.na(lw_a)))
+if (n_missing_lw > 0) {
+  cli::cli_alert_warning("{n_missing_lw} taxa without length-weight parameters.")
+} else {
+  cli::cli_alert_success("All new taxa have length-weight parameters.")
+}
+
+fb_estimates <- rfishbase::estimate() |>
+  clean_names() |>
+  mutate(tl_max_source = "FishBase",
+         lw_source     = "FishBase",
+         ltl_ratio     = 1,
+         lw_type       = "TL") |>
+  select(fb_spec_code  = spec_code,
+         tl_max        = max_length_tl,
+         lw_a          = a,
+         lw_b          = b,
+         lw_source,
+         tl_max_source,
+         ltl_ratio,
+         lw_type)
+
+new_taxa <- new_taxa |>
+  left_join(fb_estimates |>
+              select(fb_spec_code, tl_max, tl_max_source,
+                     lw_a_fb = lw_a, lw_b_fb = lw_b, ltl_ratio_fb = ltl_ratio,
+                     lw_type_fb = lw_type, lw_source_fb = lw_source),
+            by = "fb_spec_code") |>
+  mutate(lw_a      = coalesce(lw_a, lw_a_fb),
+         lw_b      = coalesce(lw_b, lw_b_fb),
+         ltl_ratio = coalesce(ltl_ratio, ltl_ratio_fb),
+         lw_type   = coalesce(lw_type, lw_type_fb),
+         lw_source = coalesce(lw_source, lw_source_fb)) |>
+  select(-lw_a_fb, -lw_b_fb, -ltl_ratio_fb, -lw_type_fb, -lw_source_fb)
+
+# 7. Get habitat zone and fishery importance from FishBase
+new_taxa <- new_taxa |>
+  left_join(fb_species_db |>
+              select(fb_spec_code = SpecCode, habitat_zone = DemersPelag, fishery_importance = Importance),
+            by = "fb_spec_code")
+
+# 8. Match against the IUCN Red List for conservation status
+iucn_db <- read_csv(file.path(ps_paths$datasets, "iucn-redlist-marine-species", "joined_and_resolved_taxa.csv"),
+                    show_col_types = FALSE)
+
+iucn_priority <- c("CR", "EN", "VU", "NT", "LC", "DD", "NE")
+
+iucn_clean <- iucn_db |>
+  rename(accepted_name = taxon_valid_name) |>
+  filter(accepted_name %in% new_taxa$accepted_name) |>
+  distinct(accepted_name, iucn_redlist_cat, iucn_taxon_id) |>
+  mutate(iucn_redlist_cat = case_when(str_detect(iucn_redlist_cat, "Critically Endangered")      ~ "CR",
+                                      str_detect(iucn_redlist_cat, "Endangered")                 ~ "EN",
+                                      str_detect(iucn_redlist_cat, "Vulnerable")                 ~ "VU",
+                                      str_detect(iucn_redlist_cat, "Near Threatened")            ~ "NT",
+                                      str_detect(iucn_redlist_cat, "Least Concern")              ~ "LC",
+                                      str_detect(iucn_redlist_cat, "Data Deficient")             ~ "DD",
+                                      str_detect(iucn_redlist_cat, "Extinct")                    ~ "EX",
+                                      str_detect(iucn_redlist_cat, "Lower Risk/least concern")   ~ "LC",
+                                      str_detect(iucn_redlist_cat, "Lower Risk/near threatened") ~ "NT",
+                                      TRUE ~ NA_character_)) |>
+  mutate(iucn_rank = match(iucn_redlist_cat, c("EX", iucn_priority))) |>
+  group_by(accepted_name) |>
+  arrange(iucn_rank) |>
+  slice(1) |>
+  ungroup() |>
+  select(-iucn_rank) |>
+  rename(iucn_cat = iucn_redlist_cat,
+         iucn_sis_id = iucn_taxon_id)
+
+new_taxa <- new_taxa |>
+  left_join(iucn_clean, by = "accepted_name")
+
+# 9. Upload the resolved taxa and their codes to BigQuery
+
+bq_table_upload(bq_table("pristine-seas", "taxa_info", "fish"),
+                values             = new_taxa,
+                create_disposition = "CREATE_NEVER",
+                write_disposition  = "WRITE_APPEND")
+
+new_codes <- new_codes |>
+  left_join(new_taxa, by = c("taxon_name", "accepted_name", "rank")) |>
+  select(any_of(colnames(existing_codes)))
+
+bq_table_upload(bq_table("pristine-seas", "taxa_info", "uvs_fish_codes"),
+                values             = new_codes,
+                create_disposition = "CREATE_NEVER",
+                write_disposition  = "WRITE_APPEND")
+```
+
+### Trait Assignment
+
+Resolved taxa are joined to `taxa_info.fish` for rank, family, trophic group, and the length–weight parameters the biomass step needs.
+
+```{r join_taxon_traits}
+#| message: true
+
+fish_taxa <- fish_taxa |>
+  left_join(fish_taxa_lut |>
+              distinct(accepted_aphia_id, accepted_name, rank, family, trophic_group,
+                       tl_max, lw_a, lw_b, ltl_ratio),
+            by = "accepted_aphia_id")
+
+dupes <- fish_taxa |> get_dupes(taxon_code)
+
+if (nrow(dupes) == 0) {
+  cli::cli_alert_success("No duplicate taxa after joining traits.")
+} else {
+  cli::cli_alert_warning("{nrow(dupes)} taxon record{?s} duplicated after joining traits:")
+  dupes |> light_gt()
+}
+
+missing_params  <- fish_taxa |> filter(is.na(lw_a) | is.na(lw_b))
+missing_trophic <- fish_taxa |> filter(is.na(trophic_group))
+
+if (nrow(missing_params) == 0) {
+  cli::cli_alert_success("All taxa have length-weight parameters.")
+} else {
+  cli::cli_alert_warning("{nrow(missing_params)} taxa without length-weight parameters — they contribute no biomass:")
+  missing_params |> select(taxon_code, taxon, accepted_name, rank, family) |> light_gt()
+}
+
+if (nrow(missing_trophic) == 0) {
+  cli::cli_alert_success("All taxa have a trophic group.")
+} else {
+  cli::cli_alert_warning("{nrow(missing_trophic)} taxa without a trophic group:")
+  missing_trophic |> select(taxon_code, taxon, accepted_name, rank, family) |> light_gt()
+}
+```
+
+## Join with Observations
+
+```{r join_taxonomy_observations}
+#| message: true
+
+blt_observations <- blt_observations |>
+  left_join(fish_taxa |>
+              select(taxon_code, accepted_name, accepted_aphia_id, rank, family,
+                     trophic_group, tl_max, lw_a, lw_b, ltl_ratio),
+            by = "taxon_code") |>
+  select(obs_id, ps_site_id, ps_station_id, exp_id, diver, depth_strata, depth_m,
+         station_label, transect, transect_length_m, transect_width_m,
+         accepted_name, accepted_aphia_id, rank, family, trophic_group,
+         count, length_cm, lw_a, lw_b, ltl_ratio, tl_max, terminal_phase, notes)
+
+stopifnot("Observations left without an accepted name" = !any(is.na(blt_observations$accepted_name)))
+
+cli::cli_alert_success(
+  "Taxonomy joined: {n_distinct(blt_observations$accepted_name)} taxa across {nrow(blt_observations)} observations ({scales::comma(sum(blt_observations$count, na.rm = TRUE))} fish)."
+)
+```
+
+```{r tbl-obs-by-rank}
+#| tbl-cap: "Observations by taxonomic rank"
+
+blt_observations |>
+  group_by(rank) |>
+  summarize(n_taxa = n_distinct(accepted_name),
+            n_obs  = n(),
+            n_fish = sum(count, na.rm = TRUE),
+            .groups = "drop") |>
+  arrange(desc(n_fish)) |>
+  light_gt() |>
+  cols_label(rank = "Rank", n_taxa = "# Taxa", n_obs = "# Observations", n_fish = "# Fish")
+```
+
+```{r tbl-obs-by-trophic}
+#| tbl-cap: "Observations by trophic group"
+
+blt_observations |>
+  group_by(trophic_group) |>
+  summarize(n_taxa = n_distinct(accepted_name),
+            n_fish = sum(count, na.rm = TRUE),
+            .groups = "drop") |>
+  mutate(pct = round(100 * n_fish / sum(n_fish), 2)) |>
+  arrange(desc(n_fish)) |>
+  light_gt() |>
+  cols_label(trophic_group = "Trophic group", n_taxa = "# Taxa", n_fish = "# Fish", pct = "% of fish")
+```
+
+# 4. QA/QC Validation
+
+Validation runs at three levels — observations, transects, and stations — using `pointblank` agents. Missing core fields and impossible values are hard stops; deviations from standard effort issue warnings, since a shortened transect is a real field possibility.
+
+## Observation Checks
+
+```{r qaqc_observations}
+#| message: true
+
+# al_block/al_warn are defined once here and reused by the Transect and
+# Station checks below — keep this the first QA/QC chunk if the section order
+# ever changes.
+al_block <- action_levels(stop_at = 1,
+                          fns = list(stop = ~ stop("Blocking QA/QC check failed — see report above.", call. = FALSE)))
+
+al_warn <- action_levels(warn_at = 1)
+
+create_agent(tbl = blt_observations |>
+               mutate(tl_max_tol = tl_max + length_tolerance_cm),
+             label    = "Fish BLT Observations QA/QC",
+             tbl_name = "blt_observations") |>
+  rows_distinct(columns = vars(obs_id),
+                label   = "Observation IDs are unique",
+                actions = al_block) |>
+  rows_complete(columns = vars(ps_site_id),
+                label   = "Every observation is spatially placeable",
+                actions = al_block) |>
+  rows_complete(columns = vars(transect, accepted_name, family, trophic_group),
+                label   = "Taxonomy and transect label are not null",
+                actions = al_block) |>
+  rows_complete(columns = vars(ps_station_id, count),
+                label   = "Records have a station ID and a count",
+                actions = al_block) |>
+  col_vals_gte(columns = vars(count),
+               value   = 1,
+               label   = "Count is positive",
+               actions = al_block) |>
+  col_vals_in_set(columns = vars(trophic_group),
+                  set     = allowed_vocab$trophic_group,
+                  label   = "Trophic group in allowed vocabulary",
+                  actions = al_block) |>
+  rows_complete(columns = vars(depth_strata),
+                label   = "Depth stratum assigned",
+                actions = al_warn) |>
+  col_vals_lte(columns = vars(length_cm),
+               value   = vars(tl_max_tol),
+               label   = paste0("Length within ", length_tolerance_cm, " cm of max reported"),
+               actions = al_warn,
+               na_pass = TRUE) |>
+  interrogate()
+```
+
+Lengths beyond a species' known maximum are flagged for review, not overwritten. An implausible length propagates into biomass through a power law, so these are worth knowing about — but across the Southern Line Islands series every exceedance traces to the reference value rather than the diver. `Pycnochromis agilis` carries a `tl_max` of 5.98 cm for a fish that reaches roughly 10, and a 208 cm *Mobula birostris* in 2023 sits against a `tl_max` of 142 for a ray that grows past 5 m. Capping to those numbers would replace a defensible field observation with an indefensible reference one, so the check reports and moves on.
+
+```{r cap_length_anomalies}
+#| message: true
+
+length_anomalies <- blt_observations |>
+  filter(length_cm > tl_max) |>
+  mutate(abs_diff = length_cm - tl_max,
+         pct_diff = round(100 * abs_diff / tl_max)) |>
+  select(obs_id, accepted_name,
+         diver, transect, length_cm, tl_max, pct_diff, abs_diff) |>
+  arrange(desc(pct_diff)) |>
+  filter(abs_diff > length_tolerance_cm)
+
+if (nrow(length_anomalies) == 0) {
+  cli::cli_alert_success("No observed lengths exceed the species' known maximum by more than {length_tolerance_cm} cm.")
+} else {
+  cli::cli_alert_warning("{nrow(length_anomalies)} observation{?s} exceed the species' known maximum length by more than {length_tolerance_cm} cm — flagged below, not altered:")
+    length_anomalies |>
+      light_gt() |>
+      cols_label(obs_id        = "Observation",
+                 accepted_name = "Accepted Name",
+                 diver         = "Diver",
+                 transect      = "Transect",
+                 length_cm     = "Length (cm)",
+                 tl_max        = "Max Length (cm)",
+                 pct_diff      = "% Diff",
+                 abs_diff      = "Abs Diff (cm)")
+  
+}
+
+blt_observations <- blt_observations |>
+  mutate(abs_diff  = if_else(!is.na(tl_max) & length_cm > tl_max,
+                             length_cm - tl_max,
+                             NA_real_),
+         pct_diff  = if_else(!is.na(abs_diff),
+                             round(100 * abs_diff / tl_max),
+                             NA_real_)) |>
+  select(obs_id, ps_site_id, ps_station_id, exp_id,
+         diver, depth_strata, depth_m, station_label, transect, transect_length_m, transect_width_m,
+         accepted_name, accepted_aphia_id, rank, family, trophic_group,
+         count, length_cm, lw_a, lw_b, ltl_ratio, tl_max, terminal_phase, notes)
+```
+
+## Transect Checks
+
+Each transect is validated for completeness and standard effort: `r params$standard_transect_length_m` m, within `r params$max_depth_m` m depth.
+
+```{r qaqc_transects}
+transects |>
+  create_agent(label    = "Fish BLT Transects QA/QC",
+               tbl_name = "transects") |>
+  rows_complete(columns = vars(ps_site_id, diver, station_label, transect),
+                label   = "Core fields are not null",
+                actions = al_block) |>
+  col_vals_lte(columns = vars(avg_depth_m),
+               value   = max_depth_m,
+               label   = paste0("Depth is at most ", max_depth_m, " m"),
+               actions = al_warn) |>
+  col_vals_equal(columns = vars(transect_length_m),
+                 value   = standard_transect_length_m,
+                 label   = paste0("Standard transect length (", standard_transect_length_m, " m)"),
+                 actions = al_warn) |>
+  interrogate()
+```
+
+## Station Checks
+
+```{r qaqc_stations}
+stations |>
+  mutate(label_depth_m = parse_number(station_label)) |>
+  create_agent(label = "Fish BLT Stations QA/QC", tbl_name = "raw_stations") |>
+  rows_complete(columns = vars(ps_station_id, ps_site_id, depth_m, depth_strata, n_transects),
+                label   = "Core fields are not null",
+                actions = al_block) |>
+  rows_distinct(ps_station_id,
+                label   = "Station IDs are unique",
+                actions = al_warn) |>
+  # The station label is the depth the team worked (10m), not the stratum name,
+  # so it is checked against the depth it claims.
+  col_vals_equal(columns = vars(depth_m),
+                 value   = vars(label_depth_m),
+                 label   = "Station label matches recorded depth",
+                 actions = al_warn) |>
+  col_vals_in_set(columns = vars(depth_strata),
+                  set     = allowed_vocab$depth_strata,
+                  label   = "Depth strata in allowed vocabulary",
+                  actions = al_block) |>
+  interrogate()
+```
+
+::: {.callout-note}
+Where a team works two depths at one site, both can land in the same standardized stratum and their transects must then merge into a single station. That cannot happen in 2009 — one depth, one station per site — so the duplicate check and the consolidation step below are retained as guards, and both report no-ops. They earn their place in 2021, where 10 m and 15 m both resolve to `shallow`.
+:::
+
+```{r check_dupe_stations}
+#| message: true
+
+dupe_stations <- stations |>
+  get_dupes(ps_station_id) |>
+  select(ps_site_id, divers, station_label, depth_m, depth_strata, n_transects)
+
+if (nrow(dupe_stations) == 0) {
+  cli::cli_alert_success("No duplicate station IDs after aggregation.")
+} else {
+  cli::cli_alert_warning("{nrow(dupe_stations)} duplicate station ID{?s} found after aggregation:")
+  dupe_stations |> light_gt()
+}
+
+# Three stations were worked by a single diver rather than a pair, so they carry
+# three transects instead of six. That is the survey as run, not a data problem.
+off_effort <- stations |>
+  group_by(ps_station_id) |>
+  summarise(n = sum(n_transects), .groups = "drop") |>
+  filter(n != transects_per_station)
+
+if (nrow(off_effort) == 0) {
+  cli::cli_alert_success("Every station has its expected {transects_per_station} diver-transects.")
+} else {
+  cli::cli_alert_warning("{nrow(off_effort)} station{?s} away from {transects_per_station} diver-transects: {paste0(off_effort$ps_station_id, ' (', off_effort$n, ')')}")
+}
+```
+
+### Consolidating Duplicate Stations
+
+This is the one step in the section that changes data rather than inspecting it. Stations sharing a site and a depth stratum are merged, with effort summed across their separately logged transects, and the site attributes are joined on. In 2009 there is nothing to merge — the value of the step here is the join, and the guarantee that a year with two depths would be handled the same way.
+
+```{r consolidate_stations}
+#| message: true
+
+n_before <- nrow(stations)
+
+stations <- stations |>
+  # ps_site_id and depth_strata are both encoded in ps_station_id, so they are carried
+  # rather than grouped on — keeping them here would just restate the key.
+  group_by(ps_station_id, ps_site_id, depth_strata) |>
+  summarize(divers         = paste0(sort(unique(divers)), collapse = " | "),
+            # weighted by effort: a merged station's depth is the mean of the
+            # depths actually swum, not of the two labels
+            depth_m        = weighted.mean(depth_m, n_transects),
+            n_transects    = sum(n_transects),
+            survey_dist_m  = sum(survey_dist_m),
+            survey_area_m2 = sum(survey_area_m2),
+            .groups = "drop") |>
+  ungroup() |>
+  left_join(uvs_sites |>
+              select(ps_site_id, region, exp_id, subregion, locality, habitat, exposure),
+            by = "ps_site_id") |>
+  select(ps_station_id, ps_site_id, exp_id,
+         region, subregion, locality, habitat, exposure,
+         depth_strata, depth_m, divers,
+         n_transects, survey_dist_m, survey_area_m2)
+
+n_after <- nrow(stations)
+
+if (n_after == n_before) {
+  cli::cli_alert_success("No duplicate stations to consolidate.")
+} else {
+  cli::cli_alert_success("{n_before - n_after} duplicate station{?s} consolidated: {n_before} station{?s} before, {n_after} after.")
+}
+```
+
+After consolidating, stations with higher-than-usual sampling effort are flagged for review.
+
+```{r check_high_effort_stations}
+#| message: true
+
+# One transect above expectation is worth a look; consolidation legitimately pushes a
+# merged station to twice `transects_per_station`, which is what this surfaces.
+high_effort_stations <- stations |>
+  filter(n_transects > transects_per_station + 1) |>
+  select(ps_site_id, region, subregion, habitat, exposure, depth_m, depth_strata, divers, n_transects)
+
+if (nrow(high_effort_stations) == 0) {
+  cli::cli_alert_success("No stations with higher-than-usual sampling effort.")
+} else {
+  cli::cli_alert_warning("{nrow(high_effort_stations)} station{?s} with higher-than-usual sampling effort:")
+  high_effort_stations |> light_gt()
+}
+```
+
+# 5. Biomass Calculation
+
+Biomass is built in three steps: any missing length–weight parameters are imputed from relatives recorded nearby, each observation is converted to grams, and the result is rolled up transect → station alongside density.
+
+## Imputing Missing Length–Weight Parameters
+
+Records identified only to genus or family carry no length–weight parameters, since the reference table holds them at species level. Without parameters a fish counts toward density but contributes **zero** biomass, silently deflating every biomass figure downstream.
+
+Gaps are filled by borrowing from relatives actually seen nearby: a genus-level record from its congeners, a family-level record from its confamilials, taking whichever were recorded **at the same site**; if none were, the search widens to the **island**.
+
+::: {.callout-note title="Why a geometric mean for `lw_a`" appearance="simple"}
+In `W = a · L^b`, `a` is a scale coefficient spanning orders of magnitude across taxa, so it is averaged on the log scale — the geometric mean — while `b` and the length-conversion ratio are averaged directly. Donors are pooled at the taxon level, not the observation level, so an abundant species does not outweigh a rare one.
+:::
+
+```{r impute_params}
+#| message: true
+
+# Where each gap may borrow from: a genus-level record from its congeners, a
+# family-level one from its confamilials. genus is not carried on fish_taxa.
+borrow_keys <- fish_taxa |>
+  distinct(accepted_name, rank, family) |>
+  left_join(distinct(fish_taxa_lut, accepted_name, genus), by = "accepted_name") |>
+  transmute(accepted_name,
+            borrow_level = if_else(rank == "genus", "genus", "family"),
+            borrow_key   = if_else(rank == "genus", genus, family))
+
+# Taxa that DO have a complete parameter set, and where they were recorded.
+# distinct() keeps this at taxon level so an abundant species does not outweigh a rare one.
+donors <- blt_observations |>
+  filter(!is.na(lw_a), !is.na(lw_b), !is.na(ltl_ratio)) |>
+  left_join(distinct(fish_taxa_lut, accepted_name, genus), by = "accepted_name") |>
+  left_join(distinct(uvs_sites, ps_site_id, subregion),    by = "ps_site_id") |>
+  distinct(accepted_name, genus, family, ps_site_id, subregion, lw_a, lw_b, ltl_ratio)
+
+# One pool per taxonomic key x spatial scope. Each donor contributes to its genus and
+# its family, at both its site and its subregion — hence the two pivots.
+pools <- donors |>
+  pivot_longer(c(genus, family),         names_to = "borrow_level", values_to = "borrow_key") |>
+  pivot_longer(c(ps_site_id, subregion), names_to = "scope",        values_to = "scope_value") |>
+  filter(!is.na(borrow_key)) |>
+  group_by(borrow_level, borrow_key, scope, scope_value) |>
+  summarise(n_donors  = n_distinct(accepted_name),
+            lw_a      = exp(mean(log(lw_a))),   # geometric: a spans orders of magnitude
+            lw_b      = mean(lw_b),
+            ltl_ratio = mean(ltl_ratio),
+            .groups   = "drop")
+
+# Each gap takes the nearest scope that has donors: its own site, else its island.
+fills <- blt_observations |>
+  filter(is.na(lw_a)) |>
+  left_join(borrow_keys, by = "accepted_name") |>
+  left_join(distinct(uvs_sites, ps_site_id, subregion), by = "ps_site_id") |>
+  select(obs_id, accepted_name, family, count, borrow_level, borrow_key,
+         ps_site_id, subregion) |>
+  pivot_longer(c(ps_site_id, subregion), names_to = "scope", values_to = "scope_value") |>
+  inner_join(pools, by = c("borrow_level", "borrow_key", "scope", "scope_value")) |>
+  slice_min(match(scope, c("ps_site_id", "subregion")), by = obs_id, with_ties = FALSE)
+
+blt_observations <- blt_observations |>
+  rows_update(select(fills, obs_id, lw_a, lw_b, ltl_ratio), by = "obs_id", unmatched = "ignore")
+
+# -- Report --------------------------------------------------------------------
+unfilled <- blt_observations |> filter(is.na(lw_a))
+
+if (nrow(fills) == 0) {
+  cli::cli_alert_success("Every observation already had length-weight parameters.")
+} else {
+  cli::cli_alert_warning(
+    "{nrow(fills)} observation{?s} ({sum(fills$count, na.rm = TRUE)} fish) had no length-weight parameters; borrowed from relatives recorded nearby:")
+  fills |>
+    count(accepted_name, family, scope, n_donors, name = "n_obs") |>
+    arrange(desc(n_obs)) |>
+    light_gt() |>
+    cols_label(accepted_name = "Taxon", family = "Family",
+               scope = "Borrowed within", n_donors = "Donor taxa", n_obs = "Observations")
+}
+
+if (nrow(unfilled) > 0) {
+  cli::cli_alert_warning(
+    "{nrow(unfilled)} observation{?s} found no donors and will contribute no biomass: {unique(unfilled$accepted_name)}")
+}
+```
+
+## Per Observation
+
+Each fish is converted to grams through its taxon's length–weight relationship, `W = a · (L · ltl)^b`, where `ltl` rescales the recorded total length to the length type the parameters were fitted on. The parameters have done their work by the end of this chunk and are dropped.
+
+```{r biomass_calc}
+blt_observations <- blt_observations |>
+  mutate(avg_biomass = lw_a * (length_cm * ltl_ratio)^lw_b,
+         biomass_g   = round(count * avg_biomass, 4)) |>
+  select(-tl_max, -lw_a, -lw_b, -ltl_ratio, -avg_biomass)
+```
+
+## By Transect and Taxa
+
+Counts, density, and biomass are summed within each transect × taxon combination.
+
+```{r biomass_by_transect_and_taxa}
+biomass_by_transect_and_taxa <- blt_observations |>
+  mutate(density_m2  = count / (transect_length_m * transect_width_m),
+         biomass_gm2 = round(biomass_g / (transect_length_m * transect_width_m), 4)) |>
+  group_by(ps_station_id, diver, station_label, transect,
+           accepted_name, accepted_aphia_id, rank, family, trophic_group) |>
+  summarize(# individuals actually carrying a length — the weight the station rollup
+            # needs, and the correct denominator: dividing by every individual would
+            # dilute the mean with unmeasured fish
+            sized_count   = sum(count[!is.na(length_cm)], na.rm = TRUE),
+            avg_length_cm = weighted.mean(length_cm, count, na.rm = TRUE),
+            min_length    = min(length_cm, na.rm = TRUE),
+            max_length    = max(length_cm, na.rm = TRUE),
+            across(c(count, biomass_g, biomass_gm2, density_m2), \(x) sum(x, na.rm = TRUE)),
+            .groups = "drop")
+```
+
+## By Station and Taxa
+
+Transect totals are rolled up to the station. `complete()` crosses **every** transect with **every** taxon recorded on the expedition and zero-fills the gaps **before averaging** — without it a taxon absent from one transect would be silently missing rather than a true zero, overstating its density and biomass wherever it does occur.
+
+```{r blt_biomass_by_station_taxa}
+blt_biomass_by_station_taxa <- biomass_by_transect_and_taxa |>
+  complete(nesting(ps_station_id, diver, station_label, transect),
+           nesting(accepted_name, accepted_aphia_id, rank, family, trophic_group),
+           fill = list(sized_count = 0, avg_length_cm = NA_real_,
+                       min_length = NA, max_length = NA,
+                       count = 0, biomass_g = 0, density_m2 = 0, biomass_gm2 = 0)) |>
+  group_by(ps_station_id, accepted_name, accepted_aphia_id, rank, family, trophic_group) |>
+  summarise(total_count   = sum(count, na.rm = TRUE),
+            avg_count     = mean(count),
+            # Re-weighting each transect mean by the fish behind it is exactly
+            # sum(length x count) / sum(count) across the station. `sized_count` is
+            # deliberately not summarised into a column of its own: summarise()
+            # evaluates in order, so that would collapse the weight to a scalar
+            # before this line could use it as a vector.
+            avg_length_cm = weighted.mean(avg_length_cm, sized_count, na.rm = TRUE),
+            min_length_cm = if_else(total_count > 0,
+                                    if (all(is.na(min_length))) NA_real_ else min(min_length, na.rm = TRUE),
+                                    NA_real_),
+            max_length_cm = if_else(total_count > 0,
+                                    if (all(is.na(max_length))) NA_real_ else max(max_length, na.rm = TRUE),
+                                    NA_real_),
+            avg_density_m2  = mean(density_m2),
+            avg_biomass_gm2 = mean(biomass_gm2),
+            .groups = "drop") |>
+  # weighted.mean() returns NaN where a taxon was never measured at a station; both
+  # read as missing, but the column should carry one kind of missing value, not two
+  mutate(avg_length_cm = if_else(is.nan(avg_length_cm), NA_real_, round(avg_length_cm, 2)))
+```
+
+A taxon-level summary follows, with stations averaged to site before the taxon mean is taken.
+
+```{r taxa_summary}
+taxa_summary <- blt_biomass_by_station_taxa |>
+  left_join(stations |> distinct(ps_site_id, ps_station_id), by = "ps_station_id") |>
+  group_by(family, trophic_group, accepted_name, ps_site_id) |>
+  summarise(total_count     = sum(total_count),
+            avg_density_m2  = mean(avg_density_m2, na.rm = TRUE),
+            avg_biomass_gm2 = mean(avg_biomass_gm2, na.rm = TRUE),
+            .groups = "drop") |>
+  group_by(family, trophic_group, accepted_name) |>
+  summarise(pct_sites          = round(100 * n_distinct(ps_site_id[total_count > 0]) / n_distinct(stations$ps_site_id), 3),
+            total_count        = sum(total_count),
+            avg_density_m2     = mean(avg_density_m2, na.rm = TRUE),
+            median_biomass_gm2 = median(avg_biomass_gm2, na.rm = TRUE),
+            avg_biomass_gm2    = mean(avg_biomass_gm2, na.rm = TRUE),
+            .groups = "drop") |>
+  mutate(across(c(pct_sites, avg_density_m2, total_count, avg_biomass_gm2, median_biomass_gm2),
+                \(x) round(x, 3))) |>
+  select(trophic_group, family, everything())
+
+write_csv(taxa_summary, file.path(data_out, paste0(exp_id, "_uvs_blt_taxa_summary.csv")))
+
+# VUT breaks this down by depth strata; SLI surveyed a single depth per site, so the
+# same summary is cut by island — the gradient this expedition actually sampled.
+# Feeds the mean markers on the top-taxa figure in section 8.
+taxa_summary_by_island <- blt_biomass_by_station_taxa |>
+  left_join(stations |> distinct(ps_site_id, ps_station_id), by = "ps_station_id") |>
+  left_join(uvs_sites |> distinct(ps_site_id, subregion), by = "ps_site_id") |>
+  group_by(family, trophic_group, subregion, accepted_name) |>
+  summarise(pct_sites          = round(100 * n_distinct(ps_site_id[total_count > 0]) / n_distinct(stations$ps_site_id), 3),
+            avg_density_m2     = mean(avg_density_m2, na.rm = TRUE),
+            median_biomass_gm2 = median(avg_biomass_gm2, na.rm = TRUE),
+            avg_biomass_gm2    = mean(avg_biomass_gm2, na.rm = TRUE),
+            .groups = "drop") |>
+  mutate(across(c(pct_sites, avg_density_m2, avg_biomass_gm2, median_biomass_gm2),
+                \(x) round(x, 3)))
+```
+
+Zero-count rows are dropped and station metadata joined in to produce the final table. Biomass is also summarized by trophic group, with `pivot_wider()` ensuring every group — even ones with zero biomass — is represented at every station.
+
+```{r finalize_biomass_by_station_taxa}
+blt_biomass_by_station_taxa <- blt_biomass_by_station_taxa |>
+  filter(total_count > 0) |>
+  # station metadata first (it carries ps_site_id), then the site attributes
+  left_join(stations |>
+              select(ps_station_id, ps_site_id, exp_id, region, subregion, habitat, exposure,
+                     depth_strata, depth_m, divers, n_transects, survey_area_m2),
+            by = "ps_station_id") |>
+  select(ps_station_id, ps_site_id, exp_id,
+         region, subregion, habitat, exposure, depth_strata, depth_m, divers, n_transects, survey_area_m2,
+         accepted_name, accepted_aphia_id, rank, family, trophic_group,
+         total_count, avg_count, avg_length_cm, min_length_cm, max_length_cm,
+         avg_density_m2, avg_biomass_gm2)
+
+biomass_by_station_and_group <- blt_biomass_by_station_taxa |>
+  group_by(ps_station_id, trophic_group) |>
+  summarize(avg_biomass_gm2 = round(sum(avg_biomass_gm2), 2), .groups = "drop") |>
+  pivot_wider(names_from = trophic_group, values_from = avg_biomass_gm2, values_fill = 0) |>
+  pivot_longer(cols = -ps_station_id, names_to = "trophic_group", values_to = "avg_biomass_gm2") |>
+  group_by(ps_station_id) |>
+  mutate(pct_biomass = round(100 * avg_biomass_gm2 / sum(avg_biomass_gm2), 1)) |>
+  ungroup()
+
+# Shared trophic group display labels, reused throughout Section 6
+trophic_labels <- c(shark                     = "Shark",
+                    top_predator              = "Top Predator",
+                    lower_carnivore           = "Lower Carnivore",
+                    `herbivore | detritivore` = "Herbivore / Detritivore",
+                    planktivore               = "Planktivore")
+```
+
+# 6. Summary Statistics
+
+## Station Summary
+
+```{r build_blt_stations}
+#| message: true
+
+transect_summary <- biomass_by_transect_and_taxa |>
+  group_by(ps_station_id, diver, station_label, transect) |>
+  summarize(n_taxa      = n_distinct(accepted_aphia_id[count > 0]),
+            total_count = sum(count),
+            density_m2  = sum(density_m2),
+            biomass_gm2 = sum(biomass_gm2),
+            .groups = "drop")
+
+avg_taxa_per_transect <- transect_summary |>
+  group_by(ps_station_id) |>
+  summarise(avg_taxa = round(mean(n_taxa)), .groups = "drop")
+
+station_stats <- blt_biomass_by_station_taxa |>
+  group_by(ps_station_id) |>
+  summarize(n_taxa          = round(n_distinct(accepted_aphia_id[total_count > 0])),
+            total_count     = sum(total_count),
+            avg_count       = round(sum(avg_count)),
+            avg_density_m2  = round(sum(avg_density_m2), 3),
+            avg_biomass_gm2 = round(sum(avg_biomass_gm2), 3),
+            .groups = "drop")
+
+biomass_pcts_by_station <- biomass_by_station_and_group |>
+  select(-avg_biomass_gm2) |>
+  pivot_wider(names_from = trophic_group, values_from = pct_biomass,
+              names_prefix = "pct_", values_fill = 0) |>
+  clean_names() |>
+  rename(any_of(c(pct_herbi_detri = "pct_herbivore_detritivore",
+                  pct_lower_carni = "pct_lower_carnivore",
+                  pct_plankti     = "pct_planktivore")))
+
+# `stations` already carries the site attributes, joined in consolidate_stations
+blt_stations <- stations |>
+  left_join(station_stats, by = "ps_station_id") |>
+  left_join(avg_taxa_per_transect, by = "ps_station_id") |>
+  left_join(biomass_pcts_by_station, by = "ps_station_id") |>
+  # The fieldbook records no per-observation notes for this expedition, so there is
+  # nothing to roll up. The column exists because uvs.blt_stations defines it.
+  mutate(notes = NA_character_)
+
+avg_biomass_by_group_station <- biomass_by_station_and_group |>
+  group_by(trophic_group) |>
+  summarize(avg_pct_biomass = round(mean(pct_biomass, na.rm = TRUE), 1), .groups = "drop") |>
+  arrange(desc(avg_pct_biomass)) |>
+  mutate(group_label = trophic_labels[as.character(trophic_group)])
+
+biomass_bullets <- setNames(
+  sprintf("%.1f%% avg. %s biomass", avg_biomass_by_group_station$avg_pct_biomass,
+          avg_biomass_by_group_station$group_label),
+  rep("*", nrow(avg_biomass_by_group_station)))
+
+cli::cli_inform(c(
+  v = "Station summary calculated:",
+  "*" = "{nrow(blt_stations)} station{?s}",
+  "*" = "{round(mean(blt_stations$n_taxa, na.rm = TRUE), 1)} avg. taxa per station",
+  "*" = "{round(mean(blt_stations$avg_biomass_gm2, na.rm = TRUE), 2)} g/m² avg. biomass",
+  biomass_bullets))
+```
+
+::: {.callout-note title="Fish survey effort" appearance="simple"}
+Across `r n_distinct(blt_stations$ps_site_id)` sites, `r nrow(blt_stations)` stations and `r sum(blt_stations$n_transects)` diver-transects, we recorded `r format(sum(blt_stations$total_count, na.rm = TRUE), big.mark = ",")` fish spanning `r n_distinct(fish_taxa$accepted_name)` identified taxa. **Mean fish biomass across stations was `r round(mean(blt_stations$avg_biomass_gm2, na.rm = TRUE), 1)` g/m²**.
+:::
+
+## By Subregion
+
+Biomass composition by trophic group is summarized by region and subregion, **with stations averaged to site** before subregional aggregation, alongside average taxa richness and biomass.
+
+```{r tbl-biomass-by-subregion}
+#| tbl-cap: "Fish survey effort and mean biomass (%) by trophic group and subregion"
+
+# overall avg % biomass by trophic group, across all stations — sets the column order below
+
+avg_pct_by_group <- biomass_by_station_and_group |>
+  group_by(trophic_group) |>
+  summarise(pct_biomass = round(mean(pct_biomass), 1), .groups = "drop") |>
+  arrange(desc(pct_biomass))
+
+# station -> site (stations averaged to site first, consistent with our other rollups)
+
+site_biomass_group <- biomass_by_station_and_group |>
+  left_join(blt_stations |>
+              distinct(ps_station_id, ps_site_id, region, subregion, exposure),
+            by = "ps_station_id") |>
+  group_by(region, subregion, ps_site_id, trophic_group) |>
+  summarise(pct_biomass = mean(pct_biomass), .groups = "drop")
+
+site_taxa_biomass <- blt_stations |>
+  group_by(ps_site_id) |>
+  summarise(n_taxa          = mean(n_taxa, na.rm = TRUE),
+            avg_biomass_gm2 = mean(avg_biomass_gm2, na.rm = TRUE),
+            .groups = "drop")
+
+# calculate average biomass composition by subregion
+
+subregion_pct_by_group <- site_biomass_group |>
+  group_by(region, subregion, trophic_group) |>
+  summarise(pct_biomass = round(mean(pct_biomass), 1), .groups = "drop") |>
+  mutate(region        = factor(region, levels = regions),
+         trophic_group = factor(trophic_group, levels = avg_pct_by_group$trophic_group)) |>
+  arrange(trophic_group) |>
+  pivot_wider(names_from = trophic_group, values_from = pct_biomass, values_fill = 0)
+
+# calculate average and median biomass by subregion
+
+survey_biomass_by_subregion <- site_biomass_group |>
+  distinct(region, subregion, ps_site_id) |>
+  left_join(site_taxa_biomass, by = "ps_site_id") |>
+  group_by(region, subregion) |>
+  summarise(n_sites            = n_distinct(ps_site_id),
+            avg_n_taxa         = round(mean(n_taxa, na.rm = TRUE), 1),
+            mean_biomass_gm2   = round(mean(avg_biomass_gm2, na.rm = TRUE), 1),
+            median_biomass_gm2 = round(median(avg_biomass_gm2, na.rm = TRUE), 1),
+            .groups = "drop") |>
+  left_join(subregion_pct_by_group, by = c("region", "subregion")) |>
+  arrange(region, subregion) |>
+  mutate(subregion = paste0(subregion, " (", n_sites, ")")) |>
+  select(-n_sites)
+
+biomass_cols_subregion <- intersect(names(trophic_labels), names(survey_biomass_by_subregion))
+
+survey_biomass_by_subregion |>
+  gt_theme_ps(groupname_col = "region",
+              rowname_col  = "subregion",
+              col_labels   = c(avg_n_taxa         = "Avg. Taxa",
+                               mean_biomass_gm2   = "Avg. Biomass (g/m²)",
+                               median_biomass_gm2 = "Median Biomass (g/m²)",
+                               trophic_labels[biomass_cols_subregion]),
+              spanners     = list(`% Biomass by Trophic Group` = biomass_cols_subregion),
+              heatmap_cols = biomass_cols_subregion,
+              heatmap_fill = c("white", "#0b5d4a"),
+              zero_dash    = TRUE) |>
+  fmt_number(columns = any_of(biomass_cols_subregion), decimals = 1) |>
+  tab_footnote(footnote = "Site count for each subregion is shown in parentheses")
+```
+
+## By Subregion & Depth
+
+The same metrics disaggregated by depth strata within each subregion. 2009 worked one depth per site, so this table documents that rather than a gradient — every station falls in the same stratum.
+
+```{r tbl-biomass-by-subregion-depth}
+#| tbl-cap: "Fish survey effort and mean biomass (%) by trophic group, subregion, and depth strata"
+
+depth_order <- allowed_vocab$depth_strata[allowed_vocab$depth_strata %in% unique(blt_stations$depth_strata)]
+
+effort_by_depth <- blt_stations |>
+  mutate(region       = factor(region, levels = regions),
+         depth_strata = factor(depth_strata, levels = depth_order)) |>
+  group_by(region, subregion, depth_strata) |>
+  summarise(n_stations         = n(),
+            avg_n_taxa         = round(mean(n_taxa, na.rm = TRUE), 1),
+            mean_biomass_gm2   = round(mean(avg_biomass_gm2, na.rm = TRUE), 1),
+            median_biomass_gm2 = round(median(avg_biomass_gm2, na.rm = TRUE), 1),
+            .groups = "drop")
+
+biomass_group_by_depth <- biomass_by_station_and_group |>
+  left_join(blt_stations |> distinct(ps_station_id, region, subregion, depth_strata, exposure),
+            by = "ps_station_id") |>
+  group_by(region, subregion, depth_strata, trophic_group) |>
+  summarise(pct_biomass = round(mean(pct_biomass), 1), .groups = "drop") |>
+  mutate(region        = factor(region, levels = regions),
+         depth_strata  = factor(depth_strata, levels = depth_order),
+         trophic_group = factor(trophic_group, levels = avg_pct_by_group$trophic_group)) |>
+  arrange(trophic_group) |>
+  pivot_wider(names_from = trophic_group, values_from = pct_biomass, values_fill = 0)
+
+survey_biomass_by_depth <- effort_by_depth |>
+  left_join(biomass_group_by_depth, by = c("region", "subregion", "depth_strata")) |>
+  arrange(region, subregion, depth_strata) |>
+  mutate(depth_strata = paste0(str_to_title(as.character(depth_strata)), " (", n_stations, ")")) |>
+  select(-region, -n_stations)
+
+biomass_cols_depth <- intersect(names(trophic_labels), names(survey_biomass_by_depth))
+
+survey_biomass_by_depth |>
+  gt_theme_ps(groupname_col = "subregion",
+              rowname_col   = "depth_strata",
+              col_labels    = c(avg_n_taxa         = "Avg. Taxa",
+                                mean_biomass_gm2   = "Avg. Biomass (g/m²)",
+                                median_biomass_gm2 = "Median Biomass (g/m²)",
+                                trophic_labels[biomass_cols_depth]),
+              spanners      = list(`% Biomass by Trophic Group` = biomass_cols_depth),
+              heatmap_cols  = biomass_cols_depth,
+              heatmap_fill  = c("white", "#0b5d4a"),
+              zero_dash     = TRUE) |>
+  fmt_number(columns = any_of(biomass_cols_depth), decimals = 1) |>
+  tab_footnote(footnote = "Station count for each stratum is shown in parentheses")
+```
+
+## Top Taxa
+
+The ten most abundant fish taxa ranked separately by density and biomass — a small, abundant species and a large, rare one can each dominate a different metric — both enriched with site-level frequency of occurrence.
+
+```{r tbl-top-taxa-density}
+#| tbl-cap: "Top 10 fish taxa by density"
+
+taxa_summary |>
+  arrange(desc(avg_density_m2)) |>
+  slice_head(n = 10) |>
+  mutate(trophic_group = trophic_labels[as.character(trophic_group)]) |>
+  select(accepted_name, family, trophic_group, pct_sites, avg_density_m2) |>
+  gt_theme_ps(col_labels = c(accepted_name  = "Scientific Name",
+                             family         = "Family",
+                             trophic_group  = "Trophic Group",
+                             pct_sites      = "Freq. (%)",
+                             avg_density_m2 = "Density (ind./m²)")) |>
+  fmt_number(columns = avg_density_m2, decimals = 2) |>
+  tab_footnote(footnote = "Freq. (%) is the share of sites where the taxon was observed.",
+               locations = cells_column_labels(columns = pct_sites))
+```
+
+```{r tbl-top-taxa-biomass}
+#| tbl-cap: "Top 10 fish taxa by biomass"
+
+taxa_summary |>
+  arrange(desc(avg_biomass_gm2)) |>
+  slice_head(n = 10) |>
+  mutate(trophic_group = trophic_labels[as.character(trophic_group)]) |>
+  select(accepted_name, family, trophic_group, pct_sites, avg_biomass_gm2) |>
+  gt_theme_ps(col_labels = c(accepted_name   = "Scientific Name",
+                             family          = "Family",
+                             trophic_group   = "Trophic Group",
+                             pct_sites       = "Freq. (%)",
+                             avg_biomass_gm2 = "Biomass (g/m²)")) |>
+  fmt_number(columns = avg_biomass_gm2, decimals = 2) |>
+  tab_footnote(footnote = "Freq. (%) is the share of sites where the taxon was observed.",
+               locations = cells_column_labels(columns = pct_sites))
+```
+
+# 7. Fish Biomass Map
+
+Station-level taxa richness, density, and biomass are averaged up to one circle marker per site, with both marker size and color driven by whichever metric is active.
+
+```{r site_map}
+PristineSeasR2::explore_fish_biomass(
+  stations    = blt_stations,
+  sites       = uvs_sites,
+  title       = paste0("Southern Line Islands ", exp_year, " Expedition — Fish survey results"),
+  export_path = file.path(figures_out, "blt_results_map.html")
+)
+```
+
+# 8. Exploratory Visualizations
+
+The plots below are a first look at the patterns in this expedition's fish data — a visual gut-check of the reefs. Each one is also saved as a standalone PNG to `figures/blt/`.
+
+::: {.callout-note}
+Every one of the `r nrow(blt_stations)` stations sits in `shallow` — 2009 worked a single depth throughout. The two figures VUT cuts by depth strata are cut by **island** here instead, which is the gradient this expedition actually sampled.
+:::
+
+## Missing Data
+
+A heatmap of missing values across the fields of `blt_stations`, with stations sorted by region, subregion, and depth. Each column is annotated with its proportion missing, making gaps obvious before export.
+
+```{r fig-missingness-stations}
+#| fig-height: 6
+#| fig-cap: "Missing-value heatmap across every station record and metadata field"
+
+# ps_station_id is the y-axis here, so charting it as a column too is noise: a field
+# that is 0% missing by construction. Naming the set once also keeps the tile order and
+# the factor levels below in step.
+miss_vars <- setdiff(names(blt_stations), "ps_station_id")
+
+miss_long <- blt_stations |>
+  arrange(region, subregion, depth_strata) |>
+  mutate(site_order = row_number(),
+         station_id = ps_station_id) |>
+  pivot_longer(cols      = all_of(miss_vars),
+               names_to  = "variable",
+               values_to = "value",
+               values_transform = list(value = as.character)) |>
+  mutate(missing = is.na(value)) |>
+  group_by(variable) |>
+  mutate(pct_missing = mean(missing) * 100,
+         variable_label = paste0(str_replace_all(variable, "_", " "), "\n", round(pct_missing), "%")) |>
+  ungroup() |>
+  mutate(variable_label = factor(variable_label,
+                                 levels = paste0(str_replace_all(miss_vars, "_", " "),
+                                                 "\n",
+                                                 round(map_dbl(miss_vars,
+                                                               \(x) mean(is.na(blt_stations[[x]])) * 100)), "%")))
+
+miss_long |>
+  ggplot(aes(x = variable_label,
+             y = forcats::fct_rev(forcats::fct_reorder(station_id, site_order)))) +
+  geom_tile(aes(fill = missing),
+            colour = "white",
+            linewidth = 0.25) +
+  scale_fill_manual(values = c(`FALSE` = "#DCE7E5", `TRUE`  = "#D55E00"),
+                    labels = c(`FALSE` = "Recorded", `TRUE`  = "Missing"),
+                    name = NULL) +
+  labs(title = "Station Summary Completeness",
+       x = NULL,
+       y = NULL,
+       caption = "Percentages show the proportion missing in each variable") +
+  theme_minimal(base_size = 11) +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 45,
+                                   hjust = 1,
+                                   colour = "#333333"),
+        axis.text.y = element_text(size = 6.5),
+        plot.title = element_text(face = "bold", size = 15),
+        legend.position = "top",
+        legend.justification = "left")
+
+ggsave(filename = file.path(figures_out, "missingness_stations.png"),
+       width = 10, height = 6, dpi = 300, bg = "white")
+```
+
+## Site Composition
+
+Fish biomass composition at every station, grouped by island — the fastest way to spot a site whose composition looks out of step with its neighbours.
+
+```{r fig-biomass-by-site}
+#| fig-width: 14
+#| fig-cap: "Fish biomass composition by site, grouped by island"
+
+biomass_by_station_and_group |>
+  left_join(blt_stations |>
+              select(ps_site_id, depth_strata, subregion, ps_station_id), by = "ps_station_id") |>
+  group_by(subregion, ps_site_id, depth_strata, trophic_group) |>
+  summarize(avg_biomass_gm2 = round(sum(avg_biomass_gm2), 2),
+            .groups = "drop") |>
+  mutate(site = str_extract(ps_site_id, "[^_]+$"),
+         trophic_group = factor(trophic_group,
+                                levels = rev(c("shark", "top_predator", "lower_carnivore",
+                                               "herbivore | detritivore", "planktivore")))) |>
+  ggplot() +
+  geom_col(aes(site, avg_biomass_gm2, fill = trophic_group)) +
+  facet_grid(depth_strata ~ subregion, scales = "free", space = "free_x") +
+  scale_fill_manual(values = ps_colors("trophic_group2")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 1)) +
+  labs(x = NULL, y = "Fish biomass (g/m²)",
+       fill = "",
+       title    = "Fish Biomass by Site",
+       subtitle = "Trophic composition by island")
+
+ggsave(filename = file.path(figures_out, "biomass_by_site.png"),
+       width = 14, height = 8, dpi = 300, bg = "white")
+```
+
+## Subregion Composition
+
+The same view averaged up to island, which smooths out station-to-station noise and makes broader spatial patterns easier to read.
+
+```{r fig-biomass-by-subregion}
+#| fig-height: 6
+#| fig-cap: "Fish biomass composition by island"
+
+biomass_by_station_and_group |>
+  left_join(blt_stations |> select(ps_site_id, depth_strata, region, subregion, ps_station_id),
+            by = "ps_station_id") |>
+  group_by(region, subregion, depth_strata, trophic_group) |>
+  summarize(avg_biomass_gm2 = mean(avg_biomass_gm2)) |>
+  ungroup() |>
+  mutate(subregion     = factor(subregion, levels = subregions),
+         trophic_group = factor(trophic_group,
+                                levels = rev(c("shark", "top_predator", "lower_carnivore",
+                                               "herbivore | detritivore", "planktivore")))) |>
+  ggplot() +
+  geom_col(aes(subregion, avg_biomass_gm2, fill = trophic_group)) +
+  facet_grid(depth_strata ~ region, scales = "free", space = "free_x") +
+  scale_fill_manual(values = ps_colors("trophic_group2")) +
+  labs(x = NULL, y = "Fish biomass (g/m²)",
+       fill = "",
+       title    = "Fish Biomass by Subregion",
+       subtitle = "Trophic composition by island") +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        strip.text = element_text(face = "bold"),
+        legend.position = "bottom",
+        legend.key.height = unit(4, "mm"),
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 0.5))
+
+ggsave(filename = file.path(figures_out, "biomass_by_subregion.png"),
+       width = 10, height = 6, dpi = 300, bg = "white")
+```
+
+## Patterns by Island
+
+Key ecological metrics — species richness, count, density, and biomass — compared across islands. VUT cuts this by depth strata; with a single depth per site here, island is the axis that carries signal.
+
+```{r fig-metrics-by-island}
+#| fig-height: 6
+#| fig-cap: "Comparison of species richness, total count, density, and biomass across islands"
+
+blt_stations |>
+  select(ps_station_id, subregion, avg_taxa, avg_count, avg_density_m2, avg_biomass_gm2) |>
+  pivot_longer(cols = c("avg_taxa", "avg_count", "avg_density_m2", "avg_biomass_gm2"),
+               names_to = "metric", values_to = "value") |>
+  mutate(metric = recode(metric,
+                         "avg_taxa"        = "Species Richness",
+                         "avg_count"       = "Count",
+                         "avg_density_m2"  = "Density (ind/m²)",
+                         "avg_biomass_gm2" = "Biomass (g/m²)"),
+         subregion = factor(subregion, levels = subregions)) |>
+  ggplot(aes(x = subregion, y = value, fill = subregion)) +
+  geom_boxplot(alpha = 0.8, color = "gray40", outlier.shape = NA) +
+  geom_jitter(width = 0.2, size = 1, alpha = 0.5, color = "gray30") +
+  facet_wrap(~metric, scales = "free_y") +
+  labs(x = "", y = "", fill = "",
+       title = "Station Metrics by Island",
+       subtitle = "Comparison of species richness, total count, density, and biomass across islands") +
+  scale_fill_manual(values = subregion_palette)
+
+ggsave(filename = file.path(figures_out, "station_metrics_by_island.png"),
+       width = 10, height = 6, dpi = 300, bg = "white")
+```
+
+## Most Abundant Taxa by Island
+
+Island preferences for the 12 most abundant taxa (by median biomass), on a log scale to keep both common and rarer taxa readable on the same axis.
+
+```{r fig-top-taxa}
+#| fig-cap: "Biomass distributions for top taxa across islands"
+#| warning: false
+#| fig-width: 12
+#| fig-height: 8
+
+top_taxa <- taxa_summary |>
+  arrange(desc(median_biomass_gm2)) |>
+  slice_head(n = 12)
+
+blt_biomass_by_station_taxa |>
+  filter(accepted_name %in% top_taxa$accepted_name) |>
+  select(ps_station_id, accepted_name, avg_biomass_gm2) |>
+  complete(ps_station_id, accepted_name, fill = list(avg_biomass_gm2 = 0)) |>
+  mutate(accepted_name = forcats::fct_reorder(accepted_name, avg_biomass_gm2, .fun = median, .desc = TRUE)) |>
+  left_join(blt_stations |> select(ps_station_id, subregion), by = "ps_station_id") |>
+  mutate(subregion = factor(subregion, levels = subregions)) |>
+  ggplot(aes(x = subregion, y = avg_biomass_gm2)) +
+  geom_boxplot(aes(color = accepted_name),
+               outlier.shape = NA, fill = "white",
+               alpha = 0.3, linewidth = 0.6, show.legend = FALSE) +
+  geom_jitter(aes(color = accepted_name),
+              width = 0.25, size = 1.5, alpha = 0.5, show.legend = FALSE) +
+  geom_point(data = taxa_summary_by_island |>
+               filter(accepted_name %in% top_taxa$accepted_name) |>
+               mutate(subregion = factor(subregion, levels = subregions)),
+             aes(y = avg_biomass_gm2),
+             shape = 23, fill = "black", color = "white",
+             size = 3, stroke = 0.8) +
+  facet_wrap(~ accepted_name, scales = "free_y", ncol = 4) +
+  scale_y_log10(breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
+                labels = c("0.001", "0.01", "0.1", "1", "10", "100"),
+                expand = expansion(mult = c(0.05, 0.15))) +
+  paletteer::scale_color_paletteer_d("ggsci::default_igv") +
+  theme(strip.text = element_text(size = 10, face = "italic", lineheight = 1.2, margin = margin(b = 8))) +
+  labs(x = NULL,
+       y = "Biomass (g/m², log scale)",
+       title = "Do dominant taxa differ among the Southern Line Islands?",
+       subtitle = "Top 12 taxa by median biomass • Diamonds = mean • Taxa ordered by overall biomass",
+       caption = "Y-axis on log scale; zeros filled via completion step")
+
+ggsave(file.path(figures_out, "important_taxa.png"), width = 12, height = 8, dpi = 300, bg = "white")
+```
+
+## Biomass vs. Density
+
+The relationship between biomass and density across trophic groups, a rough proxy for how energy moves through the reef community.
+
+```{r fig-points-by-taxa}
+#| fig-height: 6
+#| fig-cap: "Biomass vs. Density Relationship by Trophic Group"
+
+blt_biomass_by_station_taxa |>
+  filter(total_count > 0) |>
+  ggplot(aes(x = avg_density_m2, y = avg_biomass_gm2, color = trophic_group)) +
+  geom_point(alpha = 0.6, size = 2) +
+  geom_density_2d(color = "black", linewidth = 0.2) + # Density contours for highlighting structure
+  scale_y_log10(labels = scales::comma_format(accuracy = 0.01)) +
+  scale_x_sqrt(labels = scales::comma_format(accuracy = 0.01)) +
+  scale_color_manual(values = ps_colors("trophic_group2")) +
+  labs(x = "Density (ind/m², sqrt scale)",
+       y = "Biomass (g/m², log scale)",
+       color = "",
+       title = "Biomass vs. Density Relationship",
+       subtitle = "Log-transformed biomass vs. square-root-transformed density across trophic groups")
+
+ggsave(file.path(figures_out, "biomass_vs_abundance.png"),
+       width = 10, height = 6, dpi = 300, bg = "white")
+```
+
+## Size Distributions
+
+Length distributions by trophic group, weighted by count, with dashed lines marking the quartiles and median for groups with at least 5 fish measured.
+
+```{r fig-size-distributions}
+#| fig-height: 5
+#| fig-cap: "Fish length distributions by trophic group"
+
+library(ggridges)
+
+trophic_order <- c("shark", "top_predator", "lower_carnivore", "planktivore", "herbivore | detritivore")
+
+weighted_median <- function(x, w) {
+  keep <- !is.na(x) & !is.na(w)
+  x <- x[keep]; w <- w[keep]
+  ord <- order(x)
+  x <- x[ord]; w <- w[ord]
+  cumw <- cumsum(w) / sum(w)
+  x[which(cumw >= 0.5)[1]]
+}
+
+group_stats <- blt_observations |>
+  group_by(trophic_group) |>
+  summarise(n   = sum(count, na.rm = TRUE),
+            med = weighted_median(length_cm, count),
+            .groups = "drop") |>
+  mutate(trophic_group = factor(trophic_group, levels = rev(trophic_order)))
+
+valid_groups <- group_stats |> filter(n >= 5) |> pull(trophic_group) |> as.character()
+
+blt_observations |>
+  filter(trophic_group %in% valid_groups) |>
+  mutate(trophic_group = factor(trophic_group, levels = rev(trophic_order[trophic_order %in% valid_groups]))) |>
+  ggplot(aes(x = length_cm, y = trophic_group, fill = trophic_group, weight = count)) +
+  stat_density_ridges(alpha = 0.7, scale = 1.2, rel_min_height = 0.01,
+                      quantile_lines = TRUE,
+                      quantiles = c(0.25, 0.5, 0.75),
+                      vline_color = "black",
+                      vline_linetype = "dashed",
+                      vline_size = 0.4) +
+  geom_text(data = filter(group_stats, n >= 5),
+            aes(x = med, y = trophic_group, label = paste0(round(med), " cm")),
+            inherit.aes = FALSE,
+            vjust = -0.4, hjust = -0.15, size = 3, color = "black") +
+  scale_x_log10(breaks = c(5, 10, 20, 50, 100)) +
+  scale_y_discrete(labels = \(lvl) {
+    n <- group_stats$n[match(lvl, as.character(group_stats$trophic_group))]
+    paste0(lvl, "  (n = ", scales::comma(n), ")")}) +
+  scale_fill_manual(values = ps_colors("trophic_group2"), guide = "none") +
+  labs(x = "Length (cm, log scale)",
+       fill = NULL,
+       y = NULL,
+       title = "Fish size distributions by trophic group",
+       caption = "Dashed lines: Q1, median (50%), Q3")
+
+ggsave(filename = file.path(figures_out, "size_distributions.png"),
+       width = 10, height = 5, dpi = 300, bg = "white")
+```
+
+---
+
+# 9. Export
+
+## Pre-upload Summary
+
+Headline counts, average biomass and its composition by trophic group **across sites**, and the length extremes, gathered in one place.
+
+```{r data_validation_summary}
+#| message: true
+
+survey_effort <- tibble(
+  category = "Survey Effort",
+  metric   = c("Sites", "Stations", "Observation records", "Fish", "Species"),
+  value    = c(scales::comma(n_distinct(blt_stations$ps_site_id)),
+               scales::comma(nrow(blt_stations)),
+               scales::comma(nrow(blt_observations)),
+               scales::comma(sum(blt_stations$total_count, na.rm = TRUE)),
+               scales::comma(n_distinct(blt_biomass_by_station_taxa$accepted_name[blt_biomass_by_station_taxa$avg_count > 0])))
+)
+
+biomass_pct <- site_biomass_group |>
+  group_by(trophic_group) |>
+  summarize(avg_pct_biomass = round(mean(pct_biomass), 1), .groups = "drop") |>
+  arrange(desc(avg_pct_biomass)) |>
+  # as.character() is load-bearing: indexing a named vector with a factor uses its
+  # integer codes rather than its labels.
+  mutate(trophic_group = trophic_labels[as.character(trophic_group)])
+
+biomass_section <- tibble(
+  category = "Biomass",
+  metric   = c("Avg. Biomass (g/m²)", biomass_pct$trophic_group),
+  value    = c(sprintf("%.1f", mean(site_taxa_biomass$avg_biomass_gm2, na.rm = TRUE)),
+               sprintf("%.1f%%", biomass_pct$avg_pct_biomass))
+)
+
+length_extremes <- tibble(
+  category = "Length Extremes",
+  metric   = c("Largest", "Smallest"),
+  value    = local({
+    on <- dplyr::filter(blt_observations, !is.na(length_cm))
+    c(paste0(on$accepted_name[which.max(on$length_cm)], " (", on$length_cm[which.max(on$length_cm)], " cm)"),
+      paste0(on$accepted_name[which.min(on$length_cm)], " (", on$length_cm[which.min(on$length_cm)], " cm)"))
+  })
+)
+
+bind_rows(survey_effort, biomass_section, length_extremes) |>
+  mutate(category = factor(category, levels = c("Survey Effort", "Biomass", "Length Extremes"))) |>
+  light_gt(groupname_col = "category", rowname_col = "metric") |>
+  tab_footnote(footnote = "Every record is on-transect: this expedition logged no off-transect observations.",
+               locations = cells_row_groups(groups = "Survey Effort")) |>
+  cols_label(value = "") |>
+  cols_align(align = "right", columns = value) |>
+  tab_style(style = cell_text(weight = "bold"), locations = cells_body(columns = value)) |>
+  tab_options(column_labels.hidden = TRUE)
+```
+
+## Schema Validation & CSVs
+
+Each table's column structure is validated against its BigQuery schema before writing — any drift fails loudly here rather than at upload time.
+
+```{r prep_export}
+#| message: true
+
+blt_observations_out <- blt_observations |>
+  mutate(transect_length_m = as.integer(transect_length_m),
+         transect_width_m  = as.character(transect_width_m),
+         count             = as.integer(count)) |>
+  select(obs_id, ps_station_id, exp_id, diver, depth_m, station_label, transect,
+         transect_length_m, transect_width_m, accepted_name, accepted_aphia_id, rank,
+         family, trophic_group, count, length_cm, biomass_g, terminal_phase, notes)
+
+blt_stations_out <- blt_stations |>
+  mutate(depth_strata = as.character(depth_strata),
+         n_transects  = as.integer(n_transects)) |>
+  select(any_of(bigrquery::bq_table_fields(
+    bigrquery::bq_table("pristine-seas", "uvs", "blt_stations")) |> purrr::map_chr("name")))
+```
+
+```{r export_csv}
+#| message: true
+
+observations_csv <- validate_and_export_csv(
+  df        = blt_observations_out,
+  table_ref = "uvs.blt_observations",
+  label     = "Observations",
+  path      = file.path(data_out, paste0(exp_id, "_uvs_blt_observations.csv")))
+
+biomass_csv <- validate_and_export_csv(
+  df        = blt_biomass_by_station_taxa,
+  table_ref = "uvs.blt_biomass_by_station_taxa",
+  label     = "Biomass by Station | Taxa",
+  path      = file.path(data_out, paste0(exp_id, "_uvs_blt_biomass_by_station_taxa.csv")))
+
+stations_csv <- validate_and_export_csv(
+  df        = blt_stations_out,
+  table_ref = "uvs.blt_stations",
+  label     = "Stations",
+  path      = file.path(data_out, paste0(exp_id, "_uvs_blt_stations.csv")))
+```

@@ -798,7 +798,6 @@ lpi_taxa |>
 lpi_taxa |> filter(is.na(functional_group))
 ```
 
-
 ## Join Taxonomy to Observations
 
 ```{r}

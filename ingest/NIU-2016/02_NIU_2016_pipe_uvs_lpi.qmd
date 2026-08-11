@@ -36,12 +36,12 @@ library(bigrquery)
 library(leaflet)
 library(leaflet.extras)
 library(ggtext)
-library(PristineSeasR2)
+library(pristineseas)
 
 # ---- Parameters -----------------------------------------------------------
 exp_id   <- "NIU_2016"
 
-ps_paths <- PristineSeasR2::get_drive_paths()
+ps_paths <- pristineseas::get_drive_paths()
 
 prj_path <- file.path(ps_paths$projects, "legacy-db")
 
@@ -49,7 +49,7 @@ prj_path <- file.path(ps_paths$projects, "legacy-db")
 bigrquery::bq_auth(email = "marine.data.science@ngs.org")
 bq_connection <- DBI::dbConnect(bigrquery::bigquery(), project = "pristine-seas")
 
-set_theme(PristineSeasR2::theme_pristineseas())
+set_theme(pristineseas::theme_pristineseas())
 
 data_out <- file.path(prj_path, "data/output/uvs")
 
@@ -995,7 +995,7 @@ lpi_stations |>
 
 ```{r}
 lpi_stations |> 
-  filter(exposure != "lagoon") |> 
+  #filter(exposure != "lagoon") |> 
   group_by(region) |> 
   summarise(n_stations         = n_distinct(ps_station_id),
             avg_n_taxa         = mean(n_taxa),
@@ -1386,37 +1386,3 @@ for (upload in uploads) {
 ```
 
 ---
-
-# vs 2023
-
-```{r}
-all_stations <- tbl(bq_connection, "uvs.lpi_stations") |> 
-  filter(exp_id %in% c("NIU_2023", "NIU_2016")) |> 
-  arrange(ps_station_id) |> 
-  collect()
-
-all_cover_by_station_and_taxa <- tbl(bq_connection, "uvs.lpi_cover_by_station_taxa") |> 
-  filter(exp_id %in% c("NIU_2023", "NIU_2016")) |> 
-  arrange(ps_station_id) |> 
-  collect()
-```
-
-```{r}
-all_stations |> 
-  filter(region != "Antiope", habitat == "fore_reef") |> 
-  group_by(exp_id, region) |> 
-  summarise(across(contains("pct"), mean), .groups = "drop") |> 
-  mutate_if(is.numeric, round, 1) |> 
-  arrange(region)
-```
-
-```{r}
-all_cover_by_station_and_taxa |> 
-  filter(region == "Beveridge") |> 
-  filter(functional_group == "cca") |> 
-  group_by(exp_id, accepted_name) |> 
-  summarize(sum(total_count))
-```
-
-
-

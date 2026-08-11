@@ -1,0 +1,276 @@
+---
+title: "Expedition Sites"
+date: today
+format:
+  html:
+    theme: minty
+    self-contained: true
+    code-fold: true
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    html-table-processing: none
+execute:
+  echo: true
+  warning: false
+  message: false
+  fig-width: 10
+---
+
+```{r setup}
+# Load setup
+
+source(here::here("ingest/SLI-2009/00_SLI_2009_setup.R"))
+
+# -- Params (script-specific) --------------------------------------------------
+
+method <- "uvs"
+
+metadata_path <- file.path(data_in, "Southern_Line_Islands_2009-03_Metadata.xlsx")
+
+stopifnot("2009 metadata file not found" = file.exists(metadata_path))
+```
+
+## Overview
+
+This notebook processes and validates **Underwater Visual Survey (UVS) site metadata** for the **2009** Pristine Seas expedition to the **Southern Line Islands, Kiribati** — the root of the UVS pipeline, since every downstream protocol joins against it for coordinates, region and habitat.
+
+It reads the expedition's station metadata sheet, standardizes it to the `uvs.sites` schema, assigns exposure from the curated windward list below, and runs structural, geographic and temporal validation before export.
+
+The workflow produces one curated, database-ready dataset:
+
+- `uvs_sites`: one row per surveyed site, with coordinates, region, habitat and exposure.
+
+::: {.callout-note}
+This is an **iterative curation workflow**, not a hands-off pipeline. Every expedition needs expert review and a few manual corrections — the validation output exists to tell you where to look before anything is published.
+:::
+
+::: {.callout-important collapse="true"}
+## What is particular about 2009
+The earliest year in the SLI series, and the widest:
+
+- **Five islands.** Malden and Starbuck were surveyed in 2009 and in no later year; Flint, Millennium and Vostok recur through 2013, 2017, 2021 and 2023. All five are carried here — filtering to the recurring three is the analyst's choice, not the pipeline's.
+- **No MPA.** The Southern Line Islands MPA closed the archipelago to fishing out to 12 n.m. in 2015, six years after this expedition, so `in_mpa` is `FALSE` throughout.
+- **Exposure was never recorded.** It is assigned from a curated list of windward stations (§2), built from the survey team's own knowledge of each island's aspect.
+- **One depth stratum.** Every station reads 10 m.
+- **`site_name` is the bare station name.** The sheet also carries aliases — permanent-site codes, photomosaic codes and older field codes (`FLI_04` is also `SLI_001; Fmo4; F2`). Those go to `notes` rather than into the name, so a station joins across years on `site_name` alone: 19 of the 2009 names appear again in 2021.
+:::
+
+## 1. Import and Standardize
+
+The metadata sheet is read and standardized to the schema: names renamed, the Excel time fraction parsed, the misspelled `Millenium` corrected, reef types mapped onto the controlled vocabulary, and site IDs minted in survey order.
+
+```{r import}
+#| message: true
+
+uvs_sites <- read_xlsx(metadata_path) |>
+  clean_names() |>
+  transmute(
+    site_name = station_id,
+    aliases   = alt_station_id,
+    subregion = if_else(island == "Millenium", "Millennium", island),
+
+    # -- parse date/time --
+    date = ymd(date),
+    # local_time is an Excel day fraction (0.399 = 09:35)
+    time = hms::as_hms(round(as.numeric(local_time) * 86400)),
+
+    latitude, longitude,
+
+    # 2009 recorded only forereef; the mapping is kept general so a lagoon
+    # station in another year of the series lands correctly
+    habitat = case_match(reef_type, "FR" ~ "fore_reef", "LG" ~ "patch_reef"),
+
+    # -- expedition constants --
+    exp_id    = exp_id,
+    method    = method,
+    region    = regions,
+    locality  = NA_character_,
+    # the SLI MPA was declared in 2015, six years after this expedition
+    in_mpa    = FALSE,
+    mpa_notes = NA_character_,
+
+    team_lead = case_when(str_detect(fish_divers, "Friedlander") ~ "Alan Friedlander",
+                          str_detect(fish_divers, "Sandin")      ~ "Stuart Sandin",
+                          str_detect(fish_divers, "Casselle")    ~ "Jenn Caselle",
+                          TRUE ~ fish_divers),
+
+    notes = str_squish(notes)) |>
+  # site numbers are minted in survey order
+  arrange(date, time, site_name) |>
+  mutate(ps_site_id = paste(exp_id, "uvs", str_pad(row_number(), 3, pad = "0"), sep = "_"))
+
+stopifnot("Unmapped reef type — habitat left NA" = !any(is.na(uvs_sites$habitat)),
+          "Duplicate station names"              = !any(duplicated(uvs_sites$site_name)),
+          "Duplicate site IDs"                   = !any(duplicated(uvs_sites$ps_site_id)))
+
+cli::cli_inform(c(
+  v = "Metadata loaded successfully:",
+  "*" = "{nrow(uvs_sites)} site{?s} across {n_distinct(uvs_sites$subregion)} island{?s}: {sort(unique(uvs_sites$subregion))}",
+  "*" = "surveyed {format(min(uvs_sites$date), '%B %d')} to {format(max(uvs_sites$date), '%B %d, %Y')}"
+))
+```
+
+## 2. Exposure
+
+Exposure was not recorded in 2009. The stations below are the windward ones, listed by the survey team; everything else on the three southern islands is leeward.
+
+Malden and Starbuck are left `unknown` rather than guessed — neither was revisited, so no later survey can corroborate an assignment.
+
+```{r exposure}
+#| message: true
+
+windward_sites <- c(
+  # Flint
+  "F8", "F9", "F10", "F12", "F13", "F14",
+  # Millennium
+  "C11", "C14", "C15", "C16", "C17", "C18", "C19", "C20", "C21", "C22",
+  "MIL_C12", "MIL_C13",
+  # Vostok
+  "V8", "VOS_03", "VOS_04")
+
+stopifnot("A windward station is not in the site list" =
+            all(windward_sites %in% uvs_sites$site_name))
+
+uvs_sites <- uvs_sites |>
+  mutate(exposure = case_when(subregion %in% c("Malden", "Starbuck") ~ "unknown",
+                              site_name %in% windward_sites          ~ "windward",
+                              TRUE                                   ~ "leeward"))
+
+cli::cli_inform(c(
+  v = "Exposure assigned:",
+  "*" = "{paste(names(table(uvs_sites$exposure)), table(uvs_sites$exposure), sep = ' x ')}"
+))
+```
+
+```{r tbl-exposure-by-island}
+#| tbl-cap: "Sites by island and exposure"
+
+exposure_order <- c("windward", "leeward", "unknown")
+
+uvs_sites |>
+  mutate(exposure = factor(exposure, levels = exposure_order)) |>
+  count(region, subregion, exposure, name = "n", .drop = FALSE) |>
+  pivot_wider(names_from = exposure, values_from = n, values_fill = 0) |>
+  mutate(Total = rowSums(across(any_of(exposure_order)))) |>
+  gt_theme_ps(groupname_col = "region", rowname_col = "subregion",
+              col_labels    = setNames(str_to_title(exposure_order), exposure_order),
+              spanners      = list(Exposure = exposure_order),
+              total_col     = "Total",
+              heatmap_cols  = exposure_order,
+              grand_summary = TRUE,
+              zero_dash     = TRUE) |>
+  gt::fmt_number(columns = c(any_of(exposure_order), Total), decimals = 0)
+```
+
+## 3. QA/QC Validation
+
+Validation is run using `pointblank` agents. Duplicate site IDs and missing core fields block the pipeline; other checks only warn.
+
+```{r uvs_qaqc}
+al_block <- action_levels(stop_at = 1,
+                          fns = list(stop = ~ stop("Blocking QA/QC check failed — see report above.", call. = FALSE)))
+
+al_warn <- action_levels(warn_at = 1)
+
+uvs_sites_qaqc <- uvs_sites |>
+  create_agent(label = "Underwater visual survey sites QA/QC", tbl_name = "uvs_sites") |>
+  rows_distinct(label = "Unique site IDs",
+                columns = ps_site_id,
+                actions = al_block) |>
+  rows_distinct(label = "Unique station names",
+                columns = site_name,
+                actions = al_block) |>
+  rows_complete(label   = "No missing core fields",
+                columns = vars(ps_site_id, latitude, longitude, date),
+                actions = al_block) |>
+  col_vals_between(label = "Latitude within bounds",
+                   columns = vars(latitude),
+                   left = exp_config$lat_min, right = exp_config$lat_max,
+                   actions = al_block) |>
+  col_vals_between(label = "Longitude within bounds",
+                   columns = vars(longitude),
+                   left = exp_config$lon_min, right = exp_config$lon_max,
+                   actions = al_block) |>
+  col_vals_between(label = "Date within expedition period",
+                   columns = vars(date),
+                   left = exp_config$date_bounds[1], right = exp_config$date_bounds[2],
+                   actions = al_block) |>
+  col_vals_in_set(label = "Valid habitat values",
+                  columns = vars(habitat),
+                  set = allowed_vocab$uvs_habitats,
+                  actions = al_warn) |>
+  col_vals_in_set(label = "Valid exposure values",
+                  columns = vars(exposure),
+                  set = allowed_vocab$exposure,
+                  actions = al_warn) |>
+  col_vals_in_set(label = "Subregion in lookup table",
+                  columns = vars(subregion),
+                  set = subregions,
+                  actions = al_warn) |>
+  interrogate()
+
+uvs_sites_qaqc
+```
+
+## 4. Site Map
+
+An interactive map plots every surveyed site with a metadata-rich popup, coloring sites by subregion, habitat or exposure.
+
+```{r uvs-map, fig.height = 7}
+PristineSeasR2::explore_uvs_sites(
+  sites             = uvs_sites,
+  region_palette    = region_palette,
+  subregion_palette = subregion_palette,
+  title             = "Southern Line Islands 2009 Expedition — Underwater Visual Survey sites",
+  export_path       = file.path(figures_out, paste0(exp_id, "_dive_site_map.html")))
+```
+
+## 5. Summary
+
+::: {.callout-note title="Survey effort" appearance="simple"}
+These `r nrow(uvs_sites)` UVS sites span `r n_distinct(uvs_sites$subregion)` islands, surveyed between `r format(min(uvs_sites$date), "%B %d")` and `r format(max(uvs_sites$date), "%B %d, %Y")`. **None were inside an MPA** — the Southern Line Islands closure came in 2015.
+:::
+
+```{r tbl-sites-by-island}
+#| tbl-cap: "Survey effort and dates by island"
+
+uvs_sites |>
+  group_by(region, subregion) |>
+  summarise(Sites   = n(),
+            First   = format(min(date), "%d %b"),
+            Last    = format(max(date), "%d %b"),
+            Windward = sum(exposure == "windward"),
+            .groups = "drop") |>
+  gt_theme_ps(groupname_col = "region", rowname_col = "subregion",
+              total_col = "Sites") |>
+  gt::fmt_number(columns = c(Sites, Windward), decimals = 0)
+```
+
+## 6. Export
+
+The validated table is written to the legacy database's output folder, where it becomes the site reference the fish pipeline joins against.
+
+`aliases` is dropped here — it is provenance for this notebook, not a column in the `uvs.sites` schema. The permanent-site codes it holds are preserved in `notes` for the stations that carry them.
+
+```{r export}
+#| message: true
+
+uvs_schema <- c("ps_site_id", "exp_id", "method", "region", "subregion", "locality",
+                "date", "time", "latitude", "longitude", "habitat", "exposure",
+                "site_name", "in_mpa", "mpa_notes", "team_lead", "notes")
+
+uvs_sites_out <- uvs_sites |>
+  # keep the alias string where one exists, ahead of any station note
+  mutate(notes = case_when(is.na(aliases) ~ notes,
+                           is.na(notes)   ~ paste0("Also known as: ", aliases),
+                           TRUE ~ paste0("Also known as: ", aliases, " | ", notes))) |>
+  select(all_of(uvs_schema))
+
+stopifnot("Export columns do not match the uvs.sites schema" =
+            identical(names(uvs_sites_out), uvs_schema))
+
+write_csv(uvs_sites_out, file.path(data_out, paste0(exp_id, "_uvs_sites.csv")))
+
+cli::cli_alert_success("Wrote {nrow(uvs_sites_out)} site{?s} to {.path {file.path(data_out, paste0(exp_id, '_uvs_sites.csv'))}}")
+```
